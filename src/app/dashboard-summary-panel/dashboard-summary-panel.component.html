@@ -1,0 +1,75 @@
+<section class="panel summary">
+  <div class="currency-summary" *ngIf="summary; else emptySummary">
+    <article class="metric metric-wide" *ngFor="let item of summary.byCurrency">
+      <div class="metric-head">
+        <span>Moneda {{ currencyLabel(item.currency) }}</span>
+        <strong>{{ item.currency }}</strong>
+      </div>
+      <div class="metric-grid compact">
+        <div class="metric-cell">
+          <span>Valor actual</span>
+          <strong>{{ formatMoney(item.totalCurrentValue, item.currency) }}</strong>
+        </div>
+        <div class="metric-cell">
+          <span>Total invertido</span>
+          <strong>{{ formatMoney(item.totalInvested, item.currency) }}</strong>
+        </div>
+        <div class="metric-cell">
+          <span>Resultado</span>
+          <strong [class.positive]="item.totalResult >= 0" [class.negative]="item.totalResult < 0">{{ formatMoney(item.totalResult, item.currency) }}</strong>
+        </div>
+        <div class="metric-cell">
+          <span>Resultado %</span>
+          <strong [class.positive]="(item.totalResultPercent ?? 0) >= 0" [class.negative]="(item.totalResultPercent ?? 0) < 0">{{ formatNumber(item.totalResultPercent) }}%</strong>
+        </div>
+      </div>
+    </article>
+
+    <article class="metric metric-wide">
+      <div class="metric-head">
+        <span>General sin conversión</span>
+        <strong>Resumen operativo según Excel</strong>
+      </div>
+      <div class="metric-grid compact">
+        <div class="metric-cell">
+          <span>Valor actual total</span>
+          <strong>{{ formatMoney(summary.totalCurrentValue, 'UNKNOWN') }}</strong>
+        </div>
+        <div class="metric-cell">
+          <span>Total invertido</span>
+          <strong>{{ formatMoney(summary.totalInvested, 'UNKNOWN') }}</strong>
+        </div>
+        <div class="metric-cell">
+          <span>Resultado total</span>
+          <strong [class.positive]="summary.totalResult >= 0" [class.negative]="summary.totalResult < 0">{{ formatMoney(summary.totalResult, 'UNKNOWN') }}</strong>
+        </div>
+        <div class="metric-cell">
+          <span>Especies</span>
+          <strong>{{ summary.speciesCount }}</strong>
+        </div>
+        <div class="metric-cell">
+          <span>Mejor especie</span>
+          <strong>{{ summary.bestPosition?.symbol || 'N/D' }}</strong>
+        </div>
+        <div class="metric-cell">
+          <span>Peor especie</span>
+          <strong>{{ summary.worstPosition?.symbol || 'N/D' }}</strong>
+        </div>
+        <div class="metric-cell">
+          <span>Último balance</span>
+          <strong>{{ summary.latestBalance !== null ? formatNumber(summary.latestBalance) : 'N/D' }}</strong>
+        </div>
+        <div class="metric-cell">
+          <span>Fecha último balance</span>
+          <strong>{{ summary.latestBalanceDate ? formatDateLabel(summary.latestBalanceDate) : 'N/D' }}</strong>
+        </div>
+      </div>
+    </article>
+  </div>
+  <ng-template #emptySummary>
+    <div class="empty-state">
+      <h3>Sin datos todavía</h3>
+      <p>Importa el workbook para construir el modelo interno y poblar el dashboard.</p>
+    </div>
+  </ng-template>
+</section>

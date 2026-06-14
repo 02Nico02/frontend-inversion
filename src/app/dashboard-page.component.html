@@ -1,0 +1,388 @@
+<main class="shell" *ngIf="state$ | async as state">
+  <header class="hero">
+    <div>
+      <p class="eyebrow">Frontend inversión local</p>
+      <h1>Análisis financiero desde tu Excel</h1>
+      <p class="lead">Carga 'Historial Sueldo.xlsm', detecta tablas reales y navega el portafolio sin enviar datos a ningún servidor.</p>
+    </div>
+    <div class="status-box" [class.ready]="state.status === 'ready'" [class.loading]="state.status === 'loading'" [class.error]="state.status === 'error'">
+      <span>{{ state.status | titlecase }}</span>
+      <strong>{{ state.fileName || 'Sin archivo cargado' }}</strong>
+    </div>
+  </header>
+
+  <section class="top-grid">
+    <app-import-panel (fileSelected)="handleFile($event)"></app-import-panel>
+    <app-dashboard-summary-panel [summary]="state.summary"></app-dashboard-summary-panel>
+  </section>
+
+  <app-validation-summary [report]="state.workbook?.validation || null"></app-validation-summary>
+
+  <section class="panel charts-toolbar" *ngIf="state.dataset">
+    <div class="title-row">
+      <div>
+        <p class="eyebrow">Filtros globales</p>
+        <h3>Moneda para gráficos</h3>
+      </div>
+      <div class="toolbar-filters">
+        <label class="selector inline">
+          <span>Moneda</span>
+          <select [(ngModel)]="chartCurrencyFilter">
+            <option value="ALL">Sin conversión</option>
+            <option value="ARS">ARS</option>
+            <option value="USD">USD</option>
+          </select>
+        </label>
+        <label class="selector inline">
+          <span>Top N</span>
+          <select [(ngModel)]="distributionTopN">
+            <option [ngValue]="5">Top 5</option>
+            <option [ngValue]="10">Top 10</option>
+            <option [ngValue]="15">Top 15</option>
+            <option [ngValue]="20">Top 20</option>
+            <option [ngValue]="25">Top 25</option>
+          </select>
+        </label>
+      </div>
+    </div>
+    <p class="currency-warning" *ngIf="chartCurrencyFilter === 'ALL'">
+      Estás viendo montos de distintas monedas juntos sin convertir. Usar solo como referencia visual.
+    </p>
+  </section>
+
+  <section class="chart-grid" *ngIf="state.dataset">
+    <app-simple-chart title="Distribución" subtitle="Por especie" mode="bars" [points]="symbolDistribution(state)" [currency]="chartCurrencyFilter === 'ALL' ? 'UNKNOWN' : chartCurrencyFilter" [topN]="distributionTopN"></app-simple-chart>
+    <app-simple-chart title="Distribución" subtitle="Por moneda" mode="bars" [points]="currencyDistribution(state)" currency="UNKNOWN" [topN]="distributionTopN"></app-simple-chart>
+    <app-simple-chart title="Categorías" subtitle="Por tipo de activo" mode="bars" [points]="assetTypeDistribution(state)" [currency]="chartCurrencyFilter === 'ALL' ? 'UNKNOWN' : chartCurrencyFilter" [topN]="distributionTopN"></app-simple-chart>
+    <app-simple-chart title="Categorías" subtitle="Por sector" mode="bars" [points]="sectorDistribution(state)" [currency]="chartCurrencyFilter === 'ALL' ? 'UNKNOWN' : chartCurrencyFilter" [topN]="distributionTopN"></app-simple-chart>
+    <app-simple-chart title="Categorías" subtitle="Por subsector" mode="bars" [points]="subsectorDistribution(state)" [currency]="chartCurrencyFilter === 'ALL' ? 'UNKNOWN' : chartCurrencyFilter" [topN]="distributionTopN"></app-simple-chart>
+    <app-simple-chart title="Categorías" subtitle="Por región" mode="bars" [points]="regionDistribution(state)" [currency]="chartCurrencyFilter === 'ALL' ? 'UNKNOWN' : chartCurrencyFilter" [topN]="distributionTopN"></app-simple-chart>
+
+    <section class="panel chart-panel">
+      <div class="title-row">
+        <div>
+          <p class="eyebrow">Evolución diaria</p>
+          <h3>Serie de evolución</h3>
+        </div>
+        <div class="mini-meta">
+          <label class="selector inline">
+            <span>Período</span>
+            <select [(ngModel)]="balancePeriod">
+              <option value="ALL">Todo</option>
+              <option value="1M">1M</option>
+              <option value="3M">3M</option>
+              <option value="6M">6M</option>
+              <option value="YTD">YTD</option>
+              <option value="1Y">1A</option>
+              <option value="CUSTOM">Personalizado</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <div class="date-range" *ngIf="balancePeriod === 'CUSTOM'">
+        <label>
+          <span>Desde</span>
+          <input type="date" [(ngModel)]="balanceRangeStart" />
+        </label>
+        <label>
+          <span>Hasta</span>
+          <input type="date" [(ngModel)]="balanceRangeEnd" />
+        </label>
+      </div>
+      <app-simple-chart title="Evolución diaria" subtitle="Serie histórica" mode="line" [points]="balanceSeries(state)" currency="UNKNOWN" valueKind="money"></app-simple-chart>
+      <div class="stats-row" *ngIf="balanceStats(state) as stats">
+        <span>Desde: {{ stats.startDate || 'N/D' }}</span>
+        <span>Hasta: {{ stats.endDate || 'N/D' }}</span>
+        <span>Inicial: {{ formatNumber(stats.initial) }}</span>
+        <span>Final: {{ formatNumber(stats.final) }}</span>
+        <span>Var: {{ formatMoney(stats.variationAmount, 'UNKNOWN') }}</span>
+        <span>Var %: {{ percent(stats.variationPercent) }}</span>
+        <span>Último: {{ formatNumber(stats.latest) }} ({{ stats.latestDate || 'N/D' }})</span>
+        <span>Cambio último día: {{ stats.latestChangeAmount !== null ? formatNumber(stats.latestChangeAmount) : 'N/D' }}</span>
+        <span>Cambio último día %: {{ percent(stats.latestChangePercent) }}</span>
+        <span>Max: {{ formatNumber(stats.max) }} ({{ stats.maxDate || 'N/D' }})</span>
+        <span>Min: {{ formatNumber(stats.min) }} ({{ stats.minDate || 'N/D' }})</span>
+      </div>
+    </section>
+
+    <section class="panel chart-panel">
+      <div class="title-row">
+        <div>
+          <p class="eyebrow">Precio histórico</p>
+          <h3>Serie por especie</h3>
+        </div>
+        <div class="mini-meta">
+          <label class="selector inline">
+            <span>Período</span>
+            <select [(ngModel)]="pricePeriod">
+              <option value="ALL">Todo</option>
+              <option value="1M">1M</option>
+              <option value="3M">3M</option>
+              <option value="6M">6M</option>
+              <option value="YTD">YTD</option>
+              <option value="1Y">1A</option>
+              <option value="CUSTOM">Personalizado</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <app-historical-symbol-combobox
+        [options]="historicalSpeciesOptions(state)"
+        [(selectedSymbol)]="selectedHistoricalSymbol"
+      ></app-historical-symbol-combobox>
+
+      <div class="date-range" *ngIf="pricePeriod === 'CUSTOM'">
+        <label>
+          <span>Desde</span>
+          <input type="date" [(ngModel)]="priceRangeStart" />
+        </label>
+        <label>
+          <span>Hasta</span>
+          <input type="date" [(ngModel)]="priceRangeEnd" />
+        </label>
+      </div>
+
+      <app-simple-chart title="Precio histórico" [subtitle]="selectedHistoricalLabel(state) || 'Sin especie seleccionada'" mode="line" [points]="historicalPriceSeries(state)" [currency]="selectedHistoricalCurrency(state)" valueKind="money"></app-simple-chart>
+
+      <div class="stats-row" *ngIf="historicalPriceStats(state) as stats">
+        <span>Desde: {{ stats.startDate || 'N/D' }}</span>
+        <span>Hasta: {{ stats.endDate || 'N/D' }}</span>
+        <span>Inicial: {{ formatNumber(stats.initial) }}</span>
+        <span>Final: {{ formatNumber(stats.final) }}</span>
+        <span>Var: {{ formatNumber(stats.variationAmount) }}</span>
+        <span>Var %: {{ percent(stats.variationPercent) }}</span>
+        <span>Registros: {{ historicalRecordCount(state) }}</span>
+        <span>Último: {{ formatNumber(stats.latest) }} ({{ stats.latestDate || 'N/D' }})</span>
+        <span>Cambio último día: {{ stats.latestChangeAmount !== null ? formatNumber(stats.latestChangeAmount) : 'N/D' }}</span>
+        <span>Cambio último día %: {{ percent(stats.latestChangePercent) }}</span>
+        <span>Max: {{ formatNumber(stats.max) }} ({{ stats.maxDate || 'N/D' }})</span>
+        <span>Min: {{ formatNumber(stats.min) }} ({{ stats.minDate || 'N/D' }})</span>
+      </div>
+    </section>
+
+  </section>
+
+  <app-positions-table
+    [positions]="visiblePositions(state)"
+    [alerts]="state.combinedAlerts"
+    (detailRequested)="openDetail($event)"
+  ></app-positions-table>
+
+  <app-asset-detail-drawer
+    [open]="!!selectedDetailSymbol && !!state.dataset"
+    [symbol]="selectedDetailSymbol"
+    [positions]="visiblePositions(state)"
+    [operations]="state.dataset?.operations || []"
+    [alerts]="state.combinedAlerts"
+    [historicalPrices]="state.dataset?.historicalPrices || []"
+    [classifications]="state.dataset?.classifications || []"
+    (close)="closeDetail()"
+  ></app-asset-detail-drawer>
+
+  <section class="panel alerts" *ngIf="state.combinedAlerts.length">
+    <div class="title-row">
+      <div>
+        <p class="eyebrow">Alertas</p>
+        <h3>Bloques separados</h3>
+      </div>
+    </div>
+
+    <div class="alert-block">
+      <h4>Manual</h4>
+      <div class="alert-list">
+        <article class="alert-card" *ngFor="let alert of alertsByGroup(state, 'manual') | slice:0:8">
+          <strong>{{ alert.symbol }}</strong>
+          <span>{{ alert.status }}</span>
+          <small>Actual: {{ formatNumber(alert.currentPrice) }}</small>
+          <small>Objetivo: {{ formatNumber(alert.targetPrice) }}</small>
+          <small>Distancia: {{ percent(alert.distancePercent) }}</small>
+          <small *ngIf="alert.note">{{ alert.note }}</small>
+        </article>
+      </div>
+    </div>
+
+    <div class="alert-block">
+      <h4>Calculadas</h4>
+      <div class="alert-list">
+        <article class="alert-card" *ngFor="let alert of alertsByGroup(state, 'calculated') | slice:0:8">
+          <strong>{{ alert.symbol }}</strong>
+          <span>{{ alert.status }}</span>
+          <small>Actual: {{ formatNumber(alert.currentPrice) }}</small>
+          <small>Objetivo: {{ formatNumber(alert.targetPrice) }}</small>
+          <small>Distancia: {{ percent(alert.distancePercent) }}</small>
+          <small>{{ alert.priority }}</small>
+        </article>
+      </div>
+    </div>
+
+    <div class="alert-block">
+      <h4>Señales 5D</h4>
+      <div class="alert-list">
+        <article class="alert-card" *ngFor="let alert of signalAlerts(state, '5D') | slice:0:8">
+          <strong>{{ alert.symbol }}</strong>
+          <span>{{ alert.signalType }}</span>
+          <small>Inicio: {{ alert.startDate || 'N/D' }} · {{ formatNumber(alert.targetPrice) }}</small>
+          <small>Fin: {{ alert.endDate || 'N/D' }} · {{ formatNumber(alert.currentPrice) }}</small>
+          <small>Variación: {{ percent(alert.distancePercent) }}</small>
+        </article>
+      </div>
+    </div>
+
+    <div class="alert-block">
+      <h4>Señales 30D</h4>
+      <div class="alert-list">
+        <article class="alert-card" *ngFor="let alert of signalAlerts(state, '30D') | slice:0:8">
+          <strong>{{ alert.symbol }}</strong>
+          <span>{{ alert.signalType }}</span>
+          <small>Inicio: {{ alert.startDate || 'N/D' }} · {{ formatNumber(alert.targetPrice) }}</small>
+          <small>Fin: {{ alert.endDate || 'N/D' }} · {{ formatNumber(alert.currentPrice) }}</small>
+          <small>Variación: {{ percent(alert.distancePercent) }}</small>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" *ngIf="dataReviewReport(state) as review">
+    <div class="title-row">
+      <div>
+        <p class="eyebrow">Salud de datos</p>
+        <h3>Datos a revisar en Excel</h3>
+      </div>
+    </div>
+
+    <div class="metric-grid compact review-summary">
+      <div class="metric-cell">
+        <span>Problemas críticos</span>
+        <strong [class.negative]="review.summary.criticalProblems > 0">{{ review.summary.criticalProblems }}</strong>
+      </div>
+      <div class="metric-cell">
+        <span>Advertencias</span>
+        <strong>{{ review.summary.warnings }}</strong>
+      </div>
+      <div class="metric-cell">
+        <span>Activos sin clasificación</span>
+        <strong>{{ review.summary.uncategorizedAssets }}</strong>
+      </div>
+      <div class="metric-cell">
+        <span>Activos sin histórico</span>
+        <strong>{{ review.summary.assetsWithoutHistory }}</strong>
+      </div>
+      <div class="metric-cell">
+        <span>Alertas a revisar</span>
+        <strong>{{ review.summary.alertsToReview }}</strong>
+      </div>
+      <div class="metric-cell">
+        <span>Señales incompletas</span>
+        <strong>{{ review.summary.incompleteSignals }}</strong>
+      </div>
+      <div class="metric-cell">
+        <span>Problemas en split</span>
+        <strong>{{ review.summary.strategicSplitIssues }}</strong>
+      </div>
+      <div class="metric-cell">
+        <span>Estado</span>
+        <strong [class.positive]="review.summary.status === 'ok'" [class.negative]="review.summary.status === 'critical'">{{ review.summary.status | titlecase }}</strong>
+      </div>
+    </div>
+
+    <div class="review-list" *ngIf="dataReviewFindings(state).length; else noReviewFindings">
+      <article class="review-card" *ngFor="let finding of dataReviewFindings(state) | slice:0:24">
+        <div class="review-head">
+          <strong>{{ finding.symbol || 'General' }}</strong>
+          <span class="review-pill" [class.critical]="finding.severity === 'critical'" [class.warning]="finding.severity === 'warning'">{{ finding.severity | titlecase }}</span>
+        </div>
+        <span>{{ finding.problem }}</span>
+        <small>Fuente: {{ finding.source }}</small>
+        <small>Sugerencia: {{ finding.suggestion }}</small>
+        <small *ngIf="finding.currency">Moneda: {{ finding.currency }}</small>
+        <small *ngIf="finding.currentValue !== null">Valor: {{ formatNumber(finding.currentValue) }}</small>
+      </article>
+    </div>
+
+    <ng-template #noReviewFindings>
+      <p class="empty-inline">No se detectaron problemas relevantes en el Excel.</p>
+    </ng-template>
+  </section>
+
+  <section class="panel" *ngIf="concentrationReport(state) as concentration">
+    <div class="title-row">
+      <div>
+        <p class="eyebrow">Concentración</p>
+        <h3>Concentración del portafolio</h3>
+      </div>
+    </div>
+
+    <p class="currency-warning" *ngIf="concentration.currencyWarning">{{ concentration.currencyWarning }}</p>
+
+    <div class="metric-grid compact">
+      <div class="metric-cell">
+        <span>Top 1</span>
+        <strong>{{ percent(concentration.top1Percent) }}</strong>
+      </div>
+      <div class="metric-cell">
+        <span>Top 3</span>
+        <strong>{{ percent(concentration.top3Percent) }}</strong>
+      </div>
+      <div class="metric-cell">
+        <span>Top 5</span>
+        <strong>{{ percent(concentration.top5Percent) }}</strong>
+      </div>
+      <div class="metric-cell">
+        <span>Top 10</span>
+        <strong>{{ percent(concentration.top10Percent) }}</strong>
+      </div>
+      <div class="metric-cell">
+        <span>Especie principal</span>
+        <strong>{{ concentration.largestPosition?.symbol || 'N/D' }}</strong>
+      </div>
+      <div class="metric-cell">
+        <span>Tipo principal</span>
+        <strong>{{ concentration.largestAssetType?.topLabel || 'N/D' }}</strong>
+      </div>
+      <div class="metric-cell">
+        <span>Sector principal</span>
+        <strong>{{ concentration.largestSector?.topLabel || 'N/D' }}</strong>
+      </div>
+      <div class="metric-cell">
+        <span>Región principal</span>
+        <strong>{{ concentration.largestRegion?.topLabel || 'N/D' }}</strong>
+      </div>
+    </div>
+
+    <app-simple-chart title="Concentración" subtitle="Top 1 / Top 3 / Top 5 / Top 10" mode="line" [points]="concentrationChartSeries(state)" currency="UNKNOWN" valueKind="percent" [showAverage]="false"></app-simple-chart>
+
+    <div class="dimension-summary" *ngIf="concentration.dimensionSummaries.length">
+      <article class="dimension-card" *ngFor="let item of concentration.dimensionSummaries">
+        <strong>{{ item.dimension }}</strong>
+        <span>Principal: {{ item.topLabel }}</span>
+        <span>Peso: {{ percent(item.topWeightPercent) }}</span>
+        <span>Categorías: {{ item.categoryCount }}</span>
+        <small>Top 3: {{ item.top3Labels.join(', ') }}</small>
+      </article>
+    </div>
+
+    <div class="ranking-table" *ngIf="concentrationRanking(state).length">
+      <div class="ranking-row ranking-head">
+        <span>#</span>
+        <span>Especie</span>
+        <span>Moneda</span>
+        <span>Tipo</span>
+        <span>Sector</span>
+        <span>Total actual</span>
+        <span>Peso %</span>
+        <span>Acumulado %</span>
+      </div>
+      <div class="ranking-row" *ngFor="let item of concentrationRanking(state) | slice:0:10">
+        <span>{{ item.rank }}</span>
+        <span>{{ item.symbol }}</span>
+        <span>{{ item.currency }}</span>
+        <span>{{ item.assetType || 'N/D' }}</span>
+        <span>{{ item.sector || 'N/D' }}</span>
+        <span>{{ formatMoney(item.totalCurrentValue, item.currency) }}</span>
+        <span>{{ percent(item.weightPercent) }}</span>
+        <span>{{ percent(item.cumulativeWeightPercent) }}</span>
+      </div>
+    </div>
+  </section>
+</main>
