@@ -8,6 +8,7 @@ import { ChartPoint, SeriesPoint } from './chart-data.service';
 export interface PortfolioAppState {
   status: 'empty' | 'loading' | 'ready' | 'warning' | 'error';
   fileName: string | null;
+  importedAt: string | null;
   workbook: WorkbookSnapshot | null;
   dataset: PortfolioDataset | null;
   summary: PortfolioSummary | null;
@@ -30,6 +31,7 @@ export interface PortfolioAppState {
 const initialState: PortfolioAppState = {
   status: 'empty',
   fileName: null,
+  importedAt: null,
   workbook: null,
   dataset: null,
   summary: null,
@@ -62,7 +64,8 @@ export class PortfolioStateService {
     this.subject.next({
       ...initialState,
       status: 'loading',
-      fileName
+      fileName,
+      importedAt: null
     });
   }
 
@@ -74,6 +77,7 @@ export class PortfolioStateService {
     this.subject.next({
       ...initialState,
       status: 'error',
+      importedAt: null,
       validationErrors: [message]
     });
   }

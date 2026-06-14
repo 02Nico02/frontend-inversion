@@ -123,6 +123,7 @@ export class DashboardPageComponent {
       this.portfolioState.setReady({
         status: validation.errors.length ? 'warning' : 'ready',
         fileName: file.name,
+        importedAt: new Date().toISOString(),
         workbook: {
           ...workbook,
           validation

@@ -1,10 +1,11 @@
 import { Component } from '@angular/core';
-import { DashboardPageComponent } from './dashboard-page.component';
+import { AppShellComponent } from './app-shell.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [DashboardPageComponent],
-  template: `<app-dashboard-page></app-dashboard-page>`
+  imports: [AppShellComponent],
+  template: `<app-shell></app-shell>`
 })
 export class AppComponent {}
+
