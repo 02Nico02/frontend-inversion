@@ -7,6 +7,7 @@ import { PortfolioHealthService } from '../../../core/services/portfolio-health.
 import { PortfolioAppState } from '../../../core/services/portfolio-state.service';
 import { PortfolioPosition, MarketSignal } from '../../../core/models/portfolio.models';
 import { CombinedAlert } from '../../../core/services/alert-mapper.service';
+import { ChartDataService } from '../../../core/services/chart-data.service';
 
 export type DecisionSeverity = 'success' | 'warning' | 'critical' | 'info';
 export type DecisionTrafficLight = 'green' | 'yellow' | 'red' | 'gray';
@@ -53,6 +54,14 @@ export interface DecisionViewModel {
   trafficLight: DecisionTrafficLight;
   trafficLightLabel: string;
   trafficLightReason: string;
+  currencyScope: 'ALL' | 'ARS' | 'USD';
+  simulationCurrency: 'ARS' | 'USD';
+  simulationInputs: {
+    monthlyContribution: number;
+    months: number;
+    annualReturnPercent: number;
+    active: boolean;
+  };
   cards: DecisionCard[];
   actions: DecisionActionItem[];
   objectives: DecisionObjectiveItem[];
@@ -69,18 +78,27 @@ export class DecisionInsightsService {
     private readonly calculator: PortfolioCalculatorService,
     private readonly concentration: PortfolioConcentrationService,
     private readonly healthService: PortfolioHealthService,
+    private readonly chartData: ChartDataService,
     private readonly currencyMapper: CurrencyMapperService
   ) {}
 
-  build(snapshot: PortfolioAppState, monthlyContribution: number, months: number, annualReturnPercent: number): DecisionViewModel {
-    const positions = snapshot.dataset ? this.calculator.enrichPositions(snapshot.dataset.positions, snapshot.dataset.classifications) : [];
-    const concentrationReport = this.concentration.buildReport(positions, 'ALL');
+  build(
+    snapshot: PortfolioAppState,
+    currencyScope: 'ALL' | 'ARS' | 'USD',
+    simulationCurrency: 'ARS' | 'USD',
+    monthlyContribution: number,
+    months: number,
+    annualReturnPercent: number
+  ): DecisionViewModel {
+    const allPositions = snapshot.dataset ? this.calculator.enrichPositions(snapshot.dataset.positions, snapshot.dataset.classifications) : [];
+    const positions = currencyScope === 'ALL' ? allPositions : allPositions.filter((position) => position.currency === currencyScope);
+    const concentrationReport = this.concentration.buildReport(positions, currencyScope);
     const healthReport = snapshot.dataset && snapshot.workbook ? this.healthService.buildReport(snapshot.dataset, snapshot.workbook.validation) : null;
-    const summary = snapshot.summary;
+    const summary = this.summaryForPositions(positions);
 
-    const topHoldings = [...snapshot.charts.symbolDistribution].slice(0, 10);
-    const sectorMix = [...snapshot.charts.sectorDistribution].slice(0, 8);
-    const assetTypeMix = [...snapshot.charts.assetTypeDistribution].slice(0, 8);
+    const topHoldings = this.chartData.distributionBySymbol(positions, currencyScope, 10);
+    const sectorMix = this.chartData.distributionBySector(positions, currencyScope).slice(0, 8);
+    const assetTypeMix = this.chartData.distributionByAssetType(positions, currencyScope).slice(0, 8);
 
     const trafficLight = this.trafficLight(snapshot, concentrationReport, healthReport?.summary ?? null);
     const trafficLightReason = this.trafficLightReason(snapshot, concentrationReport, healthReport?.summary ?? null);
@@ -90,29 +108,46 @@ export class DecisionInsightsService {
       trafficLight: trafficLight.state,
       trafficLightLabel: trafficLight.label,
       trafficLightReason,
-      cards: this.cards(snapshot, concentrationReport, healthReport?.summary ?? null),
+      currencyScope,
+      simulationCurrency,
+      simulationInputs: {
+        monthlyContribution,
+        months,
+        annualReturnPercent,
+        active: monthlyContribution > 0 && months > 0 && annualReturnPercent > 0
+      },
+      cards: this.cards(summary, currencyScope, concentrationReport, healthReport?.summary ?? null),
       actions: this.actions(positions, concentrationReport, healthReport?.summary ?? null, snapshot.combinedAlerts ?? []),
       objectives: this.objectives(concentrationReport),
       signals: this.signals(snapshot.dataset?.signals ?? []),
       topHoldings,
       sectorMix,
       assetTypeMix,
-      simulation: this.simulation(summary?.totalCurrentValue ?? 0, monthlyContribution, months, annualReturnPercent)
+      simulation: this.simulation(summary.totalCurrentValue, simulationCurrency, monthlyContribution, months, annualReturnPercent)
     };
   }
 
-  private cards(snapshot: PortfolioAppState, concentrationReport: ReturnType<PortfolioConcentrationService['buildReport']>, healthSummary: ReturnType<PortfolioHealthService['buildReport']>['summary'] | null): DecisionCard[] {
-    const summary = snapshot.summary;
+  private summaryForPositions(positions: PortfolioPosition[]) {
+    const totalCurrentValue = positions.reduce((sum, position) => sum + position.currentValue, 0);
+    const totalInvested = positions.reduce((sum, position) => sum + position.totalInvested, 0);
+    const totalResult = totalCurrentValue - totalInvested;
+    const totalResultPercent = totalInvested > 0 ? (totalResult / totalInvested) * 100 : 0;
+    const speciesCount = new Set(positions.map((position) => position.symbol)).size;
+    return { totalCurrentValue, totalInvested, totalResult, totalResultPercent, speciesCount };
+  }
+
+  private cards(summary: { totalCurrentValue: number; totalInvested: number; totalResult: number; totalResultPercent: number; speciesCount: number }, currencyScope: 'ALL' | 'ARS' | 'USD', concentrationReport: ReturnType<PortfolioConcentrationService['buildReport']>, healthSummary: ReturnType<PortfolioHealthService['buildReport']>['summary'] | null): DecisionCard[] {
+    const currency = currencyScope === 'ALL' ? 'ARS' : currencyScope;
     return [
       {
         title: 'Valor actual',
-        value: this.currencyMapper.formatCurrency(summary?.totalCurrentValue ?? 0, 'ARS'),
+        value: this.currencyMapper.formatCurrency(summary.totalCurrentValue, currency),
         note: 'Suma de posiciones actuales',
         tone: 'info'
       },
       {
         title: 'Especies',
-        value: this.currencyMapper.formatNumber(summary?.speciesCount ?? 0),
+        value: this.currencyMapper.formatNumber(summary.speciesCount),
         note: 'Cantidad de tickers activos',
         tone: 'info'
       },
@@ -216,7 +251,7 @@ export class DecisionInsightsService {
       }));
   }
 
-  private simulation(currentValue: number, monthlyContribution: number, months: number, annualReturnPercent: number): DecisionSimulationResult {
+  private simulation(currentValue: number, currency: 'ARS' | 'USD', monthlyContribution: number, months: number, annualReturnPercent: number): DecisionSimulationResult {
     const safeMonths = Math.max(0, Math.floor(months));
     const safeContribution = Math.max(0, monthlyContribution);
     const monthlyRate = Math.max(0, annualReturnPercent) / 100 / 12;
@@ -230,9 +265,9 @@ export class DecisionInsightsService {
     const gain = projected - invested;
 
     return {
-      invested: this.currencyMapper.formatCurrency(invested, 'ARS'),
-      projectedValue: this.currencyMapper.formatCurrency(projected, 'ARS'),
-      projectedGain: this.currencyMapper.formatCurrency(gain, 'ARS'),
+      invested: this.currencyMapper.formatCurrency(invested, currency),
+      projectedValue: this.currencyMapper.formatCurrency(projected, currency),
+      projectedGain: this.currencyMapper.formatCurrency(gain, currency),
       horizonLabel: `${safeMonths} meses`
     };
   }

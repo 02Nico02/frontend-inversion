@@ -3,9 +3,9 @@
     <header class="page-header">
       <div>
         <p class="eyebrow">Decisiones</p>
-        <h2>Centro de decisión, semáforo y simulador</h2>
+        <h2>Centro de decision, semaforo y simulador</h2>
         <p class="lead">
-          Vista base para revisar concentración, señales y posibles acciones sin inventar datos fuera del workbook.
+          Vista base para revisar concentracion, senales y posibles acciones sin inventar datos fuera del workbook.
         </p>
       </div>
 
@@ -14,6 +14,31 @@
         <strong>{{ vm.trafficLightReason }}</strong>
       </div>
     </header>
+
+    <section class="panel controls">
+      <div class="control-group">
+        <label>
+          Moneda del analisis
+          <select [(ngModel)]="currencyScope">
+            <option value="ALL">Sin conversion</option>
+            <option value="ARS">ARS</option>
+            <option value="USD">USD</option>
+          </select>
+        </label>
+
+        <label>
+          Moneda del simulador
+          <select [(ngModel)]="simulationCurrency">
+            <option value="ARS">ARS</option>
+            <option value="USD">USD</option>
+          </select>
+        </label>
+      </div>
+
+      <p class="warning" *ngIf="currencyScope === 'ALL'">
+        Sin conversion mezcla ARS y USD. Usalo solo como referencia visual.
+      </p>
+    </section>
 
     <section class="cards">
       <article class="metric" *ngFor="let card of vm.cards; trackBy: trackByItem" [attr.data-tone]="card.tone">
@@ -41,12 +66,12 @@
             </div>
           </div>
           <ng-template #noActions>
-            <p class="empty">No hay alertas críticas por ahora. Seguir monitoreando.</p>
+            <p class="empty">No hay alertas criticas por ahora. Seguir monitoreando.</p>
           </ng-template>
         </article>
 
         <article class="box">
-          <h4>Referencias de concentración</h4>
+          <h4>Referencias de concentracion</h4>
           <div class="objective-list">
             <div class="objective" *ngFor="let objective of vm.objectives; trackBy: trackByItem" [attr.data-tone]="objective.tone">
               <div class="objective-label">
@@ -100,16 +125,84 @@
         <article class="metric">
           <p>Ganancia estimada</p>
           <strong>{{ vm.simulation.projectedGain }}</strong>
-          <small>Proyección simple, no garantía</small>
+          <small>Proyeccion simple, no garantia</small>
         </article>
+      </div>
+    </section>
+
+    <section class="panel export-panel">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Exportacion GPT</p>
+          <h3>Exportar contexto para ChatGPT</h3>
+        </div>
+      </div>
+
+      <p class="lead export-lead">
+        El archivo se genera localmente en el navegador. No se sube a ningun servidor.
+        <span *ngIf="privacyMode.enabled" class="privacy-warning">El modo privacidad esta activo. Si exportas con datos reales, el archivo puede contener importes sensibles.</span>
+      </p>
+
+      <div class="export-grid">
+        <label>
+          Formato
+          <select [(ngModel)]="exportFormat">
+            <option value="markdown">Markdown (.md)</option>
+            <option value="json">JSON (.json)</option>
+            <option value="both">Ambos</option>
+          </select>
+        </label>
+
+        <label>
+          Modo de exportacion
+          <select [(ngModel)]="exportMode">
+            <option value="summary">Resumido para ChatGPT</option>
+            <option value="full">Completo tecnico</option>
+          </select>
+        </label>
+
+        <label>
+          <input type="checkbox" [(ngModel)]="includeFullPurchases" />
+          Incluir compras completas
+        </label>
+
+        <label>
+          <input type="checkbox" [(ngModel)]="includeMonthlyHistory" />
+          Incluir historial mensual
+        </label>
+
+        <label>
+          <input type="checkbox" [(ngModel)]="includeSignals" />
+          Incluir señales
+        </label>
+
+        <label>
+          <input type="checkbox" [(ngModel)]="includeDataReview" />
+          Incluir datos a revisar
+        </label>
+
+        <label>
+          <input type="checkbox" [(ngModel)]="includeSimulation" />
+          Incluir simulacion
+        </label>
+
+        <label>
+          <input type="checkbox" [(ngModel)]="maskSensitiveExports" />
+          Enmascarar importes en exportacion
+        </label>
+      </div>
+
+      <div class="export-actions">
+        <button type="button" class="primary" (click)="exportContext(snapshot)">Exportar contexto GPT</button>
+        <button type="button" class="secondary" (click)="copySummary(snapshot)">Copiar resumen al portapapeles</button>
       </div>
     </section>
 
     <section class="panel">
       <div class="section-head">
         <div>
-          <p class="eyebrow">Señales</p>
-          <h3>Últimas señales detectadas</h3>
+          <p class="eyebrow">Senales</p>
+          <h3>Ultimas senales detectadas</h3>
         </div>
       </div>
 
@@ -122,7 +215,7 @@
               <th>Periodo</th>
               <th>Inicio</th>
               <th>Fin</th>
-              <th>Variación</th>
+              <th>Variacion</th>
             </tr>
           </thead>
           <tbody>
@@ -148,7 +241,7 @@
         subtitle="Concentracion por especie"
         mode="bars"
         [points]="vm.topHoldings"
-        currency="ARS"
+        [currency]="currencyScope === 'ALL' ? 'ARS' : currencyScope"
         [topN]="10"
         [includeOther]="false">
       </app-simple-chart>
@@ -158,7 +251,7 @@
         subtitle="Distribucion por sector"
         mode="bars"
         [points]="vm.sectorMix"
-        currency="ARS"
+        [currency]="currencyScope === 'ALL' ? 'ARS' : currencyScope"
         [topN]="8"
         [includeOther]="false">
       </app-simple-chart>
@@ -168,7 +261,7 @@
         subtitle="Distribucion por categoria"
         mode="bars"
         [points]="vm.assetTypeMix"
-        currency="ARS"
+        [currency]="currencyScope === 'ALL' ? 'ARS' : currencyScope"
         [topN]="8"
         [includeOther]="false">
       </app-simple-chart>

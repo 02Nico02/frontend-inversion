@@ -15,7 +15,7 @@
               <span>{{ alert.status }}</span>
               <small>Actual: {{ alert.currentPrice ?? 'N/D' }}</small>
               <small>Objetivo: {{ alert.targetPrice ?? 'N/D' }}</small>
-              <small>Distancia: {{ alert.distancePercent ?? 'N/D' }}</small>
+              <small>Distancia: {{ alert.distancePercent === null || alert.distancePercent === undefined ? 'N/D' : (alert.distancePercent | number:'1.2-2') + '%' }}</small>
             </article>
           </div>
         </section>
