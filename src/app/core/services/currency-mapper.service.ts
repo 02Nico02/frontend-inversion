@@ -1,9 +1,12 @@
 import { Injectable } from '@angular/core';
+import { PrivacyModeService } from './privacy-mode.service';
 
 export type CanonicalCurrency = 'ARS' | 'USD' | 'UNKNOWN';
 
 @Injectable({ providedIn: 'root' })
 export class CurrencyMapperService {
+  constructor(private readonly privacyMode: PrivacyModeService) {}
+
   normalizeCurrency(value: unknown): CanonicalCurrency {
     const text = String(value ?? '').trim().toUpperCase();
     if (!text) {
@@ -44,6 +47,9 @@ export class CurrencyMapperService {
     if (value === null || value === undefined || Number.isNaN(value)) {
       return 'N/D';
     }
+    if (this.privacyMode.enabled) {
+      return 'Oculto';
+    }
     const normalized = this.normalizeCurrency(currency);
     const symbol = this.getCurrencySymbol(normalized);
     const formatted = new Intl.NumberFormat('es-AR', {
@@ -57,9 +63,25 @@ export class CurrencyMapperService {
     if (value === null || value === undefined || Number.isNaN(value)) {
       return 'N/D';
     }
+    if (this.privacyMode.enabled) {
+      return 'Oculto';
+    }
     return `${new Intl.NumberFormat('es-AR', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     }).format(value)}%`;
+  }
+
+  formatNumber(value: number | null | undefined): string {
+    if (value === null || value === undefined || Number.isNaN(value)) {
+      return 'N/D';
+    }
+    if (this.privacyMode.enabled) {
+      return 'Oculto';
+    }
+    return new Intl.NumberFormat('es-AR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value);
   }
 }

@@ -1,0 +1,4 @@
+.page { display: grid; gap: 1rem; }
+    .page-header .eyebrow { margin: 0; color: var(--brand); text-transform: uppercase; letter-spacing: 0.18em; font-size: 0.72rem; }
+    .page-header h2, .panel h3 { margin: 0.2rem 0 0; }
+    .panel { background: var(--panel); border: 1px solid var(--panel-border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1rem; }

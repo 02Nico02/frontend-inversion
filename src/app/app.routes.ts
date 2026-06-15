@@ -1,14 +1,14 @@
 import { Routes } from '@angular/router';
-import { SummaryPageComponent } from './pages/summary-page.component';
-import { DistributionPageComponent } from './pages/distribution-page.component';
-import { PositionsPageComponent } from './pages/positions-page.component';
-import { HistoricalPageComponent } from './pages/historical-page.component';
-import { AlertsPageComponent } from './pages/alerts-page.component';
-import { ConcentrationPageComponent } from './pages/concentration-page.component';
-import { StrategyPageComponent } from './pages/strategy-page.component';
-import { DataReviewPageComponent } from './pages/data-review-page.component';
-import { ImportPageComponent } from './pages/import-page.component';
-import { HelpPageComponent } from './pages/help-page.component';
+import { SummaryPageComponent } from './features/summary/pages/summary-page/summary-page.component';
+import { DistributionPageComponent } from './features/distribution/pages/distribution-page/distribution-page.component';
+import { PositionsPageComponent } from './features/positions/pages/positions-page/positions-page.component';
+import { HistoricalPageComponent } from './features/historical/pages/historical-page/historical-page.component';
+import { AlertsPageComponent } from './features/alerts/pages/alerts-page/alerts-page.component';
+import { ConcentrationPageComponent } from './features/concentration/pages/concentration-page/concentration-page.component';
+import { StrategyPageComponent } from './features/strategy/pages/strategy-page/strategy-page.component';
+import { DataReviewPageComponent } from './features/data-review/pages/data-review-page/data-review-page.component';
+import { ImportPageComponent } from './features/import/pages/import-page/import-page.component';
+import { HelpPageComponent } from './features/settings/pages/help-page/help-page.component';
 
 export const appRoutes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'resumen' },
@@ -24,4 +24,3 @@ export const appRoutes: Routes = [
   { path: 'configuracion', component: HelpPageComponent },
   { path: '**', redirectTo: 'resumen' }
 ];
-

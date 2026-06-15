@@ -1,0 +1,79 @@
+<details class="panel" *ngIf="report">
+      <summary class="header">
+        <div>
+          <p class="eyebrow">Validación</p>
+          <h3>Resumen del archivo</h3>
+        </div>
+        <div class="status" [class.ok]="!report.errors.length" [class.warn]="report.warnings.length > 0">
+          {{ report.errors.length ? 'Con errores' : report.warnings.length ? 'Con advertencias' : 'OK' }}
+        </div>
+      </summary>
+
+      <div class="meta">
+        <span>Hojas: {{ report.sheetNames.length }}</span>
+        <span>Tablas: {{ report.detectedTables.length }}</span>
+        <span>Errores: {{ report.errors.length }}</span>
+        <span>Advertencias: {{ report.warnings.length }}</span>
+      </div>
+
+      <div class="grid">
+        <article *ngFor="let finding of report.findings" class="card" [class.critical]="finding.critical" [class.missing]="!finding.found">
+          <header>
+            <strong>{{ finding.name }}</strong>
+            <span class="pill" [class.error]="finding.severity === 'error'" [class.warning]="finding.severity === 'warning'">
+              {{ finding.found ? finding.rowCount + ' filas' : 'No encontrada' }}
+            </span>
+          </header>
+          <p>{{ finding.sheetName || 'Sin hoja asociada' }}</p>
+          <small>Columnas: {{ finding.detectedColumns.join(', ') || 'ninguna' }}</small>
+          <small *ngIf="finding.missingColumns.length">Faltantes: {{ finding.missingColumns.join(', ') }}</small>
+        </article>
+      </div>
+
+      <div class="lists">
+        <div>
+          <h4>Problemas detectados</h4>
+          <ul>
+            <li *ngFor="let item of report.errors">{{ item }}</li>
+            <li *ngIf="!report.errors.length">Sin errores críticos.</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Advertencias</h4>
+          <ul>
+            <li *ngFor="let item of report.warnings">{{ item }}</li>
+            <li *ngIf="!report.warnings.length">Sin advertencias relevantes.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="lists details">
+        <div>
+          <h4>Datos inválidos</h4>
+          <ul>
+            <li *ngFor="let item of report.invalidDates">Fecha inválida: {{ item }}</li>
+            <li *ngIf="!report.invalidDates.length">Sin fechas inválidas detectadas.</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Números y monedas</h4>
+          <ul>
+            <li *ngFor="let item of report.invalidNumbers">Número inválido: {{ item }}</li>
+            <li *ngIf="!report.invalidNumbers.length">Sin números inválidos detectados.</li>
+            <li *ngFor="let item of report.currencyIssues">Moneda no reconocida: {{ item.currency }} ({{ item.count }} filas)</li>
+            <li *ngIf="!report.currencyIssues.length">Monedas detectadas correctamente: ARS, USD.</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Especies a revisar</h4>
+          <ul>
+            <li *ngFor="let item of report.uncategorizedSymbols">Sin clasificación: {{ item }}</li>
+            <li *ngIf="!report.uncategorizedSymbols.length">Sin especies sin clasificación.</li>
+            <li *ngFor="let item of report.symbolsWithoutHistory">Sin historial: {{ item }}</li>
+            <li *ngIf="!report.symbolsWithoutHistory.length">Sin especies sin historial.</li>
+            <li *ngFor="let item of report.symbolsWithoutCurrentPrice">Sin precio actual: {{ item }}</li>
+            <li *ngIf="!report.symbolsWithoutCurrentPrice.length">Sin alertas sin precio actual.</li>
+          </ul>
+        </div>
+      </div>
+    </details>

@@ -1,0 +1,15 @@
+<section class="panel dropzone" [class.dragging]="dragging" (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)">
+      <div class="title-row">
+        <div>
+          <p class="eyebrow">Importación local</p>
+          <h2>Cargá tu archivo Excel</h2>
+        </div>
+        <button type="button" class="secondary" (click)="fileInput.click()">Elegir archivo</button>
+      </div>
+      <p class="helper">Procesa .xlsm o .xlsx localmente en el navegador. No se sube nada a un servidor.</p>
+      <input #fileInput type="file" accept=".xlsx,.xlsm" hidden (change)="onFileSelected($event)">
+      <div class="drop-hint">
+        <strong>Arrastrá y soltá</strong>
+        <span>o usá el botón para seleccionar <code>Historial Sueldo.xlsm</code></span>
+      </div>
+    </section>

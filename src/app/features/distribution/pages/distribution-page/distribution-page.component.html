@@ -1,0 +1,50 @@
+<section class="page" *ngIf="state.snapshot as snapshot">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Distribución</p>
+          <h2>Composición del portafolio</h2>
+          <p class="lead">Reparte el portafolio por especie, moneda, tipo de activo, sector, subsector y región.</p>
+        </div>
+        <div class="filters" *ngIf="snapshot.dataset">
+          <label>
+            <span>Moneda</span>
+            <select [(ngModel)]="currencyFilter">
+              <option value="ALL">Sin conversión</option>
+              <option value="ARS">ARS</option>
+              <option value="USD">USD</option>
+            </select>
+          </label>
+          <label>
+            <span>Top N</span>
+            <select [(ngModel)]="topN">
+              <option [ngValue]="5">Top 5</option>
+              <option [ngValue]="10">Top 10</option>
+              <option [ngValue]="15">Top 15</option>
+              <option [ngValue]="20">Top 20</option>
+            </select>
+          </label>
+        </div>
+      </header>
+
+      <p class="warning" *ngIf="currencyFilter === 'ALL' && snapshot.dataset">
+        Sin conversión mezcla ARS y USD solo como referencia visual.
+      </p>
+
+      <ng-container *ngIf="snapshot.dataset; else emptyState">
+        <section class="grid">
+          <app-simple-chart title="Distribución" subtitle="Por especie" mode="bars" [points]="symbolDistribution(snapshot)" [currency]="currencyForCharts"></app-simple-chart>
+          <app-simple-chart title="Distribución" subtitle="Por moneda" mode="bars" [points]="currencyDistribution(snapshot)" currency="UNKNOWN" [topN]="topN"></app-simple-chart>
+          <app-simple-chart title="Categorías" subtitle="Por tipo de activo" mode="bars" [points]="assetTypeDistribution(snapshot)" [currency]="currencyForCharts" [topN]="topN"></app-simple-chart>
+          <app-simple-chart title="Categorías" subtitle="Por sector" mode="bars" [points]="sectorDistribution(snapshot)" [currency]="currencyForCharts" [topN]="topN"></app-simple-chart>
+          <app-simple-chart title="Categorías" subtitle="Por subsector" mode="bars" [points]="subsectorDistribution(snapshot)" [currency]="currencyForCharts" [topN]="topN"></app-simple-chart>
+          <app-simple-chart title="Categorías" subtitle="Por región" mode="bars" [points]="regionDistribution(snapshot)" [currency]="currencyForCharts" [topN]="topN"></app-simple-chart>
+        </section>
+      </ng-container>
+
+      <ng-template #emptyState>
+        <article class="panel empty">
+          <h3>No hay datos cargados</h3>
+          <p>Importá el Excel para ver la distribución del portafolio.</p>
+        </article>
+      </ng-template>
+    </section>

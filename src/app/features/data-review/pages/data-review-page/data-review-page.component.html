@@ -1,0 +1,36 @@
+<section class="page" *ngIf="state.snapshot as snapshot">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Datos a revisar</p>
+          <h2>Salud del workbook y hallazgos</h2>
+        </div>
+      </header>
+
+      <ng-container *ngIf="snapshot.dataset && snapshot.workbook; else emptyState">
+        <div class="metrics">
+          <article class="panel"><strong>Críticos</strong><span>{{ report(snapshot).summary.criticalProblems }}</span></article>
+          <article class="panel"><strong>Advertencias</strong><span>{{ report(snapshot).summary.warnings }}</span></article>
+          <article class="panel"><strong>Sin clasificación</strong><span>{{ report(snapshot).summary.uncategorizedAssets }}</span></article>
+          <article class="panel"><strong>Sin histórico</strong><span>{{ report(snapshot).summary.assetsWithoutHistory }}</span></article>
+        </div>
+
+        <section class="panel list">
+          <article class="card" *ngFor="let item of report(snapshot).findings | slice:0:30">
+            <div class="head">
+              <strong>{{ item.symbol || 'General' }}</strong>
+              <span>{{ item.severity }}</span>
+            </div>
+            <p>{{ item.problem }}</p>
+            <small>Fuente: {{ item.source }}</small>
+            <small>Sugerencia: {{ item.suggestion }}</small>
+          </article>
+        </section>
+      </ng-container>
+
+      <ng-template #emptyState>
+        <article class="panel">
+          <h3>No hay datos cargados</h3>
+          <p>Importá el Excel para ver los hallazgos.</p>
+        </article>
+      </ng-template>
+    </section>

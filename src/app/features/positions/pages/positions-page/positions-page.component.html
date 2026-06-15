@@ -1,0 +1,35 @@
+<section class="page" *ngIf="state.snapshot as snapshot">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Posiciones</p>
+          <h2>Tabla operativa y detalle por especie</h2>
+          <p class="lead">Filtrá, ordená y abrí el detalle lateral sin salir de la página.</p>
+        </div>
+      </header>
+
+      <ng-container *ngIf="snapshot.dataset; else emptyState">
+        <app-positions-table
+          [positions]="visiblePositions(snapshot)"
+          [alerts]="snapshot.combinedAlerts"
+          (detailRequested)="openDetail($event)"
+        ></app-positions-table>
+
+        <app-asset-detail-drawer
+          [open]="!!selectedDetailSymbol"
+          [symbol]="selectedDetailSymbol"
+          [positions]="visiblePositions(snapshot)"
+          [operations]="snapshot.dataset.operations"
+          [alerts]="snapshot.combinedAlerts"
+          [historicalPrices]="snapshot.dataset.historicalPrices"
+          [classifications]="snapshot.dataset.classifications"
+          (close)="closeDetail()"
+        ></app-asset-detail-drawer>
+      </ng-container>
+
+      <ng-template #emptyState>
+        <article class="panel empty">
+          <h3>No hay datos cargados</h3>
+          <p>Importá el Excel para ver la tabla de posiciones.</p>
+        </article>
+      </ng-template>
+    </section>

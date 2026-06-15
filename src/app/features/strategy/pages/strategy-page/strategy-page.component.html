@@ -1,0 +1,21 @@
+<section class="page" *ngIf="state.snapshot as snapshot">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Estrategia</p>
+          <h2>Split estratégico y futura capa de objetivos</h2>
+        </div>
+      </header>
+
+      <article class="panel" *ngIf="snapshot.dataset?.strategicSplit?.length; else emptyState">
+        <h3>Tabla35 detectada</h3>
+        <p>La estructura ya está preparada para comparar el split estratégico y revisar su escala, pero esta vista queda intencionalmente liviana por ahora.</p>
+        <p>Más adelante se conectará con objetivos de portafolio y simulación de asignación.</p>
+      </article>
+
+      <ng-template #emptyState>
+        <article class="panel">
+          <h3>No hay split estratégico disponible</h3>
+          <p>Si el workbook trae Tabla35, la futura vista de estrategia podrá usarla.</p>
+        </article>
+      </ng-template>
+    </section>

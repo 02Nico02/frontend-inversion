@@ -1,0 +1,45 @@
+<header class="app-header">
+      <div class="brand">
+        <p class="eyebrow">Finanzas Local</p>
+        <div class="title-row">
+          <h1>Panel financiero</h1>
+          <span class="section-pill">{{ currentSection }}</span>
+        </div>
+        <p class="subtitle">Análisis financiero desde tu Excel</p>
+      </div>
+
+      <div class="file-state" *ngIf="state.snapshot as snapshot">
+        <div class="state-row">
+          <span class="status" [class.ready]="snapshot.status === 'ready'" [class.loading]="snapshot.status === 'loading'" [class.warning]="snapshot.status === 'warning'" [class.error]="snapshot.status === 'error'">{{ snapshot.status | titlecase }}</span>
+          <strong>{{ snapshot.fileName || 'Sin archivo' }}</strong>
+        </div>
+        <small>{{ summaryText(snapshot) }}</small>
+        <small *ngIf="snapshot.importedAt">Importado: {{ formatDate(snapshot.importedAt) }}</small>
+      </div>
+
+      <div class="actions">
+        <button
+          type="button"
+          class="button ghost privacy"
+          (click)="togglePrivacy()"
+          [attr.aria-label]="privacyMode.enabled ? 'Mostrar valores' : 'Ocultar valores'"
+          [attr.title]="privacyMode.enabled ? 'Mostrar valores' : 'Ocultar valores'"
+        >
+          <span class="privacy-icon" aria-hidden="true">
+            <svg *ngIf="!privacyMode.enabled" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+            <svg *ngIf="privacyMode.enabled" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 3l18 18"></path>
+              <path d="M10.58 10.58A3 3 0 0 0 13.42 13.42"></path>
+              <path d="M9.88 5.09A9.96 9.96 0 0 1 12 5c6.5 0 10 7 10 7a18.45 18.45 0 0 1-4.23 5.05"></path>
+              <path d="M6.1 6.1C3.47 8.04 2 12 2 12s3.5 7 10 7c1.54 0 2.98-.31 4.29-.84"></path>
+            </svg>
+          </span>
+        </button>
+        <a routerLink="/importacion" class="button">Cargar Excel</a>
+        <button type="button" class="button ghost" (click)="goToValidation()">Ver validación</button>
+        <button type="button" class="button ghost" (click)="clearImport()">Limpiar</button>
+      </div>
+    </header>

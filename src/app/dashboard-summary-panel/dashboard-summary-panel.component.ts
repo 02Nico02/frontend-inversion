@@ -24,10 +24,11 @@ export class DashboardSummaryPanelComponent {
   }
 
   formatNumber(value: number | null | undefined): string {
-    if (value === null || value === undefined || Number.isNaN(value)) {
-      return 'N/D';
-    }
-    return new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+    return this.currencyMapper.formatNumber(value);
+  }
+
+  formatPercent(value: number | null | undefined): string {
+    return this.currencyMapper.formatPercentage(value);
   }
 
   formatDateLabel(value: string | Date | null | undefined): string {

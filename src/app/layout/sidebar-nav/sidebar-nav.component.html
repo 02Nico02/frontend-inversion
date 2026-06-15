@@ -1,0 +1,5 @@
+<nav class="sidebar">
+      <a *ngFor="let item of items" [routerLink]="item.path" routerLinkActive="active" class="nav-item">
+        <span>{{ item.label }}</span>
+      </a>
+    </nav>

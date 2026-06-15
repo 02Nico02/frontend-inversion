@@ -1,0 +1,81 @@
+<section class="page" *ngIf="state.snapshot as snapshot">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Histórico</p>
+          <h2>Precio histórico y evolución diaria</h2>
+          <p class="lead">Elegí una especie para revisar su serie y comparar contra la evolución diaria del workbook.</p>
+        </div>
+      </header>
+
+      <ng-container *ngIf="snapshot.dataset; else emptyState">
+        <section class="panel">
+          <div class="toolbar">
+            <app-historical-symbol-combobox
+              [options]="historicalSpeciesOptions(snapshot)"
+              [(selectedSymbol)]="selectedHistoricalSymbol"
+            ></app-historical-symbol-combobox>
+            <label class="period">
+              <span>Período</span>
+              <select [(ngModel)]="pricePeriod">
+                <option value="ALL">Todo</option>
+                <option value="1M">1M</option>
+                <option value="3M">3M</option>
+                <option value="6M">6M</option>
+                <option value="YTD">YTD</option>
+                <option value="1Y">1A</option>
+                <option value="CUSTOM">Personalizado</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="date-range" *ngIf="pricePeriod === 'CUSTOM'">
+            <label><span>Desde</span><input type="date" [(ngModel)]="priceRangeStart" /></label>
+            <label><span>Hasta</span><input type="date" [(ngModel)]="priceRangeEnd" /></label>
+          </div>
+
+          <app-simple-chart title="Precio histórico" [subtitle]="selectedHistoricalLabel(snapshot)" mode="line" [points]="historicalPriceSeries(snapshot)" [currency]="selectedHistoricalCurrency(snapshot)" valueKind="money"></app-simple-chart>
+
+          <div class="stats-row" *ngIf="historicalPriceStats(snapshot) as stats">
+            <span>Desde: {{ stats.startDate || 'N/D' }}</span>
+            <span>Hasta: {{ stats.endDate || 'N/D' }}</span>
+            <span>Inicial: {{ formatNumber(stats.initial) }}</span>
+            <span>Final: {{ formatNumber(stats.final) }}</span>
+            <span>Var: {{ formatNumber(stats.variationAmount) }}</span>
+            <span>Var %: {{ percent(stats.variationPercent) }}</span>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="title-row">
+            <div>
+              <p class="eyebrow">Evolución diaria</p>
+              <h3>Serie de evolución</h3>
+            </div>
+            <label class="period">
+              <span>Período</span>
+              <select [(ngModel)]="balancePeriod">
+                <option value="ALL">Todo</option>
+                <option value="1M">1M</option>
+                <option value="3M">3M</option>
+                <option value="6M">6M</option>
+                <option value="YTD">YTD</option>
+                <option value="1Y">1A</option>
+                <option value="CUSTOM">Personalizado</option>
+              </select>
+            </label>
+          </div>
+          <div class="date-range" *ngIf="balancePeriod === 'CUSTOM'">
+            <label><span>Desde</span><input type="date" [(ngModel)]="balanceRangeStart" /></label>
+            <label><span>Hasta</span><input type="date" [(ngModel)]="balanceRangeEnd" /></label>
+          </div>
+          <app-simple-chart title="Evolución diaria" subtitle="Serie histórica" mode="line" [points]="balanceSeries(snapshot)" currency="UNKNOWN" valueKind="money"></app-simple-chart>
+        </section>
+      </ng-container>
+
+      <ng-template #emptyState>
+        <article class="panel empty">
+          <h3>No hay datos cargados</h3>
+          <p>Importá el Excel para ver el histórico.</p>
+        </article>
+      </ng-template>
+    </section>

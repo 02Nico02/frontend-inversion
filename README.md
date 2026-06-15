@@ -2,6 +2,30 @@
 
 Base Angular para analizar `Historial Sueldo.xlsm` desde el navegador, sin backend y sin subir el archivo a ningún servidor.
 
+## Estructura actual
+
+La app está organizada así:
+
+- `src/app/app.component.*`
+- `src/app/app.routes.ts`
+- `src/app/layout/`
+  - `app-shell/`
+  - `header/`
+  - `sidebar-nav/`
+- `src/app/features/`
+  - `summary/`
+  - `distribution/`
+  - `positions/`
+  - `historical/`
+  - `alerts/`
+  - `concentration/`
+  - `strategy/`
+  - `data-review/`
+  - `import/`
+  - `settings/`
+- `src/app/shared/components/`
+- `src/app/core/`
+
 ## Qué incluye esta base
 
 - Importación local de `.xlsm` / `.xlsx`.

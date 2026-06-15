@@ -20,7 +20,7 @@
         </div>
         <div class="metric-cell">
           <span>Resultado %</span>
-          <strong [class.positive]="(item.totalResultPercent ?? 0) >= 0" [class.negative]="(item.totalResultPercent ?? 0) < 0">{{ formatNumber(item.totalResultPercent) }}%</strong>
+          <strong [class.positive]="(item.totalResultPercent ?? 0) >= 0" [class.negative]="(item.totalResultPercent ?? 0) < 0">{{ formatPercent(item.totalResultPercent) }}</strong>
         </div>
       </div>
     </article>

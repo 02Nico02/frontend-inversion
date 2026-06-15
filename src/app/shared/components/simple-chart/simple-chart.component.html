@@ -1,0 +1,16 @@
+<section class="panel chart-card">
+      <div class="title-row">
+        <div>
+          <p class="eyebrow">{{ title }}</p>
+          <h3>{{ subtitle }}</h3>
+        </div>
+        <button type="button" class="reset" *ngIf="mode === 'line'" (click)="resetZoom()" [disabled]="!chartInstance">Reset zoom</button>
+      </div>
+
+      <div class="chart-wrap" [class.line-mode]="mode === 'line'" [class.bar-mode]="mode === 'bars'">
+        <div echarts class="chart" [options]="chartOptions" (chartInit)="onChartInit($event)"></div>
+        <p class="footer-note" *ngIf="mode === 'line' && showSeriesHint">
+          {{ seriesHint }}
+        </p>
+      </div>
+    </section>

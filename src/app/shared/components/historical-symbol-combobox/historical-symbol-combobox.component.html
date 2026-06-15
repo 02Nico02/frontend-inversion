@@ -1,0 +1,43 @@
+<div class="combo">
+      <label class="combo-label">
+        <span>Especie</span>
+        <div class="combo-shell" [class.open]="open">
+          <input
+            #inputEl
+            type="text"
+            role="combobox"
+            aria-autocomplete="list"
+            [attr.aria-expanded]="open"
+            [attr.aria-controls]="listId"
+            [attr.aria-activedescendant]="activeOptionId"
+            [(ngModel)]="searchTerm"
+            (focus)="openDropdown()"
+            (input)="onInputChange()"
+            (keydown)="onKeyDown($event)"
+            placeholder="Elegí una especie"
+          />
+          <button type="button" class="chevron" (click)="toggleOpen()" aria-label="Abrir lista">⌄</button>
+        </div>
+      </label>
+
+      <div class="dropdown" *ngIf="open" [id]="listId" role="listbox">
+        <button
+          type="button"
+          class="option"
+          *ngFor="let option of filteredOptions; let index = index; trackBy: trackBySymbol"
+          [id]="optionId(option.symbol)"
+          role="option"
+          [attr.aria-selected]="option.symbol === selectedSymbol"
+          [class.active]="index === activeIndex"
+          (mouseenter)="activeIndex = index"
+          (click)="select(option)"
+        >
+          <strong>{{ option.symbol }}</strong>
+          <span>{{ option.label }}</span>
+        </button>
+
+        <div class="empty" *ngIf="!filteredOptions.length">
+          No se encontraron especies
+        </div>
+      </div>
+    </div>

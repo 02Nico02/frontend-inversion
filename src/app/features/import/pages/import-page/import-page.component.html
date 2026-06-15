@@ -1,0 +1,18 @@
+<section class="page" *ngIf="state.snapshot as snapshot">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Importación</p>
+          <h2>Cargar o reemplazar Excel</h2>
+        </div>
+      </header>
+
+      <app-import-panel (fileSelected)="handleFile($event)"></app-import-panel>
+      <app-validation-summary [report]="snapshot.workbook?.validation || null"></app-validation-summary>
+
+      <article class="panel" *ngIf="snapshot.workbook">
+        <h3>Workbook</h3>
+        <p>Archivo: {{ snapshot.fileName || 'N/D' }}</p>
+        <p>Tablas detectadas: {{ snapshot.workbook.validation.detectedTables.length }}</p>
+        <p>Estado: {{ snapshot.status }}</p>
+      </article>
+    </section>

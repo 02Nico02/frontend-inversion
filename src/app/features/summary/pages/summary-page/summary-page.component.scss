@@ -1,0 +1,62 @@
+.page {
+      display: grid;
+      gap: 1rem;
+    }
+    .page-header .eyebrow,
+    .panel .eyebrow {
+      margin: 0;
+      color: var(--brand);
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-size: 0.72rem;
+    }
+    .page-header h2,
+    .panel h3 {
+      margin: 0.2rem 0 0;
+    }
+    .lead {
+      color: var(--muted);
+      margin: 0.35rem 0 0;
+      max-width: 70ch;
+    }
+    .mini-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 1rem;
+      display: grid;
+      gap: 0.4rem;
+    }
+    .link {
+      color: var(--brand);
+      text-decoration: none;
+      font-weight: 700;
+    }
+    .button {
+      display: inline-flex;
+      padding: 0.6rem 0.9rem;
+      border-radius: 999px;
+      background: var(--brand);
+      color: #06121b;
+      text-decoration: none;
+      font-weight: 700;
+      width: fit-content;
+    }
+    .empty {
+      justify-items: start;
+    }
+    .action-list {
+      display: grid;
+      gap: 0.35rem;
+    }
+    @media (max-width: 900px) {
+      .mini-grid {
+        grid-template-columns: 1fr;
+      }
+    }

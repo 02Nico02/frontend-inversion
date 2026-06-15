@@ -1,0 +1,53 @@
+.panel {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 1.2rem;
+      display: grid;
+      gap: 1rem;
+      position: relative;
+    }
+    .title-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: start;
+    }
+    .eyebrow {
+      margin: 0;
+      color: var(--brand);
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 0.76rem;
+    }
+    h3 {
+      margin: 0.2rem 0 0;
+    }
+    .reset {
+      border: 1px solid var(--panel-border);
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 0.45rem 0.8rem;
+      font-size: 0.8rem;
+    }
+    .chart-wrap {
+      display: grid;
+      gap: 0.6rem;
+    }
+    .chart {
+      width: 100%;
+      min-height: 280px;
+    }
+    .line-mode .chart {
+      min-height: 320px;
+    }
+    .bar-mode .chart {
+      min-height: 260px;
+    }
+    .footer-note {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }

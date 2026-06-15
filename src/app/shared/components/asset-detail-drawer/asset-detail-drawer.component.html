@@ -1,0 +1,276 @@
+<ng-container *ngIf="open && position as asset">
+      <div class="backdrop" (click)="close.emit()" aria-hidden="true"></div>
+      <aside class="drawer" role="dialog" aria-modal="true" [attr.aria-label]="'Detalle de ' + asset.symbol">
+        <header class="drawer-header">
+          <div class="header-copy">
+            <p class="eyebrow">Detalle de especie</p>
+            <h2>{{ asset.symbol }}</h2>
+            <p class="subtitle">{{ headerSummary(asset) }}</p>
+            <p class="headline">
+              Resultado: <strong [class.positive]="asset.resultAmount >= 0" [class.negative]="asset.resultAmount < 0">{{ formatMoney(asset.resultAmount, asset.currency) }}</strong>
+              |
+              <strong [class.positive]="(asset.resultPercent ?? 0) >= 0" [class.negative]="(asset.resultPercent ?? 0) < 0">{{ formatPercent(asset.resultPercent) }}</strong>
+            </p>
+          </div>
+          <button type="button" class="close" (click)="close.emit()" aria-label="Cerrar detalle">×</button>
+        </header>
+
+        <nav class="tabs">
+          <button type="button" [class.active]="tab === 'summary'" (click)="tab = 'summary'">Resumen</button>
+          <button type="button" [class.active]="tab === 'operations'" (click)="tab = 'operations'">Compras</button>
+          <button type="button" [class.active]="tab === 'alerts'" (click)="tab = 'alerts'">Alertas</button>
+          <button type="button" [class.active]="tab === 'history'" (click)="tab = 'history'">Histórico</button>
+          <button type="button" [class.active]="tab === 'classification'" (click)="tab = 'classification'">Clasificación</button>
+        </nav>
+
+        <div class="drawer-body">
+                    <section *ngIf="tab === 'summary'" class="tab-content">
+            <div class="compact-groups">
+              <section class="compact-block">
+                <h3>Posición</h3>
+                <div class="kv-grid">
+                  <div><span>Total actual</span><strong>{{ formatMoney(asset.currentValue, asset.currency) }}</strong></div>
+                  <div><span>Total invertido</span><strong>{{ formatMoney(asset.totalInvested, asset.currency) }}</strong></div>
+                  <div><span>Resultado $</span><strong [class.positive]="asset.resultAmount >= 0" [class.negative]="asset.resultAmount < 0">{{ formatMoney(asset.resultAmount, asset.currency) }}</strong></div>
+                  <div><span>Resultado %</span><strong [class.positive]="(asset.resultPercent ?? 0) >= 0" [class.negative]="(asset.resultPercent ?? 0) < 0">{{ formatPercent(asset.resultPercent) }}</strong></div>
+                  <div><span>Cantidad</span><strong>{{ formatNumber(asset.quantity) }}</strong></div>
+                  <div><span>Precio promedio</span><strong>{{ formatMoney(asset.averagePrice, asset.currency) }}</strong></div>
+                  <div><span>Precio actual</span><strong>{{ formatMoney(asset.currentPrice, asset.currency) }}</strong></div>
+                </div>
+              </section>
+
+              <section class="compact-block">
+                <h3>Peso y objetivo</h3>
+                <ng-container *ngIf="expectedMetrics(asset) as expected">
+                  <div class="kv-grid">
+                    <div><span>Peso en moneda</span><strong>{{ formatPercent(weightFor(asset.symbol)) }}</strong></div>
+                    <div><span>Total moneda</span><strong>{{ currencyTotal(asset.currency) }}</strong></div>
+                    <div><span>Monto esperado</span><strong>{{ expected.hasTarget ? formatMoney(expected.expected, asset.currency) : 'Sin objetivo definido' }}</strong></div>
+                    <div><span>Diferencia</span><strong>{{ expected.hasTarget ? formatMoney(expected.delta, asset.currency) : 'Sin objetivo definido' }}</strong></div>
+                    <div><span>Desvío vs esperado</span><strong>{{ expected.hasTarget ? formatPercent(expected.deviation) : 'Sin objetivo definido' }}</strong></div>
+                  </div>
+                </ng-container>
+              </section>
+
+              <section class="compact-block">
+                <h3>Clasificación resumida</h3>
+                <div class="kv-grid">
+                  <div><span>Tipo activo</span><strong>{{ classification(asset)?.type || 'Sin datos' }}</strong></div>
+                  <div><span>Sector</span><strong>{{ classification(asset)?.sector || 'Sin sector' }}</strong></div>
+                  <div><span>Subsector</span><strong>{{ classification(asset)?.subsector || 'Sin subsector' }}</strong></div>
+                  <div><span>Región</span><strong>{{ classification(asset)?.region || 'Sin región' }}</strong></div>
+                </div>
+              </section>
+            </div>
+          </section>
+
+          <section *ngIf="tab === 'operations'" class="tab-content">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Tabla 6</p>
+                <h3>Compras / lotes</h3>
+              </div>
+              <div class="controls">
+                <label>
+                  <span>Orden</span>
+                  <select [(ngModel)]="operationSortDirection">
+                    <option value="desc">Más recientes</option>
+                    <option value="asc">Más antiguas</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Filas</span>
+                  <select [(ngModel)]="operationPageSize">
+                    <option [ngValue]="10">10</option>
+                    <option [ngValue]="25">25</option>
+                    <option [ngValue]="50">50</option>
+                    <option [ngValue]="'all'">Todas</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div class="summary-strip">
+              <span>Compras/lotes: {{ operationsFor(asset.symbol).length }}</span>
+              <span>Cantidad total: {{ formatNumber(totalQuantity(asset.symbol)) }}</span>
+              <span>Total invertido: {{ formatMoney(totalInvested(asset.symbol), asset.currency) }}</span>
+              <span>Valor actual: {{ formatMoney(totalCurrent(asset.symbol), asset.currency) }}</span>
+              <span>Resultado: {{ formatMoney(totalCurrent(asset.symbol) - totalInvested(asset.symbol), asset.currency) }}</span>
+              <span>Rendimiento: {{ weightedReturn(asset.symbol) }}</span>
+              <span>Precio promedio ponderado: {{ formatMoney(weightedAveragePrice(asset.symbol), asset.currency) }}</span>
+            </div>
+
+            <div class="mini-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th class="num">Cantidad</th>
+                    <th class="num">Precio compra</th>
+                    <th class="num">Total invertido</th>
+                    <th class="num">Precio actual</th>
+                    <th class="num">Valor actual</th>
+                    <th class="num">Resultado $</th>
+                    <th class="num">Resultado %</th>
+                    <th>Avanzado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <ng-container *ngFor="let operation of pagedOperations(asset.symbol); trackBy: trackByOperationId">
+                    <tr>
+                    <td>{{ formatDate(operation.date) }}</td>
+                    <td class="num">{{ formatNumber(operation.quantity) }}</td>
+                    <td class="num">{{ formatMoney(operation.buyPrice, operation.currency) }}</td>
+                    <td class="num">{{ formatMoney(operation.total, operation.currency) }}</td>
+                    <td class="num">{{ formatMoney(operation.currentPrice, operation.currency) }}</td>
+                    <td class="num">{{ formatMoney(operation.currentValue, operation.currency) }}</td>
+                    <td class="num" [class.positive]="(operationResult(operation) ?? 0) >= 0" [class.negative]="(operationResult(operation) ?? 0) < 0">{{ formatMoney(operationResult(operation), asset.currency) }}</td>
+                    <td class="num" [class.positive]="(operationResultPercent(operation) ?? 0) >= 0" [class.negative]="(operationResultPercent(operation) ?? 0) < 0">{{ formatPercent(operationResultPercent(operation)) }}</td>
+                    <td>
+                      <details class="lot-details">
+                        <summary>Ver ID, moneda y métricas</summary>
+                        <div class="lot-advanced">
+                          <span>ID: {{ operation.id }}</span>
+                          <span>Moneda: {{ currencyLabel(operation.currency) }}</span>
+                          <span>Monto: {{ formatMoney(operation.amount, operation.currency) }}</span>
+                          <span>TEM: {{ formatPercent(operation.monthlyRate) }}</span>
+                          <span>TNA: {{ formatPercent(operation.annualRate) }}</span>
+                          <span>TOP: {{ operation.top || 'Sin datos' }}</span>
+                          <span>Tendencia: {{ operation.trend || 'Sin datos' }}</span>
+                          <span>Peso lote: {{ formatPercent(lotWeight(operation)) }}</span>
+                        </div>
+                      </details>
+                    </td>
+                  </tr>
+                  </ng-container>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="pager" *ngIf="operationPageCount(asset.symbol) > 1">
+              <span>Página {{ currentOperationPageIndex + 1 }} de {{ operationPageCount(asset.symbol) }}</span>
+              <div class="pager-actions">
+                <button type="button" (click)="firstOperationPage()" [disabled]="currentOperationPageIndex === 0">Primera</button>
+                <button type="button" (click)="previousOperationPage()" [disabled]="currentOperationPageIndex === 0">Anterior</button>
+                <button type="button" (click)="nextOperationPage(asset.symbol)" [disabled]="currentOperationPageIndex >= operationPageCount(asset.symbol) - 1">Siguiente</button>
+                <button type="button" (click)="lastOperationPage(asset.symbol)" [disabled]="currentOperationPageIndex >= operationPageCount(asset.symbol) - 1">Última</button>
+              </div>
+            </div>
+          </section>
+
+                    <section *ngIf="tab === 'alerts'" class="tab-content">
+            <div class="alert-groups">
+              <div class="group">
+                <h3>Manuales</h3>
+                <div *ngIf="manualAlerts(asset.symbol).length; else emptyAlerts">
+                  <table class="alert-table">
+                    <thead>
+                      <tr>
+                        <th>Estado</th>
+                        <th>Condición</th>
+                        <th class="num">Actual</th>
+                        <th class="num">Objetivo</th>
+                        <th class="num">Distancia</th>
+                        <th>Nota</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let alert of sortedManualAlerts(asset.symbol)" [class.activated]="alert.status === 'activada'" [class.near]="alert.status === 'cerca'" [class.outside]="alert.status === 'lejos' || alert.status === 'inactiva'">
+                        <td>{{ alert.status }}</td>
+                        <td>{{ alert.priority }}</td>
+                        <td class="num">{{ formatNumber(alert.currentPrice) }}</td>
+                        <td class="num">{{ formatNumber(alert.targetPrice) }}</td>
+                        <td class="num">{{ formatPercent(alert.distancePercent) }}</td>
+                        <td>{{ alert.note || 'Sin nota' }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="group">
+                <h3>Calculadas</h3>
+                <div *ngIf="calculatedAlerts(asset.symbol).length; else emptyAlerts" class="alert-list">
+                  <article class="alert-card" *ngFor="let alert of calculatedAlerts(asset.symbol)">
+                    <strong>{{ alert.status }}</strong>
+                    <span>Prioridad: {{ alert.priority }}</span>
+                    <span>Actual: {{ formatNumber(alert.currentPrice) }}</span>
+                    <span>Objetivo: {{ formatNumber(alert.targetPrice) }}</span>
+                    <span>Distancia: {{ formatPercent(alert.distancePercent) }}</span>
+                  </article>
+                </div>
+              </div>
+              <div class="group">
+                <h3>Señales</h3>
+                <div *ngIf="signalAlerts(asset.symbol).length; else emptyAlerts" class="alert-list">
+                  <article class="alert-card" *ngFor="let alert of sortedSignalAlerts(asset.symbol)">
+                    <strong>{{ alert.period }} · {{ alert.signalType }}</strong>
+                    <span>Inicio: {{ alert.startDate || 'N/D' }} · {{ formatNumber(alert.targetPrice) }}</span>
+                    <span>Fin: {{ alert.endDate || 'N/D' }} · {{ formatNumber(alert.currentPrice) }}</span>
+                    <span>Variación: {{ formatPercent(alert.distancePercent) }}</span>
+                  </article>
+                </div>
+              </div>
+            </div>
+            <ng-template #emptyAlerts>
+              <div class="empty">Esta especie no tiene alertas asociadas.</div>
+            </ng-template>
+          </section>
+
+          <section *ngIf="tab === 'history'" class="tab-content">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Precio histórico</p>
+                <h3>Serie por especie</h3>
+              </div>
+              <label>
+                <span>Período</span>
+                <select [(ngModel)]="historyPeriod">
+                  <option value="ALL">Todo</option>
+                  <option value="1M">1M</option>
+                  <option value="3M">3M</option>
+                  <option value="6M">6M</option>
+                  <option value="YTD">YTD</option>
+                  <option value="1Y">1A</option>
+                </select>
+              </label>
+            </div>
+            <app-simple-chart title="Precio histórico" [subtitle]="asset.symbol" mode="line" [points]="historicalSeries(asset.symbol)" [currency]="asset.currency" valueKind="money"></app-simple-chart>
+            <div class="summary-strip" *ngIf="historyStats(asset.symbol) as stats">
+              <span>Desde: {{ stats.startDate || 'N/D' }}</span>
+              <span>Hasta: {{ stats.endDate || 'N/D' }}</span>
+              <span>Inicial: {{ formatMoney(stats.initial, asset.currency) }}</span>
+              <span>Final: {{ formatMoney(stats.final, asset.currency) }}</span>
+              <span>Var: {{ formatMoney(stats.variationAmount, asset.currency) }}</span>
+              <span>Var %: {{ formatPercent(stats.variationPercent) }}</span>
+              <span>Registros: {{ stats.count }}</span>
+              <span>Máx: {{ formatMoney(stats.max, asset.currency) }} ({{ stats.maxDate || 'N/D' }})</span>
+              <span>Mín: {{ formatMoney(stats.min, asset.currency) }} ({{ stats.minDate || 'N/D' }})</span>
+            </div>
+          </section>
+
+                    <section *ngIf="tab === 'classification'" class="tab-content">
+            <div class="compact-block">
+              <h3>Clasificación</h3>
+              <div class="kv-grid">
+                <div><span>Tipo de activo</span><strong>{{ classification(asset)?.type || 'Sin datos' }}</strong></div>
+                <div><span>Sector</span><strong>{{ classification(asset)?.sector || 'Sin sector' }}</strong></div>
+                <div><span>Subsector</span><strong>{{ classification(asset)?.subsector || 'Sin subsector' }}</strong></div>
+                <div><span>Región</span><strong>{{ classification(asset)?.region || 'Sin región' }}</strong></div>
+                <div><span>Tipo de posición</span><strong>{{ asset.positionType || 'Sin datos' }}</strong></div>
+                <div><span>Moneda</span><strong>{{ currencyLabel(asset.currency) }}</strong></div>
+                <div><span>Existe en Tabla47</span><strong>{{ classification(asset) ? 'Sí' : 'No' }}</strong></div>
+                <div><span>Faltantes</span><strong>{{ missingClassification(asset) }}</strong></div>
+                <div><span>Fuente</span><strong>Tabla47</strong></div>
+                <div><span>Match</span><strong>Normalizado por especie</strong></div>
+              </div>
+              <div class="empty" *ngIf="missingClassification(asset) === 'Sin faltantes'">
+                Clasificación completa.
+              </div>
+              <div class="empty" *ngIf="missingClassification(asset) !== 'Sin faltantes'">
+                {{ classificationHelp(asset) }}
+              </div>
+            </div>
+          </section>
+        </div>
+      </aside>
+    </ng-container>

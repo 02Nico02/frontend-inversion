@@ -72,7 +72,6 @@ export class ChartConfigService {
         right: 10,
         top: 10,
         feature: {
-          dataZoom: showZoom ? { yAxisIndex: 'none' } : undefined,
           restore: {},
           saveAsImage: {
             pixelRatio: 2
@@ -146,13 +145,7 @@ export class ChartConfigService {
         {
           type: 'line',
           name: config.subtitle ?? config.title,
-          data: points.map((point) => ({
-            value: point.value,
-            label: point.label,
-            date: point.date,
-            changeAmount: point.changeAmount,
-            changePercent: point.changePercent
-          })),
+          data: points.map((point) => point.value),
           smooth: true,
           showSymbol: !manyPoints,
           symbol: 'circle',
@@ -334,8 +327,9 @@ export class ChartConfigService {
       },
       formatter: (params: unknown) => {
         const entries = Array.isArray(params) ? params : [params];
-        const first = entries[0] as { data?: LineDatum; axisValueLabel?: string; seriesName?: string };
-        const data = first?.data ?? null;
+        const first = entries[0] as { data?: number; axisValueLabel?: string; seriesName?: string; dataIndex?: number };
+        const dataIndex = typeof first?.dataIndex === 'number' ? first.dataIndex : null;
+        const data = dataIndex !== null ? this.lastLinePoints[dataIndex] ?? null : null;
         const lines: string[] = [];
         if (first?.seriesName) {
           lines.push(`<strong>${first.seriesName}</strong>`);
@@ -403,7 +397,7 @@ export class ChartConfigService {
   }
 
   private normalizeLinePoints(points: SeriesPoint[]): LineDatum[] {
-    return [...points]
+    this.lastLinePoints = [...points]
       .filter((point) => point.value !== null && point.value !== undefined)
       .map((point) => ({
         label: point.label || this.formatDate(point.date),
@@ -413,6 +407,7 @@ export class ChartConfigService {
         changePercent: point.changePercent ?? null
       }))
       .filter((point) => !!point.label);
+    return this.lastLinePoints;
   }
 
   private normalizeBars(points: ChartPoint[], topN: number, includeOther: boolean): BarDatum[] {
@@ -469,4 +464,6 @@ export class ChartConfigService {
     const date = parseExcelDate(value);
     return date ? new Intl.DateTimeFormat('es-AR').format(date) : value;
   }
+
+  private lastLinePoints: LineDatum[] = [];
 }
