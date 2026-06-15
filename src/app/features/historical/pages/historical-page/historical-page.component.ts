@@ -27,6 +27,11 @@ export class HistoricalPageComponent {
   balanceRangeStart = '';
   balanceRangeEnd = '';
 
+  private cachedPriceSeriesKey = '';
+  private cachedPriceSeries: ReturnType<ChartDataService['priceSeries']> = [];
+  private cachedBalanceSeriesKey = '';
+  private cachedBalanceSeries: ReturnType<ChartDataService['balanceSeries']> = [];
+
   constructor(
     public readonly state: PortfolioStateService,
     private readonly calculator: PortfolioCalculatorService,
@@ -62,13 +67,40 @@ export class HistoricalPageComponent {
   }
 
   historicalPriceSeries(snapshot: PortfolioAppState) {
+    const cacheKey = [
+      snapshot.importedAt ?? '',
+      snapshot.fileName ?? '',
+      snapshot.dataset?.historicalPrices.length ?? 0,
+      this.selectedHistoricalSymbol,
+      this.pricePeriod,
+      this.priceRangeStart,
+      this.priceRangeEnd
+    ].join('|');
+    if (cacheKey === this.cachedPriceSeriesKey) {
+      return this.cachedPriceSeries;
+    }
     const raw = (snapshot.dataset?.historicalPrices ?? []).filter((item) => item.symbol === this.selectedHistoricalSymbol && item.price !== null);
-    return this.chartData.priceSeries(this.filterHistoricalByPeriod(raw, this.pricePeriod, this.priceRangeStart, this.priceRangeEnd), this.selectedHistoricalSymbol);
+    this.cachedPriceSeries = this.chartData.priceSeries(this.filterHistoricalByPeriod(raw, this.pricePeriod, this.priceRangeStart, this.priceRangeEnd), this.selectedHistoricalSymbol);
+    this.cachedPriceSeriesKey = cacheKey;
+    return this.cachedPriceSeries;
   }
 
   balanceSeries(snapshot: PortfolioAppState) {
+    const cacheKey = [
+      snapshot.importedAt ?? '',
+      snapshot.fileName ?? '',
+      snapshot.dataset?.dailyBalances.length ?? 0,
+      this.balancePeriod,
+      this.balanceRangeStart,
+      this.balanceRangeEnd
+    ].join('|');
+    if (cacheKey === this.cachedBalanceSeriesKey) {
+      return this.cachedBalanceSeries;
+    }
     const raw = (snapshot.dataset?.dailyBalances ?? []).filter((item) => item.balance !== null);
-    return this.chartData.balanceSeries(this.filterHistoricalByPeriod(raw, this.balancePeriod, this.balanceRangeStart, this.balanceRangeEnd));
+    this.cachedBalanceSeries = this.chartData.balanceSeries(this.filterHistoricalByPeriod(raw, this.balancePeriod, this.balanceRangeStart, this.balanceRangeEnd));
+    this.cachedBalanceSeriesKey = cacheKey;
+    return this.cachedBalanceSeries;
   }
 
   historicalPriceStats(snapshot: PortfolioAppState) {

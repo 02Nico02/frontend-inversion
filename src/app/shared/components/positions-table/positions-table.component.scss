@@ -47,6 +47,14 @@
       grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
       gap: 0.75rem;
     }
+    .primary-filters,
+    .advanced-filters {
+      align-items: end;
+    }
+    .primary-filters app-searchable-select,
+    .advanced-filters app-searchable-select {
+      display: block;
+    }
     .filters label {
       display: grid;
       gap: 0.3rem;
@@ -60,6 +68,20 @@
       border: 1px solid var(--panel-border);
       border-radius: 12px;
       padding: 0.7rem 0.8rem;
+    }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .toggle-advanced {
+      align-self: stretch;
+      min-height: 44px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--panel-border);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 0.7rem 0.9rem;
     }
     .pager {
       display: flex;

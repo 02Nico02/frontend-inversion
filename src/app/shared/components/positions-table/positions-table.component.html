@@ -1,165 +1,195 @@
 <section class="panel">
-      <div class="title-row">
-        <div>
-          <p class="eyebrow">Posiciones</p>
-          <h3>Tabla operativa de posiciones</h3>
-        </div>
-        <div class="header-actions">
-          <div class="summary-chip" *ngIf="filteredPositions.length">
-            {{ filteredPositions.length }} posiciones filtradas
-          </div>
-          <button type="button" class="clear" (click)="clearFilters()">Limpiar filtros</button>
-        </div>
+  <div class="title-row">
+    <div>
+      <p class="eyebrow">Posiciones</p>
+      <h3>Tabla operativa de posiciones</h3>
+    </div>
+    <div class="header-actions">
+      <div class="summary-chip" *ngIf="filteredPositions.length">
+        {{ filteredPositions.length }} posiciones filtradas
       </div>
+      <button type="button" class="clear" (click)="clearFilters()">Limpiar filtros</button>
+    </div>
+  </div>
 
-      <div class="filters">
-        <label>
-          <span>Buscar especie</span>
-          <input [(ngModel)]="filters.symbol" [attr.list]="symbolListId" placeholder="AAPL, AMD, BTC..." />
-        </label>
-        <label>
-          <span>Moneda</span>
-          <select [(ngModel)]="filters.currency">
-            <option value="">Todas</option>
-            <option value="ARS">ARS</option>
-            <option value="USD">USD</option>
-            <option value="UNKNOWN">Sin moneda</option>
-          </select>
-        </label>
-        <label>
-          <span>Tipo de activo</span>
-          <input [(ngModel)]="filters.assetType" [attr.list]="assetTypeListId" placeholder="FCI, BONO, ACCION..." />
-        </label>
-        <label>
-          <span>Sector</span>
-          <input [(ngModel)]="filters.sector" [attr.list]="sectorListId" placeholder="Tecnología, Energía..." />
-        </label>
-        <label>
-          <span>Subsector</span>
-          <input [(ngModel)]="filters.subsector" [attr.list]="subsectorListId" placeholder="Oro ETF, Cloud..." />
-        </label>
-        <label>
-          <span>Región</span>
-          <input [(ngModel)]="filters.region" [attr.list]="regionListId" placeholder="USA, Argentina..." />
-        </label>
-        <label>
-          <span>Resultado</span>
-          <select [(ngModel)]="filters.resultDirection">
-            <option value="all">Todos</option>
-            <option value="positive">Positivos</option>
-            <option value="negative">Negativos</option>
-          </select>
-        </label>
-        <label>
-          <span>Alertas</span>
-          <select [(ngModel)]="filters.alerts">
-            <option value="all">Todas</option>
-            <option value="with">Con alertas</option>
-            <option value="without">Sin alertas</option>
-          </select>
-        </label>
-        <label>
-          <span>Clasificación</span>
-          <select [(ngModel)]="filters.classification">
-            <option value="all">Todas</option>
-            <option value="with">Con clasificación</option>
-            <option value="without">Sin clasificación</option>
-          </select>
-        </label>
-        <label>
-          <span>Orden</span>
-          <select [(ngModel)]="sortField">
-            <option value="symbol">Especie</option>
-            <option value="currentValue">Total actual</option>
-            <option value="resultAmount">Resultado</option>
-            <option value="resultPercent">Resultado %</option>
-            <option value="portfolioWeight">Peso</option>
-          </select>
-        </label>
-        <label>
-          <span>Dirección</span>
-          <select [(ngModel)]="sortDirection">
-            <option value="desc">Desc</option>
-            <option value="asc">Asc</option>
-          </select>
-        </label>
-        <label>
-          <span>Filas</span>
-          <select [(ngModel)]="pageSize">
-            <option [ngValue]="10">10</option>
-            <option [ngValue]="25">25</option>
-            <option [ngValue]="50">50</option>
-            <option [ngValue]="'all'">Todas</option>
-          </select>
-        </label>
-      </div>
+  <div class="filters primary-filters">
+    <app-searchable-select
+      label="Especie"
+      placeholder="Buscar ticker, sector o subsector"
+      allLabel="Todas las especies"
+      [options]="symbolOptions"
+      [value]="filters.symbol"
+      (valueChange)="filters.symbol = $event; onFilterChange()"
+    />
 
-      <div class="pager" *ngIf="pageCount > 1">
-        <span>Página {{ currentPageIndex + 1 }} de {{ pageCount }}</span>
-        <div class="pager-actions">
-          <button type="button" (click)="firstPage()" [disabled]="currentPageIndex === 0">Primera</button>
-          <button type="button" (click)="previousPage()" [disabled]="currentPageIndex === 0">Anterior</button>
-          <button type="button" (click)="nextPage()" [disabled]="currentPageIndex >= pageCount - 1">Siguiente</button>
-          <button type="button" (click)="lastPage()" [disabled]="currentPageIndex >= pageCount - 1">Última</button>
-        </div>
-      </div>
+    <label>
+      <span>Moneda</span>
+      <select [(ngModel)]="filters.currency" (ngModelChange)="onFilterChange()">
+        <option value="">Todas</option>
+        <option value="ARS">ARS</option>
+        <option value="USD">USD</option>
+        <option value="UNKNOWN">Sin moneda</option>
+      </select>
+    </label>
 
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th class="sticky-col">Especie</th>
-              <th>Moneda</th>
-              <th class="num">Cantidad</th>
-              <th class="num">Precio prom.</th>
-              <th class="num">Precio act.</th>
-              <th class="num">Total inv.</th>
-              <th class="num">Total actual</th>
-              <th class="num">Resultado $</th>
-              <th class="num">Resultado %</th>
-              <th class="num">Peso %</th>
-              <th class="num">Alertas</th>
-              <th>Acción</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let position of pagedPositions; trackBy: trackBySymbol" (click)="requestDetail(position.symbol)">
-              <td class="sticky-col clickable">
-                <strong>{{ position.symbol }}</strong>
-              </td>
-              <td>{{ currencyLabel(position.currency) }}</td>
-              <td class="num">{{ formatNumber(position.quantity) }}</td>
-              <td class="num">{{ formatMoney(position.averagePrice, position.currency) }}</td>
-              <td class="num">{{ formatMoney(position.currentPrice, position.currency) }}</td>
-              <td class="num">{{ formatMoney(position.totalInvested, position.currency) }}</td>
-              <td class="num">{{ formatMoney(position.currentValue, position.currency) }}</td>
-              <td class="num" [class.positive]="position.resultAmount > 0" [class.negative]="position.resultAmount < 0">{{ formatMoney(position.resultAmount, position.currency) }}</td>
-              <td class="num" [class.positive]="(position.resultPercent ?? 0) > 0" [class.negative]="(position.resultPercent ?? 0) < 0">{{ formatPercent(position.resultPercent) }}</td>
-              <td class="num">{{ formatPercent(weightFor(position)) }}</td>
-              <td class="num">
-                <span class="alert-pill" [class.alerted]="hasAlert(position.symbol)">{{ alertCount(position.symbol) }}</span>
-              </td>
-              <td>
-                <button type="button" class="toggle" (click)="requestDetail(position.symbol); $event.stopPropagation()">Detalle</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+    <label>
+      <span>Orden</span>
+      <select [(ngModel)]="sortField" (ngModelChange)="onSortChange()">
+        <option value="symbol">Especie</option>
+        <option value="currentValue">Total actual</option>
+        <option value="resultAmount">Resultado</option>
+        <option value="resultPercent">Resultado %</option>
+        <option value="portfolioWeight">Peso</option>
+      </select>
+    </label>
 
-      <datalist [id]="symbolListId">
-        <option *ngFor="let option of symbolOptions" [value]="option"></option>
-      </datalist>
-      <datalist [id]="assetTypeListId">
-        <option *ngFor="let option of assetTypeOptions" [value]="option"></option>
-      </datalist>
-      <datalist [id]="sectorListId">
-        <option *ngFor="let option of sectorOptions" [value]="option"></option>
-      </datalist>
-      <datalist [id]="subsectorListId">
-        <option *ngFor="let option of subsectorOptions" [value]="option"></option>
-      </datalist>
-      <datalist [id]="regionListId">
-        <option *ngFor="let option of regionOptions" [value]="option"></option>
-      </datalist>
-    </section>
+    <label>
+      <span>Dirección</span>
+      <select [(ngModel)]="sortDirection" (ngModelChange)="onSortChange()">
+        <option value="desc">Desc</option>
+        <option value="asc">Asc</option>
+      </select>
+    </label>
+
+    <label>
+      <span>Filas</span>
+      <select [(ngModel)]="pageSize" (ngModelChange)="pageIndex = 0; onPageChange()">
+        <option [ngValue]="10">10</option>
+        <option [ngValue]="25">25</option>
+        <option [ngValue]="50">50</option>
+        <option [ngValue]="'all'">Todas</option>
+      </select>
+    </label>
+
+    <button type="button" class="toggle-advanced" (click)="toggleAdvancedFilters()">
+      {{ showAdvancedFilters ? 'Ocultar filtros avanzados' : 'Mostrar filtros avanzados' }}
+    </button>
+  </div>
+
+  <div class="chips" *ngIf="chips().length">
+    <app-filter-chip
+      *ngFor="let chip of chips()"
+      [label]="chip.label"
+      [value]="chip.value"
+      (remove)="resetFilter(chip.reset)"
+    />
+  </div>
+
+  <div class="filters advanced-filters" *ngIf="showAdvancedFilters">
+    <app-searchable-select
+      label="Tipo de activo"
+      placeholder="Buscar tipo"
+      allLabel="Todos los tipos"
+      [options]="assetTypeOptions"
+      [value]="filters.assetType"
+      (valueChange)="filters.assetType = $event; onFilterChange()"
+    />
+
+    <app-searchable-select
+      label="Sector"
+      placeholder="Buscar sector"
+      allLabel="Todos los sectores"
+      [options]="sectorOptions"
+      [value]="filters.sector"
+      (valueChange)="filters.sector = $event; onFilterChange()"
+    />
+
+    <app-searchable-select
+      label="Subsector"
+      placeholder="Buscar subsector"
+      allLabel="Todos los subsectores"
+      [options]="subsectorOptions"
+      [value]="filters.subsector"
+      (valueChange)="filters.subsector = $event; onFilterChange()"
+    />
+
+    <app-searchable-select
+      label="Región"
+      placeholder="Buscar región"
+      allLabel="Todas las regiones"
+      [options]="regionOptions"
+      [value]="filters.region"
+      (valueChange)="filters.region = $event; onFilterChange()"
+    />
+
+    <label>
+      <span>Resultado</span>
+      <select [(ngModel)]="filters.resultDirection" (ngModelChange)="onFilterChange()">
+        <option value="all">Todos</option>
+        <option value="positive">Positivos</option>
+        <option value="negative">Negativos</option>
+      </select>
+    </label>
+
+    <label>
+      <span>Alertas</span>
+      <select [(ngModel)]="filters.alerts" (ngModelChange)="onFilterChange()">
+        <option value="all">Todas</option>
+        <option value="with">Con alertas</option>
+        <option value="without">Sin alertas</option>
+      </select>
+    </label>
+
+    <label>
+      <span>Clasificación</span>
+      <select [(ngModel)]="filters.classification" (ngModelChange)="onFilterChange()">
+        <option value="all">Todas</option>
+        <option value="with">Con clasificación</option>
+        <option value="without">Sin clasificación</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="pager" *ngIf="pageCount > 1">
+    <span>Página {{ currentPageIndex + 1 }} de {{ pageCount }}</span>
+    <div class="pager-actions">
+      <button type="button" (click)="firstPage()" [disabled]="currentPageIndex === 0">Primera</button>
+      <button type="button" (click)="previousPage()" [disabled]="currentPageIndex === 0">Anterior</button>
+      <button type="button" (click)="nextPage()" [disabled]="currentPageIndex >= pageCount - 1">Siguiente</button>
+      <button type="button" (click)="lastPage()" [disabled]="currentPageIndex >= pageCount - 1">Última</button>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="sticky-col">Especie</th>
+          <th>Moneda</th>
+          <th class="num">Cantidad</th>
+          <th class="num">Precio prom.</th>
+          <th class="num">Precio act.</th>
+          <th class="num">Total inv.</th>
+          <th class="num">Total actual</th>
+          <th class="num">Resultado $</th>
+          <th class="num">Resultado %</th>
+          <th class="num">Peso %</th>
+          <th class="num">Alertas</th>
+          <th>Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let position of pagedPositions; trackBy: trackBySymbol" (click)="requestDetail(position.symbol)">
+          <td class="sticky-col clickable">
+            <strong>{{ position.symbol }}</strong>
+          </td>
+          <td>{{ currencyLabel(position.currency) }}</td>
+          <td class="num">{{ formatNumber(position.quantity) }}</td>
+          <td class="num">{{ formatMoney(position.averagePrice, position.currency) }}</td>
+          <td class="num">{{ formatMoney(position.currentPrice, position.currency) }}</td>
+          <td class="num">{{ formatMoney(position.totalInvested, position.currency) }}</td>
+          <td class="num">{{ formatMoney(position.currentValue, position.currency) }}</td>
+          <td class="num" [class.positive]="position.resultAmount > 0" [class.negative]="position.resultAmount < 0">{{ formatMoney(position.resultAmount, position.currency) }}</td>
+          <td class="num" [class.positive]="(position.resultPercent ?? 0) > 0" [class.negative]="(position.resultPercent ?? 0) < 0">{{ formatPercent(position.resultPercent) }}</td>
+          <td class="num">{{ formatPercent(weightFor(position)) }}</td>
+          <td class="num">
+            <span class="alert-pill" [class.alerted]="hasAlert(position.symbol)">{{ alertCount(position.symbol) }}</span>
+          </td>
+          <td>
+            <button type="button" class="toggle" (click)="requestDetail(position.symbol); $event.stopPropagation()">Detalle</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>

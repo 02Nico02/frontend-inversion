@@ -335,7 +335,13 @@ export class AssetDetailDrawerComponent {
       return 'Sin datos';
     }
     const date = parseExcelDate(value);
-    return date ? new Intl.DateTimeFormat('es-AR').format(date) : 'Sin datos';
+    if (!date) {
+      return 'Sin datos';
+    }
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const year = date.getUTCFullYear();
+    return `${day}-${month}-${year}`;
   }
 
   formatNumber(value: number | null | undefined): string {

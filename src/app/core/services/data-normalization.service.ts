@@ -91,6 +91,17 @@ export class DataNormalizationService {
     return null;
   }
 
+  pickValueByTokens<T = unknown>(row: Record<string, unknown>, requiredTokens: string[]): T | null {
+    const tokens = requiredTokens.map((token) => this.normalizeHeader(token));
+    for (const [key, value] of Object.entries(row)) {
+      const normalizedKey = this.normalizeHeader(key);
+      if (tokens.every((token) => normalizedKey.includes(token))) {
+        return value as T;
+      }
+    }
+    return null;
+  }
+
   asText(value: unknown): string | null {
     if (value === null || value === undefined || value === '') {
       return null;

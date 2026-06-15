@@ -322,10 +322,18 @@ export class PortfolioCalculatorService {
         ...table.rows
           .map((row) => ({
             symbol: this.normalization.normalizeSymbol(this.normalization.pickValue(row, ['ESPECIE'])) ?? '',
-            startDate: this.normalization.asIsoDate(this.normalization.pickValue(row, ['Fecha Inicio'])),
-            startPrice: this.normalization.asNumber(this.normalization.pickValue(row, ['Precio Inicio'])),
-            endDate: this.normalization.asIsoDate(this.normalization.pickValue(row, ['Fecha Fin'])),
-            endPrice: this.normalization.asNumber(this.normalization.pickValue(row, ['Precio Fin'])),
+            startDate: this.normalization.asIsoDate(
+              this.normalization.pickValue(row, ['Fecha Inicio']) ?? this.normalization.pickValueByTokens(row, ['FECHA', 'INICIO'])
+            ),
+            startPrice: this.normalization.asNumber(
+              this.normalization.pickValue(row, ['Precio Inicio']) ?? this.normalization.pickValueByTokens(row, ['PRECIO', 'INICIO'])
+            ),
+            endDate: this.normalization.asIsoDate(
+              this.normalization.pickValue(row, ['Fecha Fin']) ?? this.normalization.pickValueByTokens(row, ['FECHA', 'FIN'])
+            ),
+            endPrice: this.normalization.asNumber(
+              this.normalization.pickValue(row, ['Precio Fin']) ?? this.normalization.pickValueByTokens(row, ['PRECIO', 'FIN'])
+            ),
             variationPercent: this.normalization.asPercent(this.normalization.pickValue(row, ['Variacion %'])),
             period,
             signalType

@@ -1,0 +1,317 @@
+<section class="page" *ngIf="detail as asset; else emptyState">
+  <header class="page-header">
+    <div class="breadcrumbs">
+      <button type="button" class="back" (click)="back()">Volver a posiciones</button>
+      <span>Posiciones / {{ asset.symbol }}</span>
+    </div>
+    <div class="hero">
+      <div>
+        <p class="eyebrow">Detalle de especie</p>
+        <h1>{{ asset.symbol }}</h1>
+        <p class="lead">{{ asset.headerSummary }}</p>
+      </div>
+      <div class="hero-metrics">
+        <div><span>Resultado $</span><strong [class.positive]="asset.summaryMetrics.resultAmount >= 0" [class.negative]="asset.summaryMetrics.resultAmount < 0">{{ formatMoney(asset.summaryMetrics.resultAmount, asset.position.currency) }}</strong></div>
+        <div><span>Resultado %</span><strong [class.positive]="(asset.summaryMetrics.resultPercent ?? 0) >= 0" [class.negative]="(asset.summaryMetrics.resultPercent ?? 0) < 0">{{ formatPercent(asset.summaryMetrics.resultPercent) }}</strong></div>
+        <div><span>Precio actual</span><strong>{{ formatMoney(asset.summaryMetrics.currentPrice, asset.position.currency) }}</strong></div>
+        <div><span>Peso en moneda</span><strong>{{ formatPercent(asset.summaryMetrics.weightPercent) }}</strong></div>
+      </div>
+    </div>
+  </header>
+
+  <nav class="tabs" aria-label="Detalle de especie">
+    <button type="button" [class.active]="tab === 'summary'" (click)="tab = 'summary'">Resumen</button>
+    <button type="button" [class.active]="tab === 'operations'" (click)="tab = 'operations'">Compras</button>
+    <button type="button" [class.active]="tab === 'alerts'" (click)="tab = 'alerts'">Alertas</button>
+    <button type="button" [class.active]="tab === 'history'" (click)="tab = 'history'">Histórico</button>
+    <button type="button" [class.active]="tab === 'classification'" (click)="tab = 'classification'">Clasificación</button>
+  </nav>
+
+  <section class="panel" *ngIf="tab === 'summary'">
+    <div class="grid">
+      <article class="metric-card">
+        <h3>Posición</h3>
+        <div class="kv-grid">
+          <div><span>Total actual</span><strong>{{ formatMoney(asset.summaryMetrics.totalCurrentValue, asset.position.currency) }}</strong></div>
+          <div><span>Total invertido</span><strong>{{ formatMoney(asset.summaryMetrics.totalInvested, asset.position.currency) }}</strong></div>
+          <div><span>Resultado $</span><strong>{{ formatMoney(asset.summaryMetrics.resultAmount, asset.position.currency) }}</strong></div>
+          <div><span>Resultado %</span><strong>{{ formatPercent(asset.summaryMetrics.resultPercent) }}</strong></div>
+          <div><span>Cantidad</span><strong>{{ formatNumber(asset.summaryMetrics.quantity) }}</strong></div>
+          <div><span>Precio promedio</span><strong>{{ formatMoney(asset.summaryMetrics.averagePrice, asset.position.currency) }}</strong></div>
+          <div><span>Precio actual</span><strong>{{ formatMoney(asset.summaryMetrics.currentPrice, asset.position.currency) }}</strong></div>
+        </div>
+      </article>
+
+      <article class="metric-card">
+        <h3>Peso y objetivo</h3>
+        <div class="kv-grid">
+          <div><span>Peso en moneda</span><strong>{{ formatPercent(asset.summaryMetrics.weightPercent) }}</strong></div>
+          <div><span>Total moneda</span><strong>{{ formatMoney(asset.summaryMetrics.currencyTotal, asset.position.currency) }}</strong></div>
+          <div><span>Monto esperado</span><strong>{{ asset.summaryMetrics.expectedAmount !== null ? formatMoney(asset.summaryMetrics.expectedAmount, asset.position.currency) : 'Sin objetivo definido' }}</strong></div>
+          <div><span>Diferencia</span><strong>{{ asset.summaryMetrics.expectedDelta !== null ? formatMoney(asset.summaryMetrics.expectedDelta, asset.position.currency) : 'Sin objetivo definido' }}</strong></div>
+          <div><span>Desvío</span><strong>{{ asset.summaryMetrics.expectedDeviation !== null ? formatPercent(asset.summaryMetrics.expectedDeviation) : 'Sin objetivo definido' }}</strong></div>
+        </div>
+      </article>
+
+      <article class="metric-card">
+        <h3>Clasificación</h3>
+        <div class="kv-grid">
+          <div><span>Tipo activo</span><strong>{{ asset.classificationReview.type }}</strong></div>
+          <div><span>Sector</span><strong>{{ asset.classificationReview.sector }}</strong></div>
+          <div><span>Subsector</span><strong>{{ asset.classificationReview.subsector }}</strong></div>
+          <div><span>Región</span><strong>{{ asset.classificationReview.region }}</strong></div>
+          <div><span>Tipo posición</span><strong>{{ asset.classificationReview.positionType }}</strong></div>
+          <div><span>Moneda</span><strong>{{ asset.classificationReview.currency }}</strong></div>
+          <div><span>Existe en Tabla47</span><strong>{{ asset.classificationReview.exists ? 'Sí' : 'No' }}</strong></div>
+          <div><span>Faltantes</span><strong>{{ asset.classificationReview.missing }}</strong></div>
+          <div><span>Fuente</span><strong>{{ asset.classificationReview.source }}</strong></div>
+          <div><span>Match</span><strong>{{ asset.classificationReview.match }}</strong></div>
+        </div>
+        <p class="hint">{{ asset.classificationReview.hint }}</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="panel" *ngIf="tab === 'operations'">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">Tabla 6</p>
+        <h2>Compras / lotes</h2>
+      </div>
+      <div class="controls">
+        <label>
+          <span>Orden</span>
+          <select [(ngModel)]="operationSortDirection">
+            <option value="desc">Más recientes</option>
+            <option value="asc">Más antiguas</option>
+          </select>
+        </label>
+        <label>
+          <span>Filas</span>
+          <select [(ngModel)]="operationPageSize">
+            <option [ngValue]="10">10</option>
+            <option [ngValue]="25">25</option>
+            <option [ngValue]="50">50</option>
+            <option [ngValue]="'all'">Todas</option>
+          </select>
+        </label>
+        <label class="toggle-box">
+          <span>Avanzadas</span>
+          <button type="button" class="toggle" (click)="showAdvancedColumns = !showAdvancedColumns">{{ showAdvancedColumns ? 'Ocultar' : 'Mostrar' }}</button>
+        </label>
+      </div>
+    </div>
+
+    <div class="summary-strip">
+      <span>Compras/lotes: {{ asset.operationMetrics.count }}</span>
+      <span>Cantidad total: {{ formatNumber(totalQuantity(asset)) }}</span>
+      <span>Total invertido: {{ formatMoney(totalInvested(asset), asset.position.currency) }}</span>
+      <span>Valor actual: {{ formatMoney(totalCurrent(asset), asset.position.currency) }}</span>
+      <span>Resultado: {{ formatMoney(asset.operationMetrics.resultAmount, asset.position.currency) }}</span>
+      <span>Rendimiento: {{ weightedReturn(asset) }}</span>
+      <span>Precio promedio ponderado: {{ formatMoney(weightedAveragePrice(asset), asset.position.currency) }}</span>
+    </div>
+
+    <div class="mini-table">
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th class="num">Cantidad</th>
+            <th class="num">Precio compra</th>
+            <th class="num">Total invertido</th>
+            <th class="num">Precio actual</th>
+            <th class="num">Valor actual</th>
+            <th class="num">Resultado $</th>
+            <th class="num">Resultado %</th>
+            <th class="num">Peso lote %</th>
+            <th *ngIf="showAdvancedColumns">Avanzado</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let operation of pagedOperations(asset); trackBy: trackByOperationId">
+            <td>{{ operation.date ? (operation.date | date:'dd-MM-yyyy') : 'N/D' }}</td>
+            <td class="num">{{ formatNumber(operation.quantity) }}</td>
+            <td class="num">{{ formatMoney(operation.buyPrice, operation.currency) }}</td>
+            <td class="num">{{ formatMoney(operation.total, operation.currency) }}</td>
+            <td class="num">{{ formatMoney(operation.currentPrice, operation.currency) }}</td>
+            <td class="num">{{ formatMoney(operation.currentValue, operation.currency) }}</td>
+            <td class="num">{{ formatMoney(operationResult(operation), asset.position.currency) }}</td>
+            <td class="num">{{ formatPercent(operationResultPercent(operation)) }}</td>
+            <td class="num">{{ formatPercent(lotWeight(operation, asset)) }}</td>
+            <td *ngIf="showAdvancedColumns">
+              <details>
+                <summary>ID, moneda y métricas</summary>
+                <div class="lot-advanced">
+                  <span>ID: {{ operation.id }}</span>
+                  <span>Moneda: {{ currencyLabel(operation.currency) }}</span>
+                  <span>Monto: {{ formatMoney(operation.amount, operation.currency) }}</span>
+                  <span>TEM: {{ formatPercent(operation.monthlyRate) }}</span>
+                  <span>TNA: {{ formatPercent(operation.annualRate) }}</span>
+                  <span>TOP: {{ operation.top || 'Sin datos' }}</span>
+                  <span>Tendencia: {{ operation.trend || 'Sin datos' }}</span>
+                  <span>Peso lote: {{ formatPercent(lotWeight(operation, asset)) }}</span>
+                </div>
+              </details>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pager" *ngIf="operationPageCount(asset) > 1">
+      <span>Página {{ currentOperationPageNumber(asset) }} de {{ operationPageCount(asset) }}</span>
+      <div class="pager-actions">
+        <button type="button" (click)="firstOperationPage()" [disabled]="currentOperationPageIndex === 0">Primera</button>
+        <button type="button" (click)="previousOperationPage()" [disabled]="currentOperationPageIndex === 0">Anterior</button>
+        <button type="button" (click)="nextOperationPage(asset)" [disabled]="currentOperationPageIndex >= operationPageCount(asset) - 1">Siguiente</button>
+        <button type="button" (click)="lastOperationPage(asset)" [disabled]="currentOperationPageIndex >= operationPageCount(asset) - 1">Última</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" *ngIf="tab === 'alerts'">
+    <div class="alerts-grid">
+      <article class="alert-group">
+        <h3>Manuales</h3>
+        <table *ngIf="asset.manualAlerts.length; else emptyAlerts">
+          <thead>
+            <tr>
+              <th>Nota</th>
+              <th>Estado</th>
+              <th>Condición</th>
+              <th class="num">Actual</th>
+              <th class="num">Objetivo</th>
+              <th class="num">Distancia %</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let alert of asset.manualAlerts">
+              <td>{{ alert.note || 'Sin nota' }}</td>
+              <td>{{ alert.status }}</td>
+              <td>{{ alert.priority }}</td>
+              <td class="num">{{ formatNumber(alert.currentPrice) }}</td>
+              <td class="num">{{ formatNumber(alert.targetPrice) }}</td>
+              <td class="num">{{ formatPercent(alert.distancePercent) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </article>
+
+      <article class="alert-group" *ngIf="asset.calculatedAlerts.length">
+        <h3>Calculadas</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Estado</th>
+              <th>Fuente</th>
+              <th class="num">Actual</th>
+              <th class="num">Objetivo</th>
+              <th class="num">Distancia %</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let alert of asset.calculatedAlerts">
+              <td>{{ alert.status }}</td>
+              <td>{{ alert.priority }}</td>
+              <td class="num">{{ formatNumber(alert.currentPrice) }}</td>
+              <td class="num">{{ formatNumber(alert.targetPrice) }}</td>
+              <td class="num">{{ formatPercent(alert.distancePercent) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </article>
+
+      <article class="alert-group" *ngIf="asset.signalAlerts.length">
+        <h3>Señales</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Tipo</th>
+              <th>Período</th>
+              <th>Inicio</th>
+              <th class="num">Precio inicio</th>
+              <th>Fin</th>
+              <th class="num">Precio fin</th>
+              <th class="num">Variación</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let alert of asset.signalAlerts">
+              <td>{{ alert.signalType }}</td>
+              <td>{{ alert.period }}</td>
+              <td>{{ formatDate(alert.startDate) }}</td>
+              <td class="num">{{ formatNumber(alert.targetPrice) }}</td>
+              <td>{{ formatDate(alert.endDate) }}</td>
+              <td class="num">{{ formatNumber(alert.currentPrice) }}</td>
+              <td class="num">{{ formatPercent(alert.distancePercent) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </article>
+    </div>
+
+    <ng-template #emptyAlerts>
+      <div class="empty-inline">Esta especie no tiene alertas asociadas.</div>
+    </ng-template>
+  </section>
+
+  <section class="panel" *ngIf="tab === 'history'">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">Precio histórico</p>
+        <h2>Serie por especie</h2>
+      </div>
+      <label>
+        <span>Período</span>
+        <select [(ngModel)]="historyPeriod" (ngModelChange)="setHistoryPeriod($event)">
+          <option value="ALL">Todo</option>
+          <option value="1M">1M</option>
+          <option value="3M">3M</option>
+          <option value="6M">6M</option>
+          <option value="YTD">YTD</option>
+          <option value="1Y">1A</option>
+        </select>
+      </label>
+    </div>
+
+    <app-simple-chart title="Precio histórico" [subtitle]="asset.symbol" mode="line" [points]="historyChartSeries" [currency]="asset.position.currency" valueKind="money"></app-simple-chart>
+
+    <div class="summary-strip" *ngIf="historyStats as stats">
+      <span>Desde: {{ stats.startDate || 'N/D' }}</span>
+      <span>Hasta: {{ stats.endDate || 'N/D' }}</span>
+      <span>Inicial: {{ formatMoney(stats.initial, asset.position.currency) }}</span>
+      <span>Final: {{ formatMoney(stats.final, asset.position.currency) }}</span>
+      <span>Var: {{ formatMoney(stats.variationAmount, asset.position.currency) }}</span>
+      <span>Var %: {{ formatPercent(stats.variationPercent) }}</span>
+      <span>Máx: {{ formatMoney(stats.max, asset.position.currency) }} ({{ stats.maxDate || 'N/D' }})</span>
+      <span>Mín: {{ formatMoney(stats.min, asset.position.currency) }} ({{ stats.minDate || 'N/D' }})</span>
+      <span>Último: {{ formatMoney(stats.latest, asset.position.currency) }} ({{ stats.latestDate || 'N/D' }})</span>
+    </div>
+  </section>
+
+  <section class="panel" *ngIf="tab === 'classification'">
+    <h2>Clasificación</h2>
+    <div class="kv-grid">
+      <div><span>Tipo activo</span><strong>{{ asset.classificationReview.type }}</strong></div>
+      <div><span>Sector</span><strong>{{ asset.classificationReview.sector }}</strong></div>
+      <div><span>Subsector</span><strong>{{ asset.classificationReview.subsector }}</strong></div>
+      <div><span>Región</span><strong>{{ asset.classificationReview.region }}</strong></div>
+      <div><span>Tipo posición</span><strong>{{ asset.classificationReview.positionType }}</strong></div>
+      <div><span>Moneda</span><strong>{{ asset.classificationReview.currency }}</strong></div>
+      <div><span>Existe en Tabla47</span><strong>{{ asset.classificationReview.exists ? 'Sí' : 'No' }}</strong></div>
+      <div><span>Faltantes</span><strong>{{ asset.classificationReview.missing }}</strong></div>
+      <div><span>Fuente</span><strong>{{ asset.classificationReview.source }}</strong></div>
+      <div><span>Match</span><strong>{{ asset.classificationReview.match }}</strong></div>
+    </div>
+    <p class="hint">{{ asset.classificationReview.hint }}</p>
+  </section>
+</section>
+
+<ng-template #emptyState>
+  <article class="panel empty">
+    <h3>No se encontró la especie</h3>
+    <p>Volvé a posiciones y elegí una especie válida.</p>
+    <button type="button" class="back-button" (click)="back()">Volver a posiciones</button>
+  </article>
+</ng-template>

@@ -1,0 +1,86 @@
+.select-shell {
+  display: grid;
+  gap: 0.35rem;
+  position: relative;
+}
+
+.field-label {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.control {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.control input {
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  padding: 0.7rem 0.85rem;
+  outline: none;
+  min-width: 0;
+}
+
+.icon-button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 0 0.65rem;
+  height: 100%;
+}
+
+.icon-button.clear {
+  font-size: 1.1rem;
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  max-height: 280px;
+  overflow: auto;
+  border: 1px solid var(--panel-border);
+  background: #111932;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+
+.option,
+.empty {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  padding: 0.7rem 0.85rem;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.option + .option {
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.option small {
+  color: var(--muted);
+}
+
+.option.active {
+  background: rgba(77, 210, 200, 0.14);
+}
+
+.empty {
+  color: var(--muted);
+}
+
+.disabled {
+  opacity: 0.6;
+}

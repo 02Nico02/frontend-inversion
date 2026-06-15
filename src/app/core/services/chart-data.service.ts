@@ -96,20 +96,20 @@ export class ChartDataService {
   balanceSeries(balances: DailyBalance[]): SeriesPoint[] {
     const ordered = [...balances]
       .filter((item) => item.balance !== null && item.balance !== undefined)
-      .sort((a, b) => this.dateValue(a.date) - this.dateValue(b.date))
-      .slice(-120);
-    return ordered.map((item, index) => {
+      .sort((a, b) => this.dateValue(a.date) - this.dateValue(b.date));
+    const deduped = this.dedupeByDay(ordered);
+    return deduped.map((item, index) => {
       const value = Number(item.balance ?? 0);
-      const previous = index > 0 ? Number(ordered[index - 1].balance ?? 0) : null;
+      const previous = index > 0 ? Number(deduped[index - 1].balance ?? 0) : null;
       const changeAmount = previous !== null ? value - previous : null;
       const changePercent = previous && previous !== 0 ? ((value - previous) / previous) * 100 : null;
       return {
-        label: String(item.date ?? item.month ?? ''),
+        label: this.formatDate(item.date ?? item.month ?? ''),
         value,
-        date: String(item.date ?? item.month ?? ''),
+        date: this.formatDate(item.date ?? item.month ?? ''),
         changeAmount,
         changePercent,
-        tooltip: `${String(item.date ?? item.month ?? '')} · ${value}`
+        tooltip: `${this.formatDate(item.date ?? item.month ?? '')} · ${value}`
       };
     });
   }
@@ -117,14 +117,14 @@ export class ChartDataService {
   priceSeries(values: Array<{ date: string | Date | null; price: number | null }>, symbol?: string): SeriesPoint[] {
     const ordered = [...values]
       .filter((item) => item.price !== null && item.price !== undefined)
-      .sort((a, b) => this.dateValue(a.date) - this.dateValue(b.date))
-      .slice(-180);
-    return ordered.map((item, index) => {
+      .sort((a, b) => this.dateValue(a.date) - this.dateValue(b.date));
+    const deduped = this.dedupeByDay(ordered);
+    return deduped.map((item, index) => {
       const value = Number(item.price ?? 0);
-      const previous = index > 0 ? Number(ordered[index - 1].price ?? 0) : null;
+      const previous = index > 0 ? Number(deduped[index - 1].price ?? 0) : null;
       const changeAmount = previous !== null ? value - previous : null;
       const changePercent = previous && previous !== 0 ? ((value - previous) / previous) * 100 : null;
-      const label = String(item.date ?? '');
+      const label = this.formatDate(item.date ?? '');
       return {
         label,
         value,
@@ -174,5 +174,29 @@ export class ChartDataService {
     }
     const date = parseExcelDate(value);
     return date ? date.getTime() : 0;
+  }
+
+  private dedupeByDay<T extends { date: string | Date | null }>(values: T[]): T[] {
+    const byDay = new Map<string, T>();
+    for (const item of values) {
+      const date = parseExcelDate(item.date);
+      const key = date ? date.toISOString().slice(0, 10) : String(item.date ?? '');
+      byDay.set(key, item);
+    }
+    return Array.from(byDay.values()).sort((a, b) => this.dateValue(a.date) - this.dateValue(b.date));
+  }
+
+  private formatDate(value: string | Date | null | undefined): string {
+    if (!value) {
+      return '';
+    }
+    const date = parseExcelDate(value);
+    if (!date) {
+      return String(value);
+    }
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const year = date.getUTCFullYear();
+    return `${day}-${month}-${year}`;
   }
 }

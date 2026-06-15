@@ -278,6 +278,15 @@ export class ExcelImportService {
     const rowStart = startRow + 1;
     const maxColumns = Math.max(columns.length, endCol - startCol + 1);
     const rows: Array<Record<string, unknown>> = [];
+    const dateHeaders = new Set([
+      this.normalization.normalizeHeader('FECHA'),
+      this.normalization.normalizeHeader('DATE'),
+      this.normalization.normalizeHeader('FECHA COMP.'),
+      this.normalization.normalizeHeader('FECHA VENT.'),
+      this.normalization.normalizeHeader('FECHA CAMBIO'),
+      this.normalization.normalizeHeader('FECHA INICIO'),
+      this.normalization.normalizeHeader('FECHA FIN')
+    ]);
 
     for (let rowIndex = rowStart; rowIndex <= endRow; rowIndex += 1) {
       const rowObject: Record<string, unknown> = {};
@@ -292,7 +301,7 @@ export class ExcelImportService {
         if (value === undefined) {
           value = null;
         }
-        if (header && /FECHA|DATE|INICIO|FIN/i.test(header)) {
+        if (header && dateHeaders.has(this.normalization.normalizeHeader(header))) {
           value = this.normalizeDateValue(value, workbookDate1904);
           if (value === null && cellMap.get(cellRef) !== null && cellMap.get(cellRef) !== undefined && cellMap.get(cellRef) !== '') {
             invalidDates.push(`${tableName}.${header}: ${String(cellMap.get(cellRef))}`);

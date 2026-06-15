@@ -22,7 +22,11 @@ export function parseLocaleNumber(value: unknown): number | null {
   const hasDot = cleaned.includes('.');
 
   if (hasComma && hasDot) {
-    const normalized = cleaned.replace(/\./g, '').replace(',', '.');
+    const lastComma = cleaned.lastIndexOf(',');
+    const lastDot = cleaned.lastIndexOf('.');
+    const normalized = lastComma > lastDot
+      ? cleaned.replace(/\./g, '').replace(',', '.')
+      : cleaned.replace(/,/g, '');
     const parsed = Number(normalized);
     return Number.isFinite(parsed) ? parsed : null;
   }

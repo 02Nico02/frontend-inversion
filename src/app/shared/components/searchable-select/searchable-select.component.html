@@ -1,0 +1,48 @@
+<div class="select-shell" [class.open]="open" [class.disabled]="disabled">
+  <label *ngIf="label" class="field-label">{{ label }}</label>
+  <div class="control">
+    <input
+      #searchInput
+      type="text"
+      [value]="inputValue"
+      [placeholder]="placeholder"
+      [attr.aria-expanded]="open"
+      [attr.aria-controls]="listId"
+      [attr.aria-activedescendant]="activeOptionId"
+      [disabled]="disabled"
+      (focus)="onInputFocus()"
+      (input)="onInputChange(searchInput.value)"
+      (keydown)="onInputKeyDown($event)"
+    />
+    <button type="button" class="icon-button" (click)="toggleDropdown()" [disabled]="disabled" aria-label="Abrir selector">
+      <span aria-hidden="true">▾</span>
+    </button>
+    <button type="button" class="icon-button clear" *ngIf="value" (click)="clear()" [disabled]="disabled" aria-label="Limpiar selección">
+      <span aria-hidden="true">×</span>
+    </button>
+  </div>
+
+  <div class="menu" *ngIf="open">
+    <button
+      type="button"
+      class="option all"
+      *ngIf="showAllOption"
+      [class.active]="value === ''"
+      (click)="select({ value: '', label: allLabel })"
+    >
+      {{ allLabel }}
+    </button>
+    <button
+      type="button"
+      class="option"
+      *ngFor="let option of filteredOptions; trackBy: trackByValue"
+      [class.active]="option.value === value"
+      [id]="optionId(option.value)"
+      (click)="select(option)"
+    >
+      <strong>{{ option.label }}</strong>
+      <small *ngIf="option.searchText">{{ option.searchText }}</small>
+    </button>
+    <div class="empty" *ngIf="!filteredOptions.length">{{ emptyLabel }}</div>
+  </div>
+</div>

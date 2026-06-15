@@ -51,9 +51,6 @@ export class ChartConfigService {
     const valueKind = config.valueKind ?? 'number';
     const manyPoints = points.length > 80;
     const hugeSeries = points.length > 300;
-    const maxPoint = points.reduce<LineDatum | null>((best, current) => (best === null || current.value > best.value ? current : best), null);
-    const minPoint = points.reduce<LineDatum | null>((best, current) => (best === null || current.value < best.value ? current : best), null);
-    const latestPoint = points.at(-1) ?? null;
     const average = config.showAverage === false || !points.length ? null : points.reduce((sum, item) => sum + item.value, 0) / points.length;
     const showZoom = points.length > 20;
 
@@ -68,6 +65,24 @@ export class ChartConfigService {
         bottom: showZoom ? 72 : 44
       },
       tooltip: this.buildLineTooltip(currency, valueKind),
+      axisPointer: {
+        type: 'cross',
+        snap: true,
+        lineStyle: {
+          color: 'rgba(229, 238, 252, 0.45)',
+          width: 1,
+          type: 'dashed'
+        },
+        crossStyle: {
+          color: 'rgba(229, 238, 252, 0.45)',
+          width: 1,
+          type: 'dashed'
+        },
+        label: {
+          backgroundColor: 'rgba(8, 12, 24, 0.96)',
+          color: '#e5eefc'
+        }
+      },
       toolbox: {
         right: 10,
         top: 10,
@@ -163,21 +178,6 @@ export class ChartConfigService {
           },
           emphasis: {
             focus: 'series'
-          },
-          markPoint: {
-            symbolSize: manyPoints ? 16 : 18,
-            itemStyle: {
-              color: '#8b5cf6',
-              borderColor: 'rgba(255, 255, 255, 0.55)',
-              borderWidth: 1
-            },
-            label: {
-              color: '#e5eefc',
-              fontSize: 10,
-              fontWeight: 600,
-              distance: 4
-            },
-            data: this.buildLineMarks(maxPoint, minPoint, latestPoint)
           },
           markLine: average !== null
             ? {
@@ -342,12 +342,6 @@ export class ChartConfigService {
         if (typeof data?.value === 'number') {
           lines.push(`Valor: ${this.formatAxisValue(data.value, valueKind, currency)}`);
         }
-        if (typeof data?.changeAmount === 'number') {
-          lines.push(`Cambio: ${this.formatAxisValue(data.changeAmount, valueKind, currency)}`);
-        }
-        if (typeof data?.changePercent === 'number') {
-          lines.push(`Cambio %: ${this.formatPercent(data.changePercent)}`);
-        }
         return lines.join('<br/>');
       }
     };
@@ -380,20 +374,6 @@ export class ChartConfigService {
         return lines.join('<br/>');
       }
     };
-  }
-
-  private buildLineMarks(maxPoint: LineDatum | null, minPoint: LineDatum | null, latestPoint: LineDatum | null): Array<Record<string, unknown>> {
-    const marks: Array<Record<string, unknown>> = [];
-    if (maxPoint) {
-      marks.push({ name: 'Máximo', value: maxPoint.value, xAxis: maxPoint.label, yAxis: maxPoint.value });
-    }
-    if (minPoint) {
-      marks.push({ name: 'Mínimo', value: minPoint.value, xAxis: minPoint.label, yAxis: minPoint.value });
-    }
-    if (latestPoint) {
-      marks.push({ name: 'Último', value: latestPoint.value, xAxis: latestPoint.label, yAxis: latestPoint.value });
-    }
-    return marks;
   }
 
   private normalizeLinePoints(points: SeriesPoint[]): LineDatum[] {
@@ -462,7 +442,13 @@ export class ChartConfigService {
       return '';
     }
     const date = parseExcelDate(value);
-    return date ? new Intl.DateTimeFormat('es-AR').format(date) : value;
+    if (!date) {
+      return value;
+    }
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const year = date.getUTCFullYear();
+    return `${day}-${month}-${year}`;
   }
 
   private lastLinePoints: LineDatum[] = [];
