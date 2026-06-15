@@ -47,7 +47,8 @@
 
 .control-group select,
 .export-grid select,
-.simulator input {
+.simulator input,
+.export-grid textarea {
   width: 100%;
   border-radius: 12px;
   border: 1px solid var(--panel-border);
@@ -74,6 +75,10 @@
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
+}
+
+.export-actions.align-end {
+  justify-content: flex-end;
 }
 
 .export-actions button {
@@ -304,6 +309,19 @@
   color: var(--muted);
 }
 
+.liquidity-panel {
+  gap: 0.9rem;
+}
+
+.cash-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.period-grid {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
 @media (max-width: 1180px) {
   .cards,
   .cards-3,
@@ -311,7 +329,9 @@
   .simulator,
   .grid-2,
   .control-group,
-  .export-grid {
+  .export-grid,
+  .cash-grid,
+  .period-grid {
     grid-template-columns: 1fr;
   }
 }

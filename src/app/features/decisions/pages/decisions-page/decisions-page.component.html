@@ -156,7 +156,7 @@
         <label>
           Modo de exportacion
           <select [(ngModel)]="exportMode">
-            <option value="summary">Resumido para ChatGPT</option>
+            <option value="summary">Resumido para ChatGPT (recomendado)</option>
             <option value="full">Completo tecnico</option>
           </select>
         </label>
@@ -191,6 +191,46 @@
           Enmascarar importes en exportacion
         </label>
       </div>
+
+      <section class="panel liquidity-panel">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Liquidez operativa</p>
+            <h3>Cash disponible opcional</h3>
+          </div>
+        </div>
+
+        <p class="lead export-lead">
+          Estos valores no salen del Excel. Si los completás, el export los incluirá; si no, quedarán como "No informado".
+        </p>
+
+        <div class="export-grid cash-grid">
+          <label>
+            Cash ARS disponible
+            <input type="number" min="0" [(ngModel)]="weeklyContext.cashArs" (ngModelChange)="persistWeeklyContext()" />
+          </label>
+
+          <label>
+            Cash USD disponible
+            <input type="number" min="0" [(ngModel)]="weeklyContext.cashUsd" (ngModelChange)="persistWeeklyContext()" />
+          </label>
+        </div>
+
+        <div class="export-grid period-grid">
+          <label>
+            Período de movimientos recientes
+            <select [(ngModel)]="movementsPeriodDays">
+              <option [ngValue]="7">7 días</option>
+              <option [ngValue]="15">15 días</option>
+              <option [ngValue]="30">30 días</option>
+            </select>
+          </label>
+
+          <div class="export-actions align-end">
+            <button type="button" class="secondary" (click)="clearWeeklyContext()">Limpiar cash disponible</button>
+          </div>
+        </div>
+      </section>
 
       <div class="export-actions">
         <button type="button" class="primary" (click)="exportContext(snapshot)">Exportar contexto GPT</button>

@@ -5,7 +5,7 @@ import { SimpleChartComponent } from '../../../../shared/components/simple-chart
 import { PortfolioAppState, PortfolioStateService } from '../../../../core/services/portfolio-state.service';
 import { PrivacyModeService } from '../../../../core/services/privacy-mode.service';
 import { DecisionInsightsService } from '../../services/decision-insights.service';
-import { ExportFormat, ExportCurrencyScope, ExportMode, ExportSimulationCurrency, GptPortfolioExportOptions, GptPortfolioExportService } from '../../services/gpt-portfolio-export.service';
+import { ExportFormat, ExportCurrencyScope, ExportMode, ExportSimulationCurrency, GptPortfolioExportOptions, GptPortfolioExportService, WeeklyManualContext } from '../../services/gpt-portfolio-export.service';
 import { FileDownloadService } from '../../../../core/services/file-download.service';
 
 @Component({
@@ -15,6 +15,7 @@ import { FileDownloadService } from '../../../../core/services/file-download.ser
   styleUrls: ['./decisions-page.component.scss']
 })
 export class DecisionsPageComponent {
+  readonly weeklyContextStorageKey = 'frontend-inversion.weekly-export-context';
   currencyScope: ExportCurrencyScope = 'ALL';
   simulationCurrency: ExportSimulationCurrency = 'ARS';
   exportMode: ExportMode = 'summary';
@@ -22,12 +23,14 @@ export class DecisionsPageComponent {
   months = 12;
   annualReturnPercent = 15;
   exportFormat: ExportFormat = 'markdown';
-  includeFullPurchases = true;
+  includeFullPurchases = false;
   includeMonthlyHistory = true;
   includeSignals = true;
   includeDataReview = true;
   includeSimulation = true;
   maskSensitiveExports = false;
+  movementsPeriodDays = 7;
+  weeklyContext: WeeklyManualContext = this.loadWeeklyContext();
 
   constructor(
     public readonly state: PortfolioStateService,
@@ -82,8 +85,30 @@ export class DecisionsPageComponent {
       includeSimulation: this.includeSimulation,
       maskSensitive: this.maskSensitiveExports,
       currencyScope: this.currencyScope,
-      simulationCurrency: this.simulationCurrency
+      simulationCurrency: this.simulationCurrency,
+      movementsPeriodDays: this.movementsPeriodDays,
+      manualContext: this.weeklyContext
     };
+  }
+
+  persistWeeklyContext(): void {
+    try {
+      localStorage.setItem(this.weeklyContextStorageKey, JSON.stringify(this.weeklyContext));
+    } catch {
+      // Ignore storage errors in private mode or restricted browsers.
+    }
+  }
+
+  clearWeeklyContext(): void {
+    this.weeklyContext = {
+      cashArs: null,
+      cashUsd: null
+    };
+    try {
+      localStorage.removeItem(this.weeklyContextStorageKey);
+    } catch {
+      // Ignore storage errors.
+    }
   }
 
   private today(): string {
@@ -92,5 +117,27 @@ export class DecisionsPageComponent {
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+  }
+
+  private loadWeeklyContext(): WeeklyManualContext {
+    try {
+      const raw = localStorage.getItem(this.weeklyContextStorageKey);
+      if (!raw) {
+        return {
+          cashArs: null,
+          cashUsd: null
+        };
+      }
+      const parsed = JSON.parse(raw) as WeeklyManualContext;
+      return {
+        cashArs: typeof parsed?.cashArs === 'number' ? parsed.cashArs : null,
+        cashUsd: typeof parsed?.cashUsd === 'number' ? parsed.cashUsd : null
+      };
+    } catch {
+      return {
+        cashArs: null,
+        cashUsd: null
+      };
+    }
   }
 }

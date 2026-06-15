@@ -8,6 +8,7 @@ import {
   AnnualInvestmentSummary,
   DailyBalance,
   InvestmentOperation,
+  InvestmentSale,
   MarketSignal,
   MonthlyInvestmentSummary,
   PortfolioPosition,
@@ -31,6 +32,13 @@ export interface GptPortfolioExportOptions {
   maskSensitive: boolean;
   currencyScope: ExportCurrencyScope;
   simulationCurrency: ExportSimulationCurrency;
+  movementsPeriodDays: number;
+  manualContext: WeeklyManualContext;
+}
+
+export interface WeeklyManualContext {
+  cashArs: number | null;
+  cashUsd: number | null;
 }
 
 type TableRow = Record<string, any>;
@@ -178,6 +186,49 @@ interface ExportDataReviewItem {
   sugerencia: string;
 }
 
+interface ExportRecentMovementCurrencySummary {
+  currency: 'ALL' | 'ARS' | 'USD';
+  purchasesGross: string;
+  salesGross: string;
+  operatingFlow: string;
+  purchaseCount: number;
+  saleCount: number;
+}
+
+interface ExportRecentMovementRow {
+  symbol: string;
+  currency: string;
+  date: string;
+  quantity: string;
+  amount: string;
+  note: string;
+}
+
+interface ExportRecentMovements {
+  periodDays: number;
+  referenceDate: string;
+  startDate: string;
+  manualContext: WeeklyManualContext;
+  summaryByCurrency: ExportRecentMovementCurrencySummary[];
+  newPositions: Array<{
+    symbol: string;
+    currency: string;
+    firstPurchaseDate: string;
+    purchasesInPeriod: number;
+    purchasesGross: string;
+    note: string;
+  }>;
+  closedPositions: Array<{
+    symbol: string;
+    currency: string;
+    saleDate: string;
+    buyDate: string;
+    note: string;
+  }>;
+  recentPurchases: ExportRecentMovementRow[];
+  recentSales: ExportRecentMovementRow[];
+}
+
 interface GptPortfolioExport {
   metadata: {
     generatedAt: string;
@@ -209,6 +260,7 @@ interface GptPortfolioExport {
     signals30D: ExportSignalRow[];
     excludedSignals: Array<{ especie: string; motivo: string }>;
   };
+  recentMovements: ExportRecentMovements;
   concentration: ExportConcentration;
   distributions: {
     moneda: Array<{ categoria: string; monto: string; pesoPercent: string; cantidadEspecies: number }>;
@@ -312,6 +364,7 @@ export class GptPortfolioExportService {
     const decisionInsights = this.buildDecisionInsights(viewModel, enrichedPositions, concentration, alerts);
     const dataReview = this.buildDataReview(viewModel, healthReport?.findings ?? [], alerts, strategicSplit, monthlySummary, simulation, snapshot);
     const operationsBySymbol = this.buildOperationsBySymbol(snapshot.dataset?.operations ?? [], enrichedPositions, options);
+    const recentMovements = this.buildRecentMovements(snapshot, options);
 
     return {
       metadata: {
@@ -332,6 +385,7 @@ export class GptPortfolioExportService {
       positions: this.buildPositions(enrichedPositions, options, alertIndex),
       operationsBySymbol,
       alerts,
+      recentMovements,
       concentration,
       distributions,
       decisionInsights,
@@ -521,7 +575,7 @@ export class GptPortfolioExportService {
       return { status: 'Revisar alto', reason: 'Posible error de escala en alerta asociada' };
     }
     if ((position.resultPercent ?? 0) < -10) {
-      return { status: 'Revisar alto', reason: `Resultado ${this.formatPercent(position.resultPercent)}` };
+      return { status: 'Revisar alto', reason: this.positionReviewReason(position, alert) };
     }
     if ((alert?.nearestDistance !== null && Math.abs(alert?.nearestDistance ?? 0) <= 5) || (position.resultPercent ?? 0) < 0 || (position.portfolioWeight ?? 0) >= 5) {
       return { status: 'Revisar', reason: this.positionReviewReason(position, alert) };
@@ -531,10 +585,19 @@ export class GptPortfolioExportService {
 
   private positionReviewReason(
     position: PortfolioPosition,
-    alert: { nearestDistance: number | null; nearestNote: string | null } | null
+    alert: { count?: number; nearestDistance: number | null; nearestNote: string | null } | null
   ): string {
+    if (this.isFciOrLiquidityPosition(position)) {
+      return 'FCI / liquidez. No usar señales tecnicas de precio.';
+    }
+    if (this.isCryptoPosition(position)) {
+      return 'Cripto con volatilidad alta; revisar exposicion y riesgo.';
+    }
     if (alert?.nearestNote) {
       return `Alerta cercana: ${alert.nearestNote}`;
+    }
+    if (!alert?.count) {
+      return 'Sin alertas manuales asociadas';
     }
     if ((position.resultPercent ?? 0) < 0) {
       return `Resultado ${this.formatPercent(position.resultPercent)}`;
@@ -542,7 +605,7 @@ export class GptPortfolioExportService {
     if ((position.portfolioWeight ?? 0) >= 5) {
       return `Peso relevante ${this.formatPercent(position.portfolioWeight)}`;
     }
-    return 'Revisar';
+    return 'Revisar seguimiento de la posicion';
   }
 
   private buildAlerts(
@@ -636,7 +699,11 @@ export class GptPortfolioExportService {
       }
     }
 
-    return { visible5D, visible30D, excluded };
+    return {
+      visible5D,
+      visible30D,
+      excluded: this.uniqueByKey(excluded, (row) => `${row.especie.toUpperCase()}|${row.motivo.toLowerCase()}`)
+    };
   }
 
   private isTechnicalSignalDudosa(position: PortfolioPosition | null): boolean {
@@ -821,19 +888,30 @@ export class GptPortfolioExportService {
 
     const ordered = [...strategicSplit].sort((a, b) => this.dateValue(a.date) - this.dateValue(b.date));
     const last = ordered[ordered.length - 1];
+    const summedRetirementAmountARS = ordered.reduce((sum, item) => sum + Number(item.retirementAmountARS ?? 0), 0);
+    const summedRetirementAmountUSD = ordered.reduce((sum, item) => sum + Number(item.retirementAmountUSD ?? 0), 0);
+    const summedSavingsAmountARS = ordered.reduce((sum, item) => sum + Number(item.savingsAmountARS ?? 0), 0);
+    const summedSavingsAmountUSD = ordered.reduce((sum, item) => sum + Number(item.savingsAmountUSD ?? 0), 0);
+    const arsTotal = summedRetirementAmountARS + summedSavingsAmountARS;
+    const usdTotal = summedRetirementAmountUSD + summedSavingsAmountUSD;
+    const arsRetirementPercent = arsTotal > 0 ? (summedRetirementAmountARS / arsTotal) * 100 : null;
+    const usdRetirementPercent = usdTotal > 0 ? (summedRetirementAmountUSD / usdTotal) * 100 : null;
+    const percentSamples = [arsRetirementPercent, usdRetirementPercent].filter((value): value is number => value !== null);
+    const retirementPercent = percentSamples.length ? percentSamples.reduce((sum, value) => sum + value, 0) / percentSamples.length : null;
+    const savingsPercent = retirementPercent !== null ? 100 - retirementPercent : null;
     const maxValueARS = Math.max(...ordered.map((item) => Number(item.valueARS ?? 0)));
     const maxValueUSD = Math.max(...ordered.map((item) => Number(item.valueUSD ?? 0)));
     const scaleIssue = totalPortfolioValue > 0 && maxValueARS > 0 && maxValueARS < totalPortfolioValue * 0.02 && maxValueUSD <= totalPortfolioValue * 0.02;
 
     return {
       fecha: this.formatDate(last.date),
-      jubilacionPercent: this.formatPercent(last.retirementPercent),
-      ahorroPercent: this.formatPercent(last.savingsPercent),
-      desvioPercent: this.formatPercent(Math.abs((last.retirementPercent ?? 0) - 50)),
-      montoJubilacionARS: scaleIssue ? 'N/D' : this.formatMoney(last.retirementAmountARS, 'ARS'),
-      montoAhorroARS: scaleIssue ? 'N/D' : this.formatMoney(last.savingsAmountARS, 'ARS'),
-      montoJubilacionUSD: scaleIssue ? 'N/D' : this.formatMoney(last.retirementAmountUSD, 'USD'),
-      montoAhorroUSD: scaleIssue ? 'N/D' : this.formatMoney(last.savingsAmountUSD, 'USD'),
+      jubilacionPercent: this.formatPercent(retirementPercent),
+      ahorroPercent: this.formatPercent(savingsPercent),
+      desvioPercent: this.formatPercent(Math.abs((retirementPercent ?? 0) - 50)),
+      montoJubilacionARS: scaleIssue ? 'N/D' : this.formatMoney(summedRetirementAmountARS, 'ARS'),
+      montoAhorroARS: scaleIssue ? 'N/D' : this.formatMoney(summedSavingsAmountARS, 'ARS'),
+      montoJubilacionUSD: scaleIssue ? 'N/D' : this.formatMoney(summedRetirementAmountUSD, 'USD'),
+      montoAhorroUSD: scaleIssue ? 'N/D' : this.formatMoney(summedSavingsAmountUSD, 'USD'),
       warning: scaleIssue ? 'La escala de Tabla35 parece inconsistente con el valor total del portafolio.' : null
     };
   }
@@ -974,7 +1052,160 @@ export class GptPortfolioExportService {
       });
     }
 
-    return items;
+    return this.uniqueByKey(items, (item) =>
+      `${item.severidad.toLowerCase()}|${item.fuente.toLowerCase()}|${item.especie.toLowerCase()}|${item.problema.toLowerCase()}|${item.sugerencia.toLowerCase()}`
+    );
+  }
+
+  private buildRecentMovements(snapshot: PortfolioAppState, options: GptPortfolioExportOptions): ExportRecentMovements {
+    const operations = [...(snapshot.dataset?.operations ?? [])]
+      .filter((operation) => Boolean(operation.symbol))
+      .sort((a, b) => this.dateValue(a.date) - this.dateValue(b.date));
+    const sales = [...(snapshot.dataset?.sales ?? [])]
+      .filter((sale) => Boolean(sale.symbol))
+      .sort((a, b) => this.dateValue(a.sellDate ?? a.buyDate) - this.dateValue(b.sellDate ?? b.buyDate));
+    const currentPositions = new Set((snapshot.dataset?.positions ?? []).map((position) => position.symbol.toUpperCase()));
+    const latestDateValue = Math.max(
+      0,
+      ...operations.map((operation) => this.dateValue(operation.date)),
+      ...sales.map((sale) => this.dateValue(sale.sellDate ?? sale.buyDate))
+    );
+    const referenceDate = latestDateValue ? new Date(latestDateValue) : new Date();
+    const startDate = new Date(referenceDate.getTime() - Math.max(1, options.movementsPeriodDays) * 24 * 60 * 60 * 1000);
+
+    const inPeriod = (value: string | Date | null | undefined) => {
+      const time = this.dateValue(value);
+      return time >= startDate.getTime() && time <= referenceDate.getTime();
+    };
+
+    const recentPurchases = operations.filter((operation) => inPeriod(operation.date));
+    const recentSales = sales.filter((sale) => inPeriod(sale.sellDate ?? sale.buyDate));
+    const currencyBuckets = new Map<'ARS' | 'USD', {
+      purchasesGross: number;
+      salesGross: number;
+      purchaseCount: number;
+      saleCount: number;
+    }>();
+
+    for (const currency of ['ARS', 'USD'] as const) {
+      currencyBuckets.set(currency, {
+        purchasesGross: 0,
+        salesGross: 0,
+        purchaseCount: 0,
+        saleCount: 0
+      });
+    }
+
+    const purchaseAmount = (operation: InvestmentOperation): number => {
+      return Number(operation.total ?? operation.amount ?? 0);
+    };
+
+    const saleAmount = (sale: InvestmentSale): number => {
+      const quantity = Number(sale.quantity ?? 0);
+      const fallback = Number(sale.sellPrice ?? 0) * quantity;
+      return Number(sale.total ?? sale.amount ?? sale.currentValue ?? fallback ?? 0);
+    };
+
+    for (const operation of recentPurchases) {
+      const currency = this.normalizeCurrency(operation.currency);
+      const bucket = currencyBuckets.get(currency);
+      if (!bucket) continue;
+      bucket.purchaseCount += 1;
+      bucket.purchasesGross += purchaseAmount(operation);
+    }
+
+    for (const sale of recentSales) {
+      const currency = this.normalizeCurrency(sale.currency);
+      const bucket = currencyBuckets.get(currency);
+      if (!bucket) continue;
+      bucket.saleCount += 1;
+      bucket.salesGross += saleAmount(sale);
+    }
+
+    const firstPurchaseBySymbol = new Map<string, InvestmentOperation>();
+    for (const operation of operations) {
+      const key = operation.symbol.toUpperCase();
+      if (!firstPurchaseBySymbol.has(key)) {
+        firstPurchaseBySymbol.set(key, operation);
+      }
+    }
+
+    const newPositions = this.uniqueByKey(
+      recentPurchases
+        .map((operation) => {
+          const firstPurchase = firstPurchaseBySymbol.get(operation.symbol.toUpperCase()) ?? operation;
+          if (!inPeriod(firstPurchase.date)) {
+            return null;
+          }
+          const symbol = operation.symbol.toUpperCase();
+          const symbolPurchases = recentPurchases.filter((item) => item.symbol.toUpperCase() === symbol);
+          const gross = symbolPurchases.reduce((sum, item) => sum + purchaseAmount(item), 0);
+          return {
+            symbol,
+            currency: this.normalizeCurrency(operation.currency),
+            firstPurchaseDate: this.formatDate(firstPurchase.date),
+            purchasesInPeriod: symbolPurchases.length,
+            purchasesGross: this.formatMoney(gross, operation.currency),
+            note: 'Primera compra dentro del periodo'
+          };
+        })
+        .filter((item) => item !== null) as Array<{
+          symbol: string;
+          currency: string;
+          firstPurchaseDate: string;
+          purchasesInPeriod: number;
+          purchasesGross: string;
+          note: string;
+        }>,
+      (item) => item.symbol
+    );
+
+    const closedPositions = this.uniqueByKey(
+      recentSales
+        .filter((sale) => !currentPositions.has(sale.symbol.toUpperCase()))
+        .map((sale) => ({
+          symbol: sale.symbol.toUpperCase(),
+          currency: this.normalizeCurrency(sale.currency),
+          saleDate: this.formatDate(sale.sellDate ?? sale.buyDate),
+          buyDate: this.formatDate(sale.buyDate),
+          note: 'Venta reciente sin posicion actual en TablaPosiciones'
+        })),
+      (item) => item.symbol
+    );
+
+    const toMovementRow = (kind: 'Compra' | 'Venta', symbol: string, currency: string, date: string | Date | null | undefined, quantity: number | null | undefined, amount: number | null | undefined): ExportRecentMovementRow => ({
+      symbol,
+      currency: this.normalizeCurrency(currency),
+      date: this.formatDate(date),
+      quantity: this.maskOrFormatNumber(quantity, options, 4),
+      amount: this.maskOrFormatMoney(amount, currency, options),
+      note: kind
+    });
+
+    return {
+      periodDays: Math.max(1, options.movementsPeriodDays),
+      referenceDate: this.formatDate(referenceDate),
+      startDate: this.formatDate(startDate),
+      manualContext: options.manualContext,
+      summaryByCurrency: Array.from(currencyBuckets.entries()).map(([currency, bucket]) => ({
+        currency,
+        purchasesGross: this.formatMoney(bucket.purchasesGross, currency),
+        salesGross: this.formatMoney(bucket.salesGross, currency),
+        operatingFlow: this.formatMoney(bucket.salesGross - bucket.purchasesGross, currency),
+        purchaseCount: bucket.purchaseCount,
+        saleCount: bucket.saleCount
+      })),
+      newPositions,
+      closedPositions,
+      recentPurchases: recentPurchases
+        .slice(-10)
+        .reverse()
+        .map((operation) => toMovementRow('Compra', operation.symbol, operation.currency, operation.date, operation.quantity, purchaseAmount(operation))),
+      recentSales: recentSales
+        .slice(-10)
+        .reverse()
+        .map((sale) => toMovementRow('Venta', sale.symbol, sale.currency, sale.sellDate ?? sale.buyDate, sale.quantity, saleAmount(sale)))
+    };
   }
 
   private buildOperationsBySymbol(
@@ -1045,6 +1276,7 @@ export class GptPortfolioExportService {
     lines.push('');
     lines.push(this.positionsMarkdown(exportData.positions));
     lines.push('');
+    lines.push(this.recentMovementsMarkdown(exportData.recentMovements), '');
 
     if (options.mode === 'full' || options.includeFullPurchases) {
       lines.push('## Compras y lotes individuales', this.operationsMarkdown(exportData.operationsBySymbol), '');
@@ -1064,7 +1296,7 @@ export class GptPortfolioExportService {
     }
 
     lines.push(this.concentrationMarkdown(exportData.concentration), '');
-    lines.push(this.distributionMarkdown(exportData.distributions), '');
+    lines.push(this.distributionMarkdown(exportData.distributions, options), '');
     lines.push(this.insightsMarkdown(exportData.decisionInsights), '');
 
     if (options.includeDataReview) {
@@ -1282,16 +1514,21 @@ export class GptPortfolioExportService {
     return lines.join('\n');
   }
 
-  private distributionMarkdown(distributions: GptPortfolioExport['distributions']): string {
-    return [
+  private distributionMarkdown(distributions: GptPortfolioExport['distributions'], options: GptPortfolioExportOptions): string {
+    const sections = [
       '## Distribucion del portafolio',
       this.distributionSectionMarkdown('Distribucion por moneda', distributions.moneda),
       this.distributionSectionMarkdown('Distribucion por tipo de activo', distributions.tipoActivo),
       this.distributionSectionMarkdown('Distribucion por sector', distributions.sector),
-      this.distributionSectionMarkdown('Distribucion por subsector', distributions.subsector),
       this.distributionSectionMarkdown('Distribucion por region', distributions.region),
-      this.distributionSectionMarkdown('Top 10 especies', distributions.especiesTop10)
-    ].join('\n');
+      this.distributionSectionMarkdown('Top 10 especies', distributions.especiesTop10, false)
+    ];
+
+    if (options.mode === 'full') {
+      sections.splice(4, 0, this.distributionSectionMarkdown('Distribucion por subsector', distributions.subsector));
+    }
+
+    return sections.join('\n');
   }
 
   private insightsMarkdown(insights: GptPortfolioExport['decisionInsights']): string {
@@ -1330,7 +1567,7 @@ export class GptPortfolioExportService {
   }
 
   private historyMarkdown(monthlySummary: Array<TableRow>, annualSummary: Array<TableRow>, options: GptPortfolioExportOptions): string {
-    const monthlyRows = monthlySummary.slice(0, options.mode === 'full' ? monthlySummary.length : 12);
+    const monthlyRows = options.includeMonthlyHistory ? this.monthlyRowsForMode(monthlySummary, options) : [];
     return [
       '## Historial mensual y anual',
       '### Mensual',
@@ -1347,7 +1584,7 @@ export class GptPortfolioExportService {
         { header: 'Rendimiento real acum %', key: 'rendimientoRealAcumPercent' },
         { header: 'Ratio aporte', key: 'ratioAporte' },
         { header: 'Observacion', key: 'observacion' }
-      ]) : 'Sin datos mensuales.',
+      ]) : 'Historial mensual desactivado o sin datos.',
       '',
       '### Anual',
       annualSummary.length ? this.tableFromRows(annualSummary, [
@@ -1365,6 +1602,19 @@ export class GptPortfolioExportService {
     ].join('\n');
   }
 
+  private monthlyRowsForMode(monthlySummary: Array<TableRow>, options: GptPortfolioExportOptions): Array<TableRow> {
+    const ordered = [...monthlySummary].sort((a, b) => this.monthKey(String(a['mes'] ?? '')) - this.monthKey(String(b['mes'] ?? '')));
+    if (options.mode === 'full') {
+      return ordered;
+    }
+
+    const recent = ordered.slice(-3);
+    const atypical = ordered.filter((row) => String(row['observacion'] ?? 'OK') !== 'OK');
+    return this.uniqueByKey([...atypical, ...recent], (row) => String(row['mes'] ?? '')).sort(
+      (a, b) => this.monthKey(String(a['mes'] ?? '')) - this.monthKey(String(b['mes'] ?? ''))
+    );
+  }
+
   private splitMarkdown(strategicSplit: GptPortfolioExport['strategicSplit']): string {
     if (!strategicSplit) {
       return '## Split estrategico\n\nSin split estrategico.';
@@ -1375,6 +1625,7 @@ export class GptPortfolioExportService {
       lines.push('No usar estos montos para decisiones hasta revisar el Excel.');
       lines.push('');
     }
+    lines.push('Nota: los porcentajes se calculan como promedio entre ARS y USD, sin convertir monedas.');
     lines.push(`- % Jubilacion: ${strategicSplit.jubilacionPercent ?? 'N/D'}`);
     lines.push(`- % Ahorro: ${strategicSplit.ahorroPercent ?? 'N/D'}`);
     lines.push(`- Desvio vs 50/50: ${strategicSplit.desvioPercent ?? 'N/D'}`);
@@ -1384,6 +1635,101 @@ export class GptPortfolioExportService {
       lines.push(`- Monto jubilacion USD: ${strategicSplit.montoJubilacionUSD ?? 'N/D'}`);
       lines.push(`- Monto ahorro USD: ${strategicSplit.montoAhorroUSD ?? 'N/D'}`);
     }
+    return lines.join('\n');
+  }
+
+  private recentMovementsMarkdown(recentMovements: ExportRecentMovements): string {
+    const lines = ['## Movimientos recientes detectados en el Excel'];
+    const cashLines = [
+      recentMovements.manualContext.cashArs !== null ? `ARS ${this.formatMoney(recentMovements.manualContext.cashArs, 'ARS')}` : null,
+      recentMovements.manualContext.cashUsd !== null ? `USD ${this.formatMoney(recentMovements.manualContext.cashUsd, 'USD')}` : null
+    ].filter(Boolean) as string[];
+    lines.push(
+      `- Periodo analizado: ultimos ${recentMovements.periodDays} dias`,
+      `- Referencia: ${recentMovements.referenceDate}`,
+      `- Desde: ${recentMovements.startDate}`,
+      `- Cash disponible informado: ${cashLines.length ? cashLines.join(' | ') : 'No informado'}`,
+      `- Compras brutas: ${recentMovements.summaryByCurrency.map((item) => `${item.currency} ${item.purchasesGross}`).join(' | ') || 'N/D'}`,
+      `- Ventas brutas: ${recentMovements.summaryByCurrency.map((item) => `${item.currency} ${item.salesGross}`).join(' | ') || 'N/D'}`,
+      `- Flujo operativo detectado (ventas - compras): ${recentMovements.summaryByCurrency.map((item) => `${item.currency} ${item.operatingFlow}`).join(' | ') || 'N/D'}`,
+      `- Conteo compras: ${recentMovements.summaryByCurrency.map((item) => `${item.currency} ${item.purchaseCount}`).join(' | ') || 'N/D'}`,
+      `- Conteo ventas: ${recentMovements.summaryByCurrency.map((item) => `${item.currency} ${item.saleCount}`).join(' | ') || 'N/D'}`,
+      '- Nota: el flujo operativo no necesariamente representa aporte neto.'
+    );
+
+    if (recentMovements.summaryByCurrency.length) {
+      lines.push(
+        '',
+        this.tableFromRows(recentMovements.summaryByCurrency, [
+          { header: 'Moneda', key: 'currency' },
+          { header: 'Compras brutas', key: 'purchasesGross' },
+          { header: 'Ventas brutas', key: 'salesGross' },
+          { header: 'Flujo operativo', key: 'operatingFlow' },
+          { header: 'Conteo compras', key: 'purchaseCount' },
+          { header: 'Conteo ventas', key: 'saleCount' }
+        ])
+      );
+    }
+
+    if (recentMovements.newPositions.length) {
+      lines.push(
+        '',
+        '### Nuevas posiciones recientes detectadas desde Tabla6',
+        this.tableFromRows(recentMovements.newPositions, [
+          { header: 'Especie', key: 'symbol' },
+          { header: 'Moneda', key: 'currency' },
+          { header: 'Primera compra', key: 'firstPurchaseDate' },
+          { header: 'Compras en periodo', key: 'purchasesInPeriod' },
+          { header: 'Compras brutas', key: 'purchasesGross' },
+          { header: 'Nota', key: 'note' }
+        ])
+      );
+    }
+
+    if (recentMovements.closedPositions.length) {
+      lines.push(
+        '',
+        '### Posibles posiciones cerradas',
+        this.tableFromRows(recentMovements.closedPositions, [
+          { header: 'Especie', key: 'symbol' },
+          { header: 'Moneda', key: 'currency' },
+          { header: 'Fecha venta', key: 'saleDate' },
+          { header: 'Fecha compra', key: 'buyDate' },
+          { header: 'Nota', key: 'note' }
+        ])
+      );
+    }
+
+    if (recentMovements.recentPurchases.length) {
+      lines.push(
+        '',
+        '### Compras recientes',
+        this.tableFromRows(recentMovements.recentPurchases, [
+          { header: 'Especie', key: 'symbol' },
+          { header: 'Moneda', key: 'currency' },
+          { header: 'Fecha', key: 'date' },
+          { header: 'Cantidad', key: 'quantity' },
+          { header: 'Monto', key: 'amount' },
+          { header: 'Nota', key: 'note' }
+        ])
+      );
+    }
+
+    if (recentMovements.recentSales.length) {
+      lines.push(
+        '',
+        '### Ventas recientes',
+        this.tableFromRows(recentMovements.recentSales, [
+          { header: 'Especie', key: 'symbol' },
+          { header: 'Moneda', key: 'currency' },
+          { header: 'Fecha', key: 'date' },
+          { header: 'Cantidad', key: 'quantity' },
+          { header: 'Monto', key: 'amount' },
+          { header: 'Nota', key: 'note' }
+        ])
+      );
+    }
+
     return lines.join('\n');
   }
 
@@ -1401,32 +1747,50 @@ export class GptPortfolioExportService {
 
   private weeklyFocus(exportData: GptPortfolioExport): string[] {
     const focus: string[] = [];
+    const cashParts = [
+      exportData.recentMovements.manualContext.cashArs !== null ? `ARS ${this.formatMoney(exportData.recentMovements.manualContext.cashArs, 'ARS')}` : null,
+      exportData.recentMovements.manualContext.cashUsd !== null ? `USD ${this.formatMoney(exportData.recentMovements.manualContext.cashUsd, 'USD')}` : null
+    ].filter(Boolean) as string[];
+    const liquidity = exportData.recentMovements.summaryByCurrency
+      .map((item) => `${item.currency}: compras ${item.purchasesGross}, ventas ${item.salesGross}, flujo ${item.operatingFlow}`)
+      .join(' | ');
+    focus.push(`Liquidez operativa reciente: ${cashParts.length ? `${cashParts.join(' | ')}; ` : ''}${liquidity || 'N/D'}.`);
+
+    const movementsSummary = exportData.recentMovements.newPositions.length || exportData.recentMovements.closedPositions.length
+      ? `Nuevas posiciones ${exportData.recentMovements.newPositions.slice(0, 3).map((item) => item.symbol).join(', ') || 'N/D'}; posibles cierres ${exportData.recentMovements.closedPositions.slice(0, 3).map((item) => item.symbol).join(', ') || 'N/D'}.`
+      : 'Sin cambios relevantes detectados en las posiciones recientes.';
+    focus.push(`Movimientos recientes: ${movementsSummary}`);
+
+    const importantReview = this.dataReviewHighlights(exportData.dataReview);
+    focus.push(`Datos a revisar: ${importantReview || 'No hay hallazgos destacados.'}`);
+
     if (exportData.decisionInsights.peorPosicion) {
-      focus.push(`Revisar ${exportData.decisionInsights.peorPosicion.symbol} por resultado negativo.`);
+      focus.push(`Peor posicion: ${exportData.decisionInsights.peorPosicion.symbol} con ${exportData.decisionInsights.peorPosicion.resultPercent}.`);
+    }
+
+    const nearAlerts = this.uniqueStrings(this.alertSymbolsFromManual(exportData.alerts.manual));
+    if (nearAlerts.length) {
+      focus.push(`Alertas cercanas: ${nearAlerts.slice(0, 6).join(', ')}.`);
+    }
+    const caidas30 = this.uniqueStrings(this.signalSymbols(exportData.alerts.signals30D, 'caida'));
+    if (caidas30.length) {
+      focus.push(`Caidas 30D: ${caidas30.slice(0, 6).join(', ')}.`);
+    }
+    const recuperaciones30 = this.uniqueStrings(this.signalSymbols(exportData.alerts.signals30D, 'recuperacion'));
+    if (recuperaciones30.length) {
+      focus.push(`Recuperaciones 30D: ${recuperaciones30.slice(0, 6).join(', ')}.`);
     }
     if (exportData.decisionInsights.mejorPosicion) {
-      focus.push(`Vigilar ${exportData.decisionInsights.mejorPosicion.symbol} por ganancia acumulada alta.`);
+      focus.push(`Ganancia fuerte a vigilar: ${exportData.decisionInsights.mejorPosicion.symbol} con ${exportData.decisionInsights.mejorPosicion.resultPercent}.`);
     }
-    const nearAlerts = this.alertSymbolsFromManual(exportData.alerts.manual);
-    if (nearAlerts.length) {
-      focus.push(`Revisar alertas cercanas: ${nearAlerts.slice(0, 6).join(', ')}`);
-    }
-    const caidas30 = this.signalSymbols(exportData.alerts.signals30D, 'caida');
-    if (caidas30.length) {
-      focus.push(`Revisar señales 30D de caida en ${caidas30.join(', ')}`);
-    }
-    if (exportData.concentration.currencyWarning) {
-      focus.push('No mezclar ARS y USD en conclusiones generales.');
-    }
-    if (exportData.alerts.excludedSignals.length) {
-      focus.push('Confirmar si los FCI/VALORIZADO deben excluirse de señales técnicas.');
-    }
-    return focus.slice(0, 8);
+
+    return this.uniqueByKey(focus, (item) => item.toLowerCase()).slice(0, 8);
   }
 
   private distributionSectionMarkdown(
     title: string,
-    rows: Array<{ categoria: string; monto: string; pesoPercent: string; cantidadEspecies?: number }>
+    rows: Array<{ categoria: string; monto: string; pesoPercent: string; cantidadEspecies?: number }>,
+    includeCount = true
   ): string {
     if (!rows.length) {
       return `### ${title}\n\nSin datos.`;
@@ -1434,35 +1798,84 @@ export class GptPortfolioExportService {
     const columns = [
       { header: title.includes('especies') ? 'Especie' : title.includes('moneda') ? 'Moneda' : 'Categoria', key: 'categoria' },
       { header: 'Monto', key: 'monto' },
-      { header: 'Peso %', key: 'pesoPercent' },
-      { header: 'Cantidad especies', key: 'cantidadEspecies' }
+      { header: 'Peso %', key: 'pesoPercent' }
     ];
+    if (includeCount) {
+      columns.push({ header: 'Cantidad especies', key: 'cantidadEspecies' });
+    }
     return [`### ${title}`, this.tableFromRows(rows as TableRow[], columns)].join('\n');
   }
 
   private alertSymbolsFromManual(rows: ExportAlertRow[]): string[] {
-    return rows
+    return this.uniqueStrings(rows
       .filter((row) => row.observacion === 'Cercana' || row.observacion === 'Activada')
       .slice(0, 10)
       .map((row) => row.especie)
-      .filter(Boolean);
+      .filter(Boolean));
   }
 
   private signalSymbols(rows: ExportSignalRow[], type?: string): string[] {
-    return rows
+    return this.uniqueStrings(rows
       .filter((row) => !type || String(row.tipoSenal).toLowerCase().includes(type))
       .slice(0, 10)
       .map((row) => row.especie)
-      .filter(Boolean);
+      .filter(Boolean));
+  }
+
+  private dataReviewHighlights(rows: ExportDataReviewItem[]): string {
+    const important = this.uniqueByKey(
+      rows.filter((row) => ['critical', 'warning'].includes(String(row.severidad).toLowerCase())),
+      (row) => `${row.especie.toLowerCase()}|${row.problema.toLowerCase()}`
+    );
+    if (!important.length) {
+      return '';
+    }
+    return important
+      .slice(0, 2)
+      .map((row) => `${row.especie}: ${row.problema}`)
+      .join(' | ');
+  }
+
+  private uniqueStrings(values: string[]): string[] {
+    return Array.from(new Set(values.map((value) => String(value).trim()).filter(Boolean)));
+  }
+
+  private uniqueByKey<T>(items: T[], keySelector: (item: T) => string): T[] {
+    const seen = new Set<string>();
+    const result: T[] = [];
+    for (const item of items) {
+      const key = keySelector(item);
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      result.push(item);
+    }
+    return result;
+  }
+
+  private isFciOrLiquidityPosition(position: PortfolioPosition): boolean {
+    const assetType = String(position.assetType ?? '').toUpperCase();
+    const positionType = String(position.positionType ?? '').toUpperCase();
+    return assetType.includes('FCI') || assetType.includes('MONEY MARKET') || positionType.includes('LIQUID');
+  }
+
+  private isCryptoPosition(position: PortfolioPosition): boolean {
+    const assetType = String(position.assetType ?? '').toUpperCase();
+    const positionType = String(position.positionType ?? '').toUpperCase();
+    const sector = String(position.sector ?? '').toUpperCase();
+    return assetType.includes('CRYPTO') || positionType.includes('CRYPTO') || sector.includes('CRYPTO');
   }
 
   private questions(): string[] {
     return [
+      '¿Que compras o ventas recientes cambiaron mas el perfil del portafolio?',
+      '¿El flujo operativo detectado parece consistente con la liquidez disponible?',
       '¿Cuales son las posiciones que explican la mayor parte de la concentracion?',
       '¿Hay alertas cercanas o activadas que ameriten seguimiento?',
       '¿Que señales tecnicas parecen utiles y cuales conviene ignorar?',
       '¿El historial mensual muestra meses atipicos o inconsistencias?',
-      '¿La simulacion actual sigue alineada con el plan de inversions?'
+      '¿La simulacion actual sigue alineada con el plan de inversion?'
     ];
   }
 

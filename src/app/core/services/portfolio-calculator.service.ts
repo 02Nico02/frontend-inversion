@@ -6,6 +6,7 @@ import {
   DailyBalance,
   HistoricalPrice,
   InvestmentOperation,
+  InvestmentSale,
   ManualAlert,
   MarketSignal,
   MonthlyInvestmentSummary,
@@ -28,6 +29,7 @@ export class PortfolioCalculatorService {
 
   buildDataset(tables: WorkbookTableData[]): PortfolioDataset {
     const operations = this.mapOperations(this.findTable(tables, ['Tabla6']));
+    const sales = this.mapSales(this.findTable(tables, ['Tabla13']));
     const positions = this.mapPositions(this.findTable(tables, ['TablaPosiciones']), operations);
     const historicalPrices = this.mapHistoricalPrices(this.findTable(tables, ['Tabla5']));
     const dailyBalances = this.mapDailyBalances(this.findTable(tables, ['Tabla14']));
@@ -50,6 +52,7 @@ export class PortfolioCalculatorService {
 
     return {
       operations,
+      sales,
       positions,
       historicalPrices,
       dailyBalances,
@@ -163,6 +166,40 @@ export class PortfolioCalculatorService {
         annualRate: this.normalization.asPercent(this.normalization.pickValue(row, ['TNA'])),
         top: this.normalization.asText(this.normalization.pickValue(row, ['TOP'])),
         trend: this.normalization.asText(this.normalization.pickValue(row, ['TENDENCIA'])),
+        sourceTable: table.name
+      }))
+      .filter((item) => item.symbol);
+  }
+
+  private mapSales(table: WorkbookTableData | null): InvestmentSale[] {
+    if (!table) {
+      return [];
+    }
+    return table.rows
+      .map((row, index) => ({
+        id: String(this.normalization.pickValue(row, ['ID']) ?? index + 1),
+        buyDate: this.normalization.asIsoDate(
+          this.normalization.pickValue(row, ['Fecha Com.', 'Fecha Compra', 'Fecha compra']) ?? this.normalization.pickValueByTokens(row, ['FECHA', 'COM'])
+        ),
+        sellDate: this.normalization.asIsoDate(
+          this.normalization.pickValue(row, ['Fecha Vent.', 'Fecha Venta', 'Fecha venta']) ?? this.normalization.pickValueByTokens(row, ['FECHA', 'VENT'])
+        ),
+        symbol: this.normalization.normalizeSymbol(this.normalization.pickValue(row, ['ESPECIE'])) ?? '',
+        currency: this.currencyMapper.normalizeCurrency(this.normalization.pickValue(row, ['MONEDA'])),
+        quantity: this.normalization.asNumber(this.normalization.pickValue(row, ['CANT.', 'CANTIDAD'])),
+        buyPrice: this.normalization.asNumber(
+          this.normalization.pickValue(row, ['PREC. COMP.', 'PRECIO COMPRA', 'PREC COMPRA']) ?? this.normalization.pickValueByTokens(row, ['PREC', 'COMP'])
+        ),
+        total: this.normalization.asNumber(this.normalization.pickValue(row, ['TOTAL', 'Monto', 'MONTO'])),
+        sellPrice: this.normalization.asNumber(
+          this.normalization.pickValue(row, ['PREC. EN V.', 'PREC. V.', 'PRECIO VENTA', 'PREC VENTA']) ?? this.normalization.pickValueByTokens(row, ['PREC', 'V'])
+        ),
+        currentValue: this.normalization.asNumber(this.normalization.pickValue(row, ['VALORI. ACT.', 'VALOR ACTUAL'])),
+        variation: this.normalization.asPercent(this.normalization.pickValue(row, ['VARIACION', 'VARIACIÓN', 'VARIACION %', 'Variacion %', 'Variación %'])),
+        amount: this.normalization.asNumber(this.normalization.pickValue(row, ['Monto', 'MONTO'])),
+        minimumObjective: this.normalization.asNumber(
+          this.normalization.pickValue(row, ['Objetivo minimo', 'Objetivo mínimo', 'OBJETIVO MINIMO', 'OBJETIVO MÍNIMO']) ?? this.normalization.pickValueByTokens(row, ['OBJETIVO', 'MIN'])
+        ),
         sourceTable: table.name
       }))
       .filter((item) => item.symbol);
@@ -439,3 +476,4 @@ export class PortfolioCalculatorService {
     });
   }
 }
+

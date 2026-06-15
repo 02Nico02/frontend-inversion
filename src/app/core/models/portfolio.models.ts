@@ -19,6 +19,23 @@ export interface InvestmentOperation {
   sourceTable?: string;
 }
 
+export interface InvestmentSale {
+  id: string;
+  buyDate: string | Date | null;
+  sellDate: string | Date | null;
+  symbol: string;
+  currency: string;
+  quantity: number | null;
+  buyPrice: number | null;
+  total: number | null;
+  sellPrice: number | null;
+  currentValue: number | null;
+  variation: number | null;
+  amount: number | null;
+  minimumObjective: number | null;
+  sourceTable?: string;
+}
+
 export interface PortfolioPosition {
   symbol: string;
   currency: string;
@@ -162,6 +179,7 @@ export interface PortfolioSummary {
 
 export interface PortfolioDataset {
   operations: InvestmentOperation[];
+  sales: InvestmentSale[];
   positions: PortfolioPosition[];
   historicalPrices: HistoricalPrice[];
   dailyBalances: DailyBalance[];
