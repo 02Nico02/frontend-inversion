@@ -6,6 +6,7 @@ import { PositionDetailPageComponent } from './features/positions/pages/position
 import { HistoricalPageComponent } from './features/historical/pages/historical-page/historical-page.component';
 import { AlertsPageComponent } from './features/alerts/pages/alerts-page/alerts-page.component';
 import { ConcentrationPageComponent } from './features/concentration/pages/concentration-page/concentration-page.component';
+import { DecisionsPageComponent } from './features/decisions/pages/decisions-page/decisions-page.component';
 import { StrategyPageComponent } from './features/strategy/pages/strategy-page/strategy-page.component';
 import { DataReviewPageComponent } from './features/data-review/pages/data-review-page/data-review-page.component';
 import { ImportPageComponent } from './features/import/pages/import-page/import-page.component';
@@ -20,6 +21,7 @@ export const appRoutes: Routes = [
   { path: 'historico', component: HistoricalPageComponent },
   { path: 'alertas', component: AlertsPageComponent },
   { path: 'concentracion', component: ConcentrationPageComponent },
+  { path: 'decisiones', component: DecisionsPageComponent },
   { path: 'estrategia', component: StrategyPageComponent },
   { path: 'datos-a-revisar', component: DataReviewPageComponent },
   { path: 'importacion', component: ImportPageComponent },

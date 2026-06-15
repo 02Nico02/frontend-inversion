@@ -1,0 +1,184 @@
+<section class="page" *ngIf="state.snapshot as snapshot">
+  <ng-container *ngIf="model(snapshot) as vm; else emptyState">
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">Decisiones</p>
+        <h2>Centro de decisión, semáforo y simulador</h2>
+        <p class="lead">
+          Vista base para revisar concentración, señales y posibles acciones sin inventar datos fuera del workbook.
+        </p>
+      </div>
+
+      <div class="traffic" [class.green]="vm.trafficLight === 'green'" [class.yellow]="vm.trafficLight === 'yellow'" [class.red]="vm.trafficLight === 'red'" [class.gray]="vm.trafficLight === 'gray'">
+        <span class="traffic-label">{{ vm.trafficLightLabel }}</span>
+        <strong>{{ vm.trafficLightReason }}</strong>
+      </div>
+    </header>
+
+    <section class="cards">
+      <article class="metric" *ngFor="let card of vm.cards; trackBy: trackByItem" [attr.data-tone]="card.tone">
+        <p>{{ card.title }}</p>
+        <strong>{{ card.value }}</strong>
+        <small>{{ card.note }}</small>
+      </article>
+    </section>
+
+    <section class="panel">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Semaforo</p>
+          <h3>Lectura rapida del portafolio</h3>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <article class="box">
+          <h4>Acciones sugeridas</h4>
+          <div class="action-list" *ngIf="vm.actions.length; else noActions">
+            <div class="action" *ngFor="let action of vm.actions; trackBy: trackByItem" [attr.data-tone]="action.tone">
+              <strong>{{ action.title }}</strong>
+              <p>{{ action.note }}</p>
+            </div>
+          </div>
+          <ng-template #noActions>
+            <p class="empty">No hay alertas críticas por ahora. Seguir monitoreando.</p>
+          </ng-template>
+        </article>
+
+        <article class="box">
+          <h4>Referencias de concentración</h4>
+          <div class="objective-list">
+            <div class="objective" *ngFor="let objective of vm.objectives; trackBy: trackByItem" [attr.data-tone]="objective.tone">
+              <div class="objective-label">
+                <strong>{{ objective.label }}</strong>
+                <span>{{ objective.currentPercent | number:'1.0-2' }}% vs {{ objective.targetPercent | number:'1.0-2' }}%</span>
+              </div>
+              <div class="objective-bar">
+                <span class="current" [style.width.%]="objective.currentPercent"></span>
+              </div>
+              <small>Brecha: {{ objective.gapPercent | number:'1.0-2' }}%</small>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Simulador</p>
+          <h3>Aporte mensual proyectado</h3>
+        </div>
+      </div>
+
+      <div class="simulator">
+        <label>
+          Aporte mensual
+          <input type="number" min="0" [(ngModel)]="monthlyContribution" />
+        </label>
+        <label>
+          Meses
+          <input type="number" min="0" [(ngModel)]="months" />
+        </label>
+        <label>
+          Rendimiento anual esperado %
+          <input type="number" min="0" step="0.1" [(ngModel)]="annualReturnPercent" />
+        </label>
+      </div>
+
+      <div class="cards cards-3">
+        <article class="metric">
+          <p>Invertido estimado</p>
+          <strong>{{ vm.simulation.invested }}</strong>
+          <small>{{ vm.simulation.horizonLabel }}</small>
+        </article>
+        <article class="metric">
+          <p>Valor proyectado</p>
+          <strong>{{ vm.simulation.projectedValue }}</strong>
+          <small>Contribuciones + tasa esperada</small>
+        </article>
+        <article class="metric">
+          <p>Ganancia estimada</p>
+          <strong>{{ vm.simulation.projectedGain }}</strong>
+          <small>Proyección simple, no garantía</small>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Señales</p>
+          <h3>Últimas señales detectadas</h3>
+        </div>
+      </div>
+
+      <div class="table-wrap" *ngIf="vm.signals.length; else noSignals">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Especie</th>
+              <th>Tipo</th>
+              <th>Periodo</th>
+              <th>Inicio</th>
+              <th>Fin</th>
+              <th>Variación</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let signal of vm.signals; trackBy: trackByItem">
+              <td>{{ signal.symbol }}</td>
+              <td>{{ signal.signalType }}</td>
+              <td>{{ signal.period }}</td>
+              <td>{{ signal.startDate }}</td>
+              <td>{{ signal.endDate }}</td>
+              <td>{{ signal.variationPercent }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ng-template #noSignals>
+        <p class="empty">No hay señales cargadas.</p>
+      </ng-template>
+    </section>
+
+    <section class="charts">
+      <app-simple-chart
+        title="Top holdings"
+        subtitle="Concentracion por especie"
+        mode="bars"
+        [points]="vm.topHoldings"
+        currency="ARS"
+        [topN]="10"
+        [includeOther]="false">
+      </app-simple-chart>
+
+      <app-simple-chart
+        title="Mix sectorial"
+        subtitle="Distribucion por sector"
+        mode="bars"
+        [points]="vm.sectorMix"
+        currency="ARS"
+        [topN]="8"
+        [includeOther]="false">
+      </app-simple-chart>
+
+      <app-simple-chart
+        title="Tipo de activo"
+        subtitle="Distribucion por categoria"
+        mode="bars"
+        [points]="vm.assetTypeMix"
+        currency="ARS"
+        [topN]="8"
+        [includeOther]="false">
+      </app-simple-chart>
+    </section>
+  </ng-container>
+
+  <ng-template #emptyState>
+    <article class="panel">
+      <h3>No hay datos para decisiones</h3>
+      <p>Importa el Excel para habilitar el semaforo, las acciones sugeridas y el simulador.</p>
+    </article>
+  </ng-template>
+</section>

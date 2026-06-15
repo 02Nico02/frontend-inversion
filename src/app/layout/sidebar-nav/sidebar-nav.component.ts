@@ -17,15 +17,15 @@ interface NavItem {
 export class SidebarNavComponent {
   readonly items: NavItem[] = [
     { label: 'Resumen', path: '/resumen' },
-    { label: 'Distribución', path: '/distribucion' },
+    { label: 'Distribucion', path: '/distribucion' },
     { label: 'Posiciones', path: '/posiciones' },
-    { label: 'Histórico', path: '/historico' },
+    { label: 'Historico', path: '/historico' },
     { label: 'Alertas', path: '/alertas' },
-    { label: 'Concentración', path: '/concentracion' },
+    { label: 'Concentracion', path: '/concentracion' },
+    { label: 'Decisiones', path: '/decisiones' },
     { label: 'Estrategia', path: '/estrategia' },
     { label: 'Datos a revisar', path: '/datos-a-revisar' },
-    { label: 'Importación', path: '/importacion' },
-    { label: 'Configuración', path: '/configuracion' }
+    { label: 'Importacion', path: '/importacion' },
+    { label: 'Configuracion', path: '/configuracion' }
   ];
 }
-
