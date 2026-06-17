@@ -107,6 +107,60 @@ export function parsePercentByColumn(value: unknown, columnName: string): number
   return parseDisplayedPercent(value);
 }
 
+export function parseCalendarDailyPercent(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.abs(value) <= 0.01 ? value * 100 : value;
+  }
+
+  const text = String(value).trim();
+  if (!text) {
+    return null;
+  }
+
+  const parsed = parseLocaleNumber(text);
+  if (parsed === null) {
+    return null;
+  }
+
+  if (text.includes('%')) {
+    return parsed;
+  }
+
+  return Math.abs(parsed) <= 0.01 ? parsed * 100 : parsed;
+}
+
+export function parseCalendarIndex(value: unknown): number | null {
+  return parseLocaleNumber(value);
+}
+
+export function parseCalendarTna(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.abs(value) <= 1 ? value * 100 : value;
+  }
+
+  const text = String(value).trim();
+  if (!text) {
+    return null;
+  }
+
+  const parsed = parseLocaleNumber(text);
+  if (parsed === null) {
+    return null;
+  }
+
+  if (text.includes('%')) {
+    return parsed;
+  }
+
+  return Math.abs(parsed) <= 1 ? parsed * 100 : parsed;
+}
+
 export function parseBoolean(value: unknown): boolean | null {
   if (typeof value === 'boolean') {
     return value;

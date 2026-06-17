@@ -33,6 +33,27 @@ export class WorkbookMappingService {
       expectedColumns: ['FECHA', 'MES', 'BALANCE']
     },
     {
+      key: 'calendarBenchmark',
+      primaryName: 'TablaCalendario',
+      aliases: ['TablaCalendario'],
+      critical: false,
+      expectedColumns: ['Fecha', 'TNA', 'Rend_diaria', 'Indice']
+    },
+    {
+      key: 'calendarBenchmarkRem',
+      primaryName: 'TablaCalendarioRem',
+      aliases: ['TablaCalendarioRem'],
+      critical: false,
+      expectedColumns: ['Fecha', 'TNA', 'Rend_diaria', 'Indice']
+    },
+    {
+      key: 'calendarInflation',
+      primaryName: 'TablaCalendarioInf',
+      aliases: ['TablaCalendarioInf'],
+      critical: false,
+      expectedColumns: ['Fecha', 'Mes', 'Inflación mensual', 'Días del mes', 'Rend_diaria_inf', 'Indice_inf']
+    },
+    {
       key: 'classification',
       primaryName: 'Tabla47',
       aliases: ['Tabla47'],

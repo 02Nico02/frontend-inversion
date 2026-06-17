@@ -1,9 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CombinedAlert } from '../../../core/services/alert-mapper.service';
 import { CurrencyMapperService } from '../../../core/services/currency-mapper.service';
 import { PortfolioPosition } from '../../../core/models/portfolio.models';
+import { MinimumPerformanceBySymbol } from '../../../core/models/minimum-performance.model';
 import { FilterChipComponent } from '../filter-chip/filter-chip.component';
 import { SearchableSelectComponent, SearchableSelectOption } from '../searchable-select/searchable-select.component';
 import { PositionsFilterStateService } from '../../../features/positions/services/positions-filter-state.service';
@@ -20,9 +21,10 @@ type FilterKey = 'symbol' | 'currency' | 'assetType' | 'sector' | 'subsector' | 
   templateUrl: './positions-table.component.html',
   styleUrls: ['./positions-table.component.scss'],
 })
-export class PositionsTableComponent implements OnInit {
+export class PositionsTableComponent implements OnInit, OnChanges {
   @Input() positions: PortfolioPosition[] = [];
   @Input() alerts: CombinedAlert[] = [];
+  @Input() minimumPerformance: MinimumPerformanceBySymbol[] = [];
   @Output() detailRequested = new EventEmitter<string>();
 
   filters = {
@@ -42,6 +44,8 @@ export class PositionsTableComponent implements OnInit {
   pageSize: PageSize = 10;
   pageIndex = 0;
   showAdvancedFilters = false;
+  showMinimumBenchmark = false;
+  private minimumPerformanceMap = new Map<string, MinimumPerformanceBySymbol>();
 
   constructor(
     private readonly currencyMapper: CurrencyMapperService,
@@ -68,6 +72,14 @@ export class PositionsTableComponent implements OnInit {
 
   ngOnInit(): void {
     this.persistState();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['minimumPerformance']) {
+      this.minimumPerformanceMap = new Map(
+        this.minimumPerformance.map((item) => [this.minimumPerformanceKey(item.symbol, item.currency), item])
+      );
+    }
   }
 
   get filteredPositions(): PortfolioPosition[] {
@@ -180,6 +192,10 @@ export class PositionsTableComponent implements OnInit {
     this.detailRequested.emit(symbol);
   }
 
+  toggleMinimumBenchmark(): void {
+    this.showMinimumBenchmark = !this.showMinimumBenchmark;
+  }
+
   weightFor(position: PortfolioPosition): number {
     const currency = this.currencyMapper.normalizeCurrency(position.currency);
     const totalByCurrency = this.positions
@@ -195,6 +211,26 @@ export class PositionsTableComponent implements OnInit {
   alertCount(symbol: string): string {
     const count = this.alerts.filter((alert) => alert.symbol.toUpperCase() === symbol.toUpperCase()).length;
     return count ? `${count}` : '0';
+  }
+
+  minimumPerformanceFor(position: PortfolioPosition): MinimumPerformanceBySymbol | null {
+    return this.minimumPerformanceMap.get(this.minimumPerformanceKey(position.symbol, position.currency)) ?? null;
+  }
+
+  minimumStatusLabel(status: MinimumPerformanceBySymbol['status'] | null | undefined): string {
+    switch (status) {
+      case 'beats-minimum':
+        return 'Supera mínimo';
+      case 'below-minimum':
+        return 'Debajo mínimo';
+      case 'missing-calendar':
+        return 'Sin calendario';
+      case 'not-applicable':
+        return 'No comparable';
+      case 'review':
+      default:
+        return 'Revisar';
+    }
   }
 
   clearFilters(): void {
@@ -215,6 +251,10 @@ export class PositionsTableComponent implements OnInit {
     this.pageIndex = 0;
     this.showAdvancedFilters = false;
     this.persistState();
+  }
+
+  private minimumPerformanceKey(symbol: string, currency: string): string {
+    return `${symbol.trim().toUpperCase()}__${this.currencyMapper.normalizeCurrency(currency)}`;
   }
 
   firstPage(): void {

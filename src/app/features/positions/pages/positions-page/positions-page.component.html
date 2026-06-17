@@ -9,8 +9,9 @@
 
   <ng-container *ngIf="snapshot.dataset; else emptyState">
     <app-positions-table
-      [positions]="visiblePositions(snapshot)"
+      [positions]="positions"
       [alerts]="snapshot.combinedAlerts"
+      [minimumPerformance]="minimumPerformance"
       (detailRequested)="openDetail($event)"
     ></app-positions-table>
   </ng-container>

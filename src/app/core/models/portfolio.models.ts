@@ -1,3 +1,6 @@
+import type { CalendarBenchmarkRow } from './minimum-performance.model';
+export type { CalendarBenchmarkRow } from './minimum-performance.model';
+
 export interface InvestmentOperation {
   id: string;
   date: string | Date | null;
@@ -201,4 +204,5 @@ export interface PortfolioDataset {
   monthlyPerformance: MonthlyPerformanceRow[];
   strategicSplit: StrategicSplit[];
   platformDistribution: PlatformDistribution[];
+  calendarBenchmarks: CalendarBenchmarkRow[];
 }

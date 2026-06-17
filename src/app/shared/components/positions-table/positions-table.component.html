@@ -8,6 +8,9 @@
       <div class="summary-chip" *ngIf="filteredPositions.length">
         {{ filteredPositions.length }} posiciones filtradas
       </div>
+      <button type="button" class="clear" (click)="toggleMinimumBenchmark()">
+        {{ showMinimumBenchmark ? 'Ocultar benchmark minimo' : 'Mostrar benchmark minimo' }}
+      </button>
       <button type="button" class="clear" (click)="clearFilters()">Limpiar filtros</button>
     </div>
   </div>
@@ -164,6 +167,10 @@
           <th class="num">Resultado $</th>
           <th class="num">Resultado %</th>
           <th class="num">Peso %</th>
+          <th class="num" *ngIf="showMinimumBenchmark">Minimo esperado</th>
+          <th class="num" *ngIf="showMinimumBenchmark">Vs minimo</th>
+          <th class="num" *ngIf="showMinimumBenchmark">% vs minimo</th>
+          <th *ngIf="showMinimumBenchmark">Estado real</th>
           <th class="num">Alertas</th>
           <th>Acción</th>
         </tr>
@@ -182,6 +189,20 @@
           <td class="num" [class.positive]="position.resultAmount > 0" [class.negative]="position.resultAmount < 0">{{ formatMoney(position.resultAmount, position.currency) }}</td>
           <td class="num" [class.positive]="(position.resultPercent ?? 0) > 0" [class.negative]="(position.resultPercent ?? 0) < 0">{{ formatPercent(position.resultPercent) }}</td>
           <td class="num">{{ formatPercent(weightFor(position)) }}</td>
+          <ng-container *ngIf="showMinimumBenchmark">
+            <ng-container *ngIf="minimumPerformanceFor(position) as minimum; else missingMinimum">
+              <td class="num">{{ formatMoney(minimum.minimumExpectedValue, position.currency) }}</td>
+              <td class="num" [class.positive]="(minimum.valueVsMinimumAmount ?? 0) >= 0" [class.negative]="(minimum.valueVsMinimumAmount ?? 0) < 0">{{ formatMoney(minimum.valueVsMinimumAmount, position.currency) }}</td>
+              <td class="num" [class.positive]="(minimum.valueVsMinimumPercent ?? 0) >= 0" [class.negative]="(minimum.valueVsMinimumPercent ?? 0) < 0">{{ formatPercent(minimum.valueVsMinimumPercent) }}</td>
+              <td>{{ minimumStatusLabel(minimum.status) }}</td>
+            </ng-container>
+            <ng-template #missingMinimum>
+              <td class="num">N/D</td>
+              <td class="num">N/D</td>
+              <td class="num">N/D</td>
+              <td>Sin datos</td>
+            </ng-template>
+          </ng-container>
           <td class="num">
             <span class="alert-pill" [class.alerted]="hasAlert(position.symbol)">{{ alertCount(position.symbol) }}</span>
           </td>

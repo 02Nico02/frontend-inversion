@@ -4,8 +4,10 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription, combineLatest } from 'rxjs';
 import { SimpleChartComponent } from '../../../../shared/components/simple-chart/simple-chart.component';
-import { PortfolioStateService } from '../../../../core/services/portfolio-state.service';
+import { PortfolioAppState, PortfolioStateService } from '../../../../core/services/portfolio-state.service';
 import { AssetDetailService, AssetDetailViewModel, AssetHistoryStats } from '../../../asset-detail/services/asset-detail.service';
+import { MinimumPerformanceBySymbol, MinimumPerformanceLot } from '../../../../core/models/minimum-performance.model';
+import { MinimumPerformanceService } from '../../../../core/services/minimum-performance.service';
 
 type DetailTab = 'summary' | 'operations' | 'alerts' | 'history' | 'classification';
 type SortDirection = 'asc' | 'desc';
@@ -29,6 +31,8 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
   detail: AssetDetailViewModel | null = null;
   historyChartSeries: ReturnType<AssetDetailService['seriesForHistory']> = [];
   historyStats: AssetHistoryStats | null = null;
+  minimumPerformance: MinimumPerformanceBySymbol | null = null;
+  minimumPerformanceLots: MinimumPerformanceLot[] = [];
 
   private symbol = '';
   private subscription?: Subscription;
@@ -37,7 +41,8 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
     public readonly state: PortfolioStateService,
     private readonly router: Router,
     private readonly route: ActivatedRoute,
-    private readonly assetDetail: AssetDetailService
+    private readonly assetDetail: AssetDetailService,
+    private readonly minimumPerformanceService: MinimumPerformanceService
   ) {}
 
   ngOnInit(): void {
@@ -45,6 +50,7 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
       this.symbol = params.get('symbol')?.toUpperCase() ?? '';
       this.detail = this.symbol ? this.assetDetail.buildViewModel(snapshot, this.symbol) : null;
       this.operationPageIndex = 0;
+      this.refreshMinimumPerformance(snapshot);
       this.refreshHistory();
     });
   }
@@ -201,6 +207,22 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
     return `${day}-${month}-${year}`;
   }
 
+  minimumStatusLabel(status: MinimumPerformanceBySymbol['status'] | MinimumPerformanceLot['status'] | null | undefined): string {
+    switch (status) {
+      case 'beats-minimum':
+        return 'Supera minimo';
+      case 'below-minimum':
+        return 'Debajo minimo';
+      case 'missing-calendar':
+        return 'Sin calendario';
+      case 'not-applicable':
+        return 'No comparable';
+      case 'review':
+      default:
+        return 'Revisar';
+    }
+  }
+
   trackByOperationId(index: number, operation: AssetDetailViewModel['operations'][number]): string {
     return operation.id || `${index}`;
   }
@@ -214,6 +236,23 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
     const filtered = this.assetDetail.filterHistory(this.detail.historicalPrices, this.historyPeriod);
     this.historyChartSeries = this.assetDetail.seriesForHistory(filtered, this.detail.symbol);
     this.historyStats = this.assetDetail.historyStats(filtered);
+  }
+
+  private refreshMinimumPerformance(snapshot: PortfolioAppState): void {
+    if (!this.symbol || !snapshot.dataset) {
+      this.minimumPerformance = null;
+      this.minimumPerformanceLots = [];
+      return;
+    }
+
+    const minimums = this.minimumPerformanceService.buildMinimumPerformanceBySymbol(snapshot);
+    const positionCurrency = this.detail?.position.currency ?? null;
+    const match = minimums.find((item) => item.symbol.toUpperCase() === this.symbol && (!positionCurrency || item.currency.toUpperCase() === positionCurrency.toUpperCase()))
+      ?? minimums.find((item) => item.symbol.toUpperCase() === this.symbol)
+      ?? null;
+
+    this.minimumPerformance = match;
+    this.minimumPerformanceLots = match?.lots ?? [];
   }
 
   private dateValue(value: string | Date | null | undefined): number {

@@ -3,6 +3,7 @@ import {
   AnnualInvestmentSummary,
   AssetClassification,
   CalculatedAlert,
+  CalendarBenchmarkRow,
   DailyBalance,
   HistoricalPrice,
   InvestmentOperation,
@@ -20,6 +21,7 @@ import {
 import { WorkbookTableData } from '../models/workbook.models';
 import { DataNormalizationService } from './data-normalization.service';
 import { CanonicalCurrency, CurrencyMapperService } from './currency-mapper.service';
+import { parseCalendarDailyPercent, parseCalendarIndex, parseCalendarTna } from '../utils/value-parsing.utils';
 
 @Injectable({ providedIn: 'root' })
 export class PortfolioCalculatorService {
@@ -51,6 +53,11 @@ export class PortfolioCalculatorService {
     const monthlyPerformance = this.mapMonthlyPerformance(this.findTable(tables, ['Tabla9']));
     const strategicSplit = this.mapStrategicSplit(this.findTable(tables, ['Tabla35']));
     const platformDistribution = this.mapPlatforms(this.findTable(tables, ['Tabla38']));
+    const calendarBenchmarks = [
+      ...this.mapCalendarBenchmark(this.findTable(tables, ['TablaCalendario']), 'TablaCalendario'),
+      ...this.mapCalendarBenchmark(this.findTable(tables, ['TablaCalendarioRem']), 'TablaCalendarioRem'),
+      ...this.mapCalendarBenchmark(this.findTable(tables, ['TablaCalendarioInf']), 'TablaCalendarioInf')
+    ];
 
     return {
       operations,
@@ -66,7 +73,8 @@ export class PortfolioCalculatorService {
       annualSummary,
       monthlyPerformance,
       strategicSplit,
-      platformDistribution
+      platformDistribution,
+      calendarBenchmarks
     };
   }
 
@@ -297,6 +305,42 @@ export class PortfolioCalculatorService {
       month: this.normalization.asText(this.normalization.pickValue(row, ['MES'])),
       balance: this.normalization.asNumber(this.normalization.pickValue(row, ['BALANCE']))
     }));
+  }
+
+  private mapCalendarBenchmark(
+    table: WorkbookTableData | null,
+    source: CalendarBenchmarkRow['source']
+  ): CalendarBenchmarkRow[] {
+    if (!table) {
+      return [];
+    }
+
+    return table.rows
+      .map((row) => {
+        const date = this.normalization.asDate(this.normalization.pickValue(row, ['Fecha', 'FECHA']));
+        if (!date) {
+          return null;
+        }
+        const tna = source === 'TablaCalendarioInf'
+          ? null
+          : parseCalendarTna(this.normalization.pickValue(row, ['TNA']));
+        const dailyReturnPercent = source === 'TablaCalendarioInf'
+          ? parseCalendarDailyPercent(this.normalization.pickValue(row, ['Rend_diaria_inf', 'Rend_diaria']))
+          : parseCalendarDailyPercent(this.normalization.pickValue(row, ['Rend_diaria', 'Rend_diaria_inf']));
+        const index = source === 'TablaCalendarioInf'
+          ? parseCalendarIndex(this.normalization.pickValue(row, ['Indice_inf', 'Indice']))
+          : parseCalendarIndex(this.normalization.pickValue(row, ['Indice', 'Indice_inf']));
+
+        return {
+          date,
+          tna,
+          dailyReturnPercent,
+          index,
+          source
+        };
+      })
+      .filter((item): item is CalendarBenchmarkRow => Boolean(item))
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
   }
 
   private mapClassifications(table: WorkbookTableData | null): AssetClassification[] {
