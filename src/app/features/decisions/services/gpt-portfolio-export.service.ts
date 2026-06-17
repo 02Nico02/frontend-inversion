@@ -4,6 +4,7 @@ import { PortfolioHealthService } from '../../../core/services/portfolio-health.
 import { PortfolioAppState } from '../../../core/services/portfolio-state.service';
 import { PrivacyModeService } from '../../../core/services/privacy-mode.service';
 import { parseExcelDate } from '../../../core/utils/value-parsing.utils';
+import { MovementDateRange, MovementDateRangeService } from './movement-date-range.service';
 import {
   AnnualInvestmentSummary,
   DailyBalance,
@@ -32,7 +33,7 @@ export interface GptPortfolioExportOptions {
   maskSensitive: boolean;
   currencyScope: ExportCurrencyScope;
   simulationCurrency: ExportSimulationCurrency;
-  movementsPeriodDays: number;
+  movementDateRange: MovementDateRange;
   manualContext: WeeklyManualContext;
 }
 
@@ -205,7 +206,9 @@ interface ExportRecentMovementRow {
 }
 
 interface ExportRecentMovements {
-  periodDays: number;
+  movementDateRange: MovementDateRange;
+  rangeLabel: string;
+  rangePresetLabel: string;
   referenceDate: string;
   startDate: string;
   manualContext: WeeklyManualContext;
@@ -310,7 +313,8 @@ export class GptPortfolioExportService {
   constructor(
     private readonly calculator: PortfolioCalculatorService,
     private readonly healthService: PortfolioHealthService,
-    private readonly privacyMode: PrivacyModeService
+    private readonly privacyMode: PrivacyModeService,
+    private readonly movementDateRangeService: MovementDateRangeService
   ) {}
 
   buildExport(snapshot: PortfolioAppState, viewModel: DecisionViewModel, options: GptPortfolioExportOptions): BuildResult {
@@ -338,6 +342,8 @@ export class GptPortfolioExportService {
       `- Fecha: ${data.metadata.generatedAt}`,
       `- Archivo: ${data.metadata.sourceFile ?? 'N/D'}`,
       `- Estado: ${data.metadata.workbookStatus}`,
+      `- Rango movimientos: ${data.recentMovements.rangeLabel}`,
+      `- Preset movimientos: ${data.recentMovements.rangePresetLabel}`,
       `- Valor actual ARS: ${data.summary.ars.totalCurrentValue}`,
       `- Valor actual USD: ${data.summary.usd.totalCurrentValue}`,
       `- Semaforo: ${data.decisionInsights.semaforo}`,
@@ -1065,13 +1071,11 @@ export class GptPortfolioExportService {
       .filter((sale) => Boolean(sale.symbol))
       .sort((a, b) => this.dateValue(a.sellDate ?? a.buyDate) - this.dateValue(b.sellDate ?? b.buyDate));
     const currentPositions = new Set((snapshot.dataset?.positions ?? []).map((position) => position.symbol.toUpperCase()));
-    const latestDateValue = Math.max(
-      0,
-      ...operations.map((operation) => this.dateValue(operation.date)),
-      ...sales.map((sale) => this.dateValue(sale.sellDate ?? sale.buyDate))
-    );
-    const referenceDate = latestDateValue ? new Date(latestDateValue) : new Date();
-    const startDate = new Date(referenceDate.getTime() - Math.max(1, options.movementsPeriodDays) * 24 * 60 * 60 * 1000);
+    const normalizedRange = this.movementDateRangeService.normalizeForSnapshot(options.movementDateRange, snapshot);
+    const parsedRange = this.movementDateRangeService.parseMovementRange(normalizedRange);
+    const bounds = this.movementDateRangeService.availableBounds(snapshot);
+    const referenceDate = parsedRange.to ?? bounds.to ?? new Date();
+    const startDate = parsedRange.from ?? bounds.from ?? referenceDate;
 
     const inPeriod = (value: string | Date | null | undefined) => {
       const time = this.dateValue(value);
@@ -1183,7 +1187,9 @@ export class GptPortfolioExportService {
     });
 
     return {
-      periodDays: Math.max(1, options.movementsPeriodDays),
+      movementDateRange: normalizedRange,
+      rangeLabel: this.movementDateRangeService.formatRangeLabel(normalizedRange),
+      rangePresetLabel: this.movementDateRangeService.labelForPreset(normalizedRange.preset),
       referenceDate: this.formatDate(referenceDate),
       startDate: this.formatDate(startDate),
       manualContext: options.manualContext,
@@ -1645,7 +1651,8 @@ export class GptPortfolioExportService {
       recentMovements.manualContext.cashUsd !== null ? `USD ${this.formatMoney(recentMovements.manualContext.cashUsd, 'USD')}` : null
     ].filter(Boolean) as string[];
     lines.push(
-      `- Periodo analizado: ultimos ${recentMovements.periodDays} dias`,
+      `- Rango analizado: ${recentMovements.rangeLabel}`,
+      `- Preset: ${recentMovements.rangePresetLabel}`,
       `- Referencia: ${recentMovements.referenceDate}`,
       `- Desde: ${recentMovements.startDate}`,
       `- Cash disponible informado: ${cashLines.length ? cashLines.join(' | ') : 'No informado'}`,
@@ -1703,7 +1710,7 @@ export class GptPortfolioExportService {
     if (recentMovements.recentPurchases.length) {
       lines.push(
         '',
-        '### Compras recientes',
+        '### Compras recientes dentro del rango seleccionado',
         this.tableFromRows(recentMovements.recentPurchases, [
           { header: 'Especie', key: 'symbol' },
           { header: 'Moneda', key: 'currency' },
@@ -1718,7 +1725,7 @@ export class GptPortfolioExportService {
     if (recentMovements.recentSales.length) {
       lines.push(
         '',
-        '### Ventas recientes',
+        '### Ventas recientes dentro del rango seleccionado',
         this.tableFromRows(recentMovements.recentSales, [
           { header: 'Especie', key: 'symbol' },
           { header: 'Moneda', key: 'currency' },

@@ -127,8 +127,37 @@
 
       <div class="grid-2">
         <article class="box">
-          <h4>Compras recientes</h4>
-          <p class="muted">Referencia: {{ vm.movements.referenceDate }} · Desde: {{ vm.movements.startDate }} · Últimos {{ vm.movements.periodDays }} días</p>
+          <h4>Rango de movimientos recientes</h4>
+          <div class="movement-range-presets">
+            <button
+              type="button"
+              *ngFor="let preset of movementPresets"
+              class="secondary preset"
+              [class.active]="movementDateRange.preset === preset.preset"
+              (click)="setMovementPreset(preset.preset)">
+              {{ preset.label }}
+            </button>
+          </div>
+          <div class="movement-range-grid">
+            <label>
+              Desde
+              <input
+                type="date"
+                [ngModel]="movementDateRange.from"
+                (ngModelChange)="onMovementDateChange('from', $event)" />
+            </label>
+            <label>
+              Hasta
+              <input
+                type="date"
+                [ngModel]="movementDateRange.to"
+                (ngModelChange)="onMovementDateChange('to', $event)" />
+            </label>
+          </div>
+          <p class="muted">Rango analizado: {{ vm.movements.rangeLabel }} · Preset: {{ vm.movements.rangePresetLabel }}</p>
+          <p class="muted">Referencia: {{ vm.movements.referenceDate }} · Desde: {{ vm.movements.startDate }}</p>
+          <p class="muted">El rango se basa en la última fecha válida detectada en Tabla6 y Tabla13.</p>
+          <h4>Compras recientes dentro del rango seleccionado</h4>
           <div class="table-wrap" *ngIf="vm.movements.recentPurchases.length; else noRecentPurchases">
             <table class="table compact">
               <thead>
@@ -160,8 +189,7 @@
         </article>
 
         <article class="box">
-          <h4>Ventas recientes</h4>
-          <p class="muted">Referencia: {{ vm.movements.referenceDate }} · Desde: {{ vm.movements.startDate }} · Últimos {{ vm.movements.periodDays }} días</p>
+          <h4>Ventas recientes dentro del rango seleccionado</h4>
           <div class="table-wrap" *ngIf="vm.movements.recentSales.length; else noRecentSales">
             <table class="table compact">
               <thead>
@@ -502,14 +530,11 @@
         </div>
 
         <div class="export-grid period-grid">
-          <label>
-            Período de movimientos recientes
-            <select [(ngModel)]="movementsPeriodDays" (ngModelChange)="onControlsChange()">
-              <option [ngValue]="7">7 días</option>
-              <option [ngValue]="15">15 días</option>
-              <option [ngValue]="30">30 días</option>
-            </select>
-          </label>
+          <div class="range-summary">
+            <p>Rango de movimientos usado en el export</p>
+            <strong>{{ vm.movements.rangeLabel }}</strong>
+            <small>Preset: {{ vm.movements.rangePresetLabel }}</small>
+          </div>
 
           <div class="export-actions align-end">
             <button type="button" class="secondary" (click)="clearWeeklyContext()">Limpiar cash disponible</button>
@@ -527,11 +552,46 @@
       <div class="section-head">
         <div>
           <p class="eyebrow">Senales</p>
-          <h3>Ultimas senales detectadas</h3>
+          <h3>Resumen de señales</h3>
+        </div>
+        <a routerLink="/alertas" class="secondary-link">Ver señales completas</a>
+      </div>
+
+      <div class="signal-summary" *ngIf="vm.signalSummary.total30D > 0; else noSignalsSummary">
+        <article class="metric">
+          <p>Señales 30D</p>
+          <strong>{{ vm.signalSummary.total30D }}</strong>
+          <small>Resumen táctico breve; el detalle completo vive en Alertas</small>
+        </article>
+        <article class="box">
+          <h4>Caídas 30D</h4>
+          <p class="muted" *ngIf="vm.signalSummary.caidas30D.length; else noCaidas">{{ vm.signalSummary.caidas30D.join(', ') }}</p>
+          <ng-template #noCaidas>
+            <p class="empty">Sin caídas 30D destacadas.</p>
+          </ng-template>
+        </article>
+        <article class="box">
+          <h4>Recuperaciones 30D</h4>
+          <p class="muted" *ngIf="vm.signalSummary.recuperaciones30D.length; else noRecuperaciones">{{ vm.signalSummary.recuperaciones30D.join(', ') }}</p>
+          <ng-template #noRecuperaciones>
+            <p class="empty">Sin recuperaciones 30D destacadas.</p>
+          </ng-template>
+        </article>
+      </div>
+      <ng-template #noSignalsSummary>
+        <p class="empty">No hay señales cargadas.</p>
+      </ng-template>
+    </section>
+
+    <section class="panel">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Senales</p>
+          <h3>Resumen de señales</h3>
         </div>
       </div>
 
-      <div class="table-wrap" *ngIf="vm.signals.length; else noSignals">
+      <div class="table-wrap" *ngIf="false">
         <table class="table">
           <thead>
             <tr>
@@ -560,7 +620,7 @@
       </ng-template>
     </section>
 
-    <section class="charts">
+    <section class="charts" *ngIf="false">
       <app-simple-chart
         title="Top holdings"
         subtitle="Concentracion por especie"

@@ -1,5 +1,4 @@
 import { Injectable } from '@angular/core';
-import { ChartPoint } from '../../../core/services/chart-data.service';
 import { CurrencyMapperService } from '../../../core/services/currency-mapper.service';
 import { PortfolioCalculatorService } from '../../../core/services/portfolio-calculator.service';
 import { PortfolioConcentrationService } from '../../../core/services/portfolio-concentration.service';
@@ -7,7 +6,6 @@ import { PortfolioHealthService } from '../../../core/services/portfolio-health.
 import { PortfolioAppState } from '../../../core/services/portfolio-state.service';
 import { PortfolioPosition, MarketSignal } from '../../../core/models/portfolio.models';
 import { CombinedAlert } from '../../../core/services/alert-mapper.service';
-import { ChartDataService } from '../../../core/services/chart-data.service';
 
 export type DecisionSeverity = 'success' | 'warning' | 'critical' | 'info';
 export type DecisionTrafficLight = 'green' | 'yellow' | 'red' | 'gray';
@@ -42,6 +40,12 @@ export interface DecisionSignalItem {
   variationPercent: string;
 }
 
+export interface DecisionSignalSummary {
+  total30D: number;
+  caidas30D: string[];
+  recuperaciones30D: string[];
+}
+
 export interface DecisionSimulationResult {
   invested: string;
   projectedValue: string;
@@ -65,21 +69,17 @@ export interface DecisionViewModel {
   cards: DecisionCard[];
   actions: DecisionActionItem[];
   objectives: DecisionObjectiveItem[];
-  signals: DecisionSignalItem[];
-  topHoldings: ChartPoint[];
-  sectorMix: ChartPoint[];
-  assetTypeMix: ChartPoint[];
+  signalSummary: DecisionSignalSummary;
   simulation: DecisionSimulationResult;
 }
 
 @Injectable({ providedIn: 'root' })
 export class DecisionInsightsService {
   constructor(
-    private readonly calculator: PortfolioCalculatorService,
-    private readonly concentration: PortfolioConcentrationService,
-    private readonly healthService: PortfolioHealthService,
-    private readonly chartData: ChartDataService,
-    private readonly currencyMapper: CurrencyMapperService
+  private readonly calculator: PortfolioCalculatorService,
+  private readonly concentration: PortfolioConcentrationService,
+  private readonly healthService: PortfolioHealthService,
+  private readonly currencyMapper: CurrencyMapperService
   ) {}
 
   build(
@@ -95,10 +95,6 @@ export class DecisionInsightsService {
     const concentrationReport = this.concentration.buildReport(positions, currencyScope);
     const healthReport = snapshot.dataset && snapshot.workbook ? this.healthService.buildReport(snapshot.dataset, snapshot.workbook.validation) : null;
     const summary = this.summaryForPositions(positions);
-
-    const topHoldings = this.chartData.distributionBySymbol(positions, currencyScope, 10);
-    const sectorMix = this.chartData.distributionBySector(positions, currencyScope).slice(0, 8);
-    const assetTypeMix = this.chartData.distributionByAssetType(positions, currencyScope).slice(0, 8);
 
     const trafficLight = this.trafficLight(snapshot, concentrationReport, healthReport?.summary ?? null);
     const trafficLightReason = this.trafficLightReason(snapshot, concentrationReport, healthReport?.summary ?? null);
@@ -119,10 +115,7 @@ export class DecisionInsightsService {
       cards: this.cards(summary, currencyScope, concentrationReport, healthReport?.summary ?? null),
       actions: this.actions(positions, concentrationReport, healthReport?.summary ?? null, snapshot.combinedAlerts ?? []),
       objectives: this.objectives(concentrationReport),
-      signals: this.signals(snapshot.dataset?.signals ?? []),
-      topHoldings,
-      sectorMix,
-      assetTypeMix,
+      signalSummary: this.signalSummary(snapshot.dataset?.signals ?? []),
       simulation: this.simulation(summary.totalCurrentValue, simulationCurrency, monthlyContribution, months, annualReturnPercent)
     };
   }
@@ -237,18 +230,21 @@ export class DecisionInsightsService {
     }));
   }
 
-  private signals(signals: MarketSignal[]): DecisionSignalItem[] {
-    return [...signals]
-      .sort((a, b) => this.dateValue(b.endDate) - this.dateValue(a.endDate))
-      .slice(0, 8)
-      .map((signal) => ({
-        symbol: signal.symbol,
-        signalType: signal.signalType,
-        period: signal.period,
-        startDate: this.formatDate(signal.startDate),
-        endDate: this.formatDate(signal.endDate),
-        variationPercent: this.currencyMapper.formatPercentage(signal.variationPercent ?? 0)
-      }));
+  private signalSummary(signals: MarketSignal[]): DecisionSignalSummary {
+    const ordered30D = [...signals]
+      .filter((signal) => String(signal.period).toUpperCase() === '30D')
+      .sort((a, b) => this.dateValue(b.endDate) - this.dateValue(a.endDate));
+    const uniqueByType = (type: 'caida' | 'recuperacion') => Array.from(new Set(
+      ordered30D
+        .filter((signal) => String(signal.signalType).toLowerCase() === type)
+        .map((signal) => signal.symbol.toUpperCase())
+    ));
+
+    return {
+      total30D: ordered30D.length,
+      caidas30D: uniqueByType('caida').slice(0, 6),
+      recuperaciones30D: uniqueByType('recuperacion').slice(0, 6)
+    };
   }
 
   private simulation(currentValue: number, currency: 'ARS' | 'USD', monthlyContribution: number, months: number, annualReturnPercent: number): DecisionSimulationResult {

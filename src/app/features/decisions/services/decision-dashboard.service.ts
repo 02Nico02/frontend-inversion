@@ -3,6 +3,7 @@ import { CurrencyMapperService, CanonicalCurrency } from '../../../core/services
 import { PortfolioCalculatorService } from '../../../core/services/portfolio-calculator.service';
 import { PortfolioAppState } from '../../../core/services/portfolio-state.service';
 import { parseExcelDate } from '../../../core/utils/value-parsing.utils';
+import { MovementDateRange, MovementDateRangeService } from './movement-date-range.service';
 import { PerformanceReferenceBundle, PerformanceReferenceService, PerformanceReference } from './performance-reference.service';
 import { WeeklyManualContext } from './gpt-portfolio-export.service';
 
@@ -34,7 +35,9 @@ export interface RecentMovementRow {
 }
 
 export interface RecentMovementsSection {
-  periodDays: number;
+  movementDateRange: MovementDateRange;
+  rangeLabel: string;
+  rangePresetLabel: string;
   referenceDate: string;
   startDate: string;
   summaryByCurrency: MovementCurrencySummary[];
@@ -48,6 +51,7 @@ export interface RecentMovementsSection {
 
 interface SimulationSeriesPoint {
   label: string;
+  date?: string;
   value: number;
 }
 
@@ -79,13 +83,14 @@ export class DecisionDashboardService {
   constructor(
     private readonly calculator: PortfolioCalculatorService,
     private readonly performanceReference: PerformanceReferenceService,
+    private readonly movementDateRangeService: MovementDateRangeService,
     private readonly currencyMapper: CurrencyMapperService
   ) {}
 
   build(
     snapshot: PortfolioAppState,
     manualContext: WeeklyManualContext,
-    periodDays: number,
+    movementDateRange: MovementDateRange,
     currencyScope: 'ALL' | 'ARS' | 'USD',
     simulationCurrency: 'ARS' | 'USD',
     monthlyContribution: number,
@@ -96,7 +101,7 @@ export class DecisionDashboardService {
     const positions = snapshot.dataset ? this.calculator.enrichPositions(snapshot.dataset.positions, snapshot.dataset.classifications) : [];
     const performance = this.performanceReference.build(snapshot.dataset?.monthlySummary ?? [], snapshot.dataset?.monthlyPerformance ?? []);
     const liquidityCards = this.buildLiquidityCards(positions, manualContext);
-    const movements = this.buildMovements(snapshot, positions, periodDays);
+    const movements = this.buildMovements(snapshot, positions, movementDateRange);
     const simulation = this.buildSimulation(
       snapshot,
       positions,
@@ -167,18 +172,17 @@ export class DecisionDashboardService {
   private buildMovements(
     snapshot: PortfolioAppState,
     positions: ReturnType<PortfolioCalculatorService['enrichPositions']>,
-    periodDays: number
+    movementDateRange: MovementDateRange
   ): RecentMovementsSection {
+    const normalizedRange = this.movementDateRangeService.normalizeForSnapshot(movementDateRange, snapshot);
+    const parsedRange = this.movementDateRangeService.parseMovementRange(normalizedRange);
     const operations = snapshot.dataset?.operations ?? [];
     const sales = snapshot.dataset?.sales ?? [];
-    const referenceDate = this.latestDate([
-      ...operations.map((item) => item.date),
-      ...sales.map((item) => item.sellDate ?? item.buyDate)
-    ]) ?? new Date();
-    const startDate = new Date(referenceDate);
-    startDate.setUTCDate(startDate.getUTCDate() - Math.max(1, periodDays));
-
+    const bounds = this.movementDateRangeService.availableBounds(snapshot);
+    const referenceDate = parsedRange.to ?? bounds.to ?? new Date();
+    const startDate = parsedRange.from ?? bounds.from ?? referenceDate;
     const windowStart = startDate.getTime();
+    const windowEnd = referenceDate.getTime();
     const operationRows = operations
       .map((item) => ({
         date: this.parseDate(item.date),
@@ -189,7 +193,7 @@ export class DecisionDashboardService {
         resultPercent: this.resultPercentForSymbol(positions, item.symbol),
         source: item
       }))
-      .filter((item): item is typeof item & { date: Date } => item.date !== null && item.date.getTime() >= windowStart)
+      .filter((item): item is typeof item & { date: Date } => item.date !== null && item.date.getTime() >= windowStart && item.date.getTime() <= windowEnd)
       .sort((a, b) => b.date.getTime() - a.date.getTime());
 
     const saleRows = sales
@@ -202,7 +206,7 @@ export class DecisionDashboardService {
         resultPercent: this.percentageOrNda(item.variation),
         source: item
       }))
-      .filter((item): item is typeof item & { date: Date } => item.date !== null && item.date.getTime() >= windowStart)
+      .filter((item): item is typeof item & { date: Date } => item.date !== null && item.date.getTime() >= windowStart && item.date.getTime() <= windowEnd)
       .sort((a, b) => b.date.getTime() - a.date.getTime());
 
     const currencies: CanonicalCurrency[] = ['ARS', 'USD'];
@@ -255,7 +259,7 @@ export class DecisionDashboardService {
     }
 
     const newPositions = Array.from(firstPurchaseBySymbol.entries())
-      .filter(([, date]) => date.getTime() >= windowStart)
+      .filter(([, date]) => date.getTime() >= windowStart && date.getTime() <= windowEnd)
       .slice(0, 8)
       .map(([symbol, date]) => {
         const position = positions.find((item) => item.symbol.toUpperCase() === symbol) ?? null;
@@ -290,7 +294,9 @@ export class DecisionDashboardService {
       }));
 
     return {
-      periodDays,
+      movementDateRange: normalizedRange,
+      rangeLabel: this.movementDateRangeService.formatRangeLabel(normalizedRange),
+      rangePresetLabel: this.movementDateRangeService.labelForPreset(normalizedRange.preset),
       referenceDate: this.formatDate(referenceDate),
       startDate: this.formatDate(startDate),
       summaryByCurrency,
@@ -394,12 +400,15 @@ export class DecisionDashboardService {
     const safeContribution = Math.max(0, monthlyContribution);
     const monthlyRate = annualRatePercent !== null && Number.isFinite(annualRatePercent) ? Math.max(0, annualRatePercent) / 100 / 12 : 0;
     const points: SimulationSeriesPoint[] = [];
+    const today = new Date();
+    const baseDate = this.startOfUtcMonth(today);
 
     let value = currentValue;
-    points.push({ label: 'Hoy', value });
+    points.push({ label: 'Hoy', date: this.toIsoDate(today), value });
     for (let index = 0; index < safeMonths; index += 1) {
       value = (value + safeContribution) * (1 + monthlyRate);
-      points.push({ label: `M${index + 1}`, value });
+      const projectedDate = this.addUtcMonths(baseDate, index + 1);
+      points.push({ label: this.formatProjectionLabel(projectedDate), date: this.toIsoDate(projectedDate), value });
     }
 
     const invested = currentValue + safeContribution * safeMonths;
@@ -410,12 +419,26 @@ export class DecisionDashboardService {
     };
   }
 
-  private latestDate(values: Array<string | Date | null | undefined>): Date | null {
-    const parsed = values
-      .map((value) => this.parseDate(value))
-      .filter((value): value is Date => value !== null)
-      .sort((a, b) => a.getTime() - b.getTime());
-    return parsed.at(-1) ?? null;
+  private startOfUtcMonth(date: Date): Date {
+    return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+  }
+
+  private addUtcMonths(date: Date, months: number): Date {
+    return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1));
+  }
+
+  private formatProjectionLabel(date: Date): string {
+    const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    const month = monthNames[date.getUTCMonth()] ?? '';
+    const year = String(date.getUTCFullYear()).slice(-2);
+    return `${month}-${year}`;
+  }
+
+  private toIsoDate(date: Date): string {
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   private resultPercentForSymbol(positions: ReturnType<PortfolioCalculatorService['enrichPositions']>, symbol: string): number | null {

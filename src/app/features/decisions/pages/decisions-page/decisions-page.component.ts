@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { SimpleChartComponent } from '../../../../shared/components/simple-chart/simple-chart.component';
 import { PortfolioAppState, PortfolioStateService } from '../../../../core/services/portfolio-state.service';
@@ -9,15 +10,24 @@ import { DecisionInsightsService } from '../../services/decision-insights.servic
 import { ExportFormat, ExportCurrencyScope, ExportMode, ExportSimulationCurrency, GptPortfolioExportOptions, GptPortfolioExportService, WeeklyManualContext } from '../../services/gpt-portfolio-export.service';
 import { FileDownloadService } from '../../../../core/services/file-download.service';
 import { DecisionDashboardService, SimulationRateMode } from '../../services/decision-dashboard.service';
+import { MovementDateRange, MovementDateRangeService, MovementRangePreset } from '../../services/movement-date-range.service';
 
 @Component({
   standalone: true,
-  imports: [CommonModule, FormsModule, SimpleChartComponent],
+  imports: [CommonModule, FormsModule, RouterLink, SimpleChartComponent],
   templateUrl: './decisions-page.component.html',
   styleUrls: ['./decisions-page.component.scss']
 })
 export class DecisionsPageComponent {
   readonly weeklyContextStorageKey = 'frontend-inversion.weekly-export-context';
+  readonly movementDateRangeStorageKey = 'frontend-inversion.movement-date-range';
+  readonly movementPresets: Array<{ preset: MovementRangePreset; label: string }> = [
+    { preset: '7d', label: 'Últimos 7 días' },
+    { preset: '15d', label: 'Últimos 15 días' },
+    { preset: '30d', label: 'Últimos 30 días' },
+    { preset: 'currentMonth', label: 'Mes actual' },
+    { preset: 'custom', label: 'Personalizado' }
+  ];
   vm: any = null;
   currencyScope: ExportCurrencyScope = 'ALL';
   simulationCurrency: ExportSimulationCurrency = 'ARS';
@@ -33,15 +43,17 @@ export class DecisionsPageComponent {
   includeDataReview = true;
   includeSimulation = false;
   maskSensitiveExports = false;
-  movementsPeriodDays = 7;
+  movementDateRange: MovementDateRange = { from: null, to: null, preset: '7d' };
   weeklyContext: WeeklyManualContext = this.loadWeeklyContext();
   private readonly subscription = new Subscription();
+  private lastSnapshotKey = '';
 
   constructor(
     public readonly state: PortfolioStateService,
     public readonly privacyMode: PrivacyModeService,
     private readonly insights: DecisionInsightsService,
     private readonly dashboard: DecisionDashboardService,
+    private readonly movementDateRangeService: MovementDateRangeService,
     private readonly exporter: GptPortfolioExportService,
     private readonly downloader: FileDownloadService
   ) {
@@ -62,11 +74,12 @@ export class DecisionsPageComponent {
 
   refreshVm(): void {
     const snapshot = this.state.snapshot;
+    this.ensureMovementRange(snapshot);
     const base = this.insights.build(snapshot, this.currencyScope, this.simulationCurrency, this.monthlyContribution, this.months, this.annualReturnPercent);
     const extras = this.dashboard.build(
       snapshot,
       this.weeklyContext,
-      this.movementsPeriodDays,
+      this.movementDateRange,
       this.currencyScope,
       this.simulationCurrency,
       this.monthlyContribution,
@@ -127,9 +140,27 @@ export class DecisionsPageComponent {
       maskSensitive: this.maskSensitiveExports,
       currencyScope: this.currencyScope,
       simulationCurrency: this.simulationCurrency,
-      movementsPeriodDays: this.movementsPeriodDays,
+      movementDateRange: this.movementDateRange,
       manualContext: this.weeklyContext
     };
+  }
+
+  setMovementPreset(preset: MovementRangePreset): void {
+    const snapshot = this.state.snapshot;
+    const currentTo = this.movementDateRange.to ?? this.movementDateRangeService.latestAvailableDate(snapshot);
+    this.movementDateRange = this.movementDateRangeService.applyMovementPreset(preset, currentTo);
+    this.persistMovementRange();
+    this.refreshVm();
+  }
+
+  onMovementDateChange(field: 'from' | 'to', value: string | null): void {
+    this.movementDateRange = {
+      ...this.movementDateRange,
+      [field]: value || null,
+      preset: 'custom'
+    };
+    this.persistMovementRange();
+    this.refreshVm();
   }
 
   persistWeeklyContext(): void {
@@ -138,6 +169,53 @@ export class DecisionsPageComponent {
     } catch {
       // Ignore storage errors in private mode or restricted browsers.
     }
+  }
+
+  private ensureMovementRange(snapshot: PortfolioAppState): void {
+    const snapshotKey = this.snapshotKey(snapshot);
+    if (snapshotKey === this.lastSnapshotKey && this.movementDateRange.from && this.movementDateRange.to) {
+      return;
+    }
+
+    const stored = this.loadMovementRange();
+    const candidate = stored ?? this.movementDateRangeService.getDefaultMovementRange(snapshot);
+    this.movementDateRange = this.movementDateRangeService.normalizeForSnapshot(candidate, snapshot);
+    this.lastSnapshotKey = snapshotKey;
+  }
+
+  private loadMovementRange(): MovementDateRange | null {
+    try {
+      const raw = localStorage.getItem(this.movementDateRangeStorageKey);
+      if (!raw) {
+        return null;
+      }
+      const parsed = JSON.parse(raw) as MovementDateRange;
+      return {
+        from: typeof parsed?.from === 'string' ? parsed.from : null,
+        to: typeof parsed?.to === 'string' ? parsed.to : null,
+        preset: parsed?.preset ?? 'custom'
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  private persistMovementRange(): void {
+    try {
+      localStorage.setItem(this.movementDateRangeStorageKey, JSON.stringify(this.movementDateRange));
+    } catch {
+      // Ignore storage errors.
+    }
+  }
+
+  private snapshotKey(snapshot: PortfolioAppState): string {
+    return [
+      snapshot.fileName ?? '',
+      snapshot.importedAt ?? '',
+      snapshot.status,
+      snapshot.dataset?.operations.length ?? 0,
+      snapshot.dataset?.sales.length ?? 0
+    ].join('|');
   }
 
   clearWeeklyContext(): void {
