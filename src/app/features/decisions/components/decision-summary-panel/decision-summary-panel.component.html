@@ -1,0 +1,68 @@
+<ng-container *ngIf="dashboard as vm">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Decisiones</p>
+      <h2>Centro de decisión, semáforo y simulador</h2>
+      <p class="lead">Vista base para revisar concentración, señales y posibles acciones sin inventar datos fuera del workbook.</p>
+    </div>
+
+    <div
+      class="traffic"
+      [class.green]="vm.trafficLight === 'green'"
+      [class.yellow]="vm.trafficLight === 'yellow'"
+      [class.red]="vm.trafficLight === 'red'"
+      [class.gray]="vm.trafficLight === 'gray'"
+    >
+      <span class="traffic-label">{{ vm.trafficLightLabel }}</span>
+      <strong>{{ vm.trafficLightReason }}</strong>
+    </div>
+  </header>
+
+  <section class="cards">
+    <article class="metric" *ngFor="let card of vm.cards; trackBy: trackByCard" [attr.data-tone]="card.tone">
+      <p>{{ card.title }}</p>
+      <strong>{{ card.value }}</strong>
+      <small>{{ card.note }}</small>
+    </article>
+  </section>
+
+  <section class="panel">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">Semáforo</p>
+        <h3>Lectura rápida del portafolio</h3>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <article class="box">
+        <h4>Acciones sugeridas</h4>
+        <div class="action-list" *ngIf="vm.actions.length; else noActions">
+          <div class="action" *ngFor="let action of vm.actions; trackBy: trackByAction" [attr.data-tone]="action.tone">
+            <strong>{{ action.title }}</strong>
+            <p>{{ action.note }}</p>
+          </div>
+        </div>
+        <ng-template #noActions>
+          <p class="empty">No hay alertas críticas por ahora. Seguir monitoreando.</p>
+        </ng-template>
+      </article>
+
+      <article class="box">
+        <h4>Referencias de concentración</h4>
+        <div class="objective-list">
+          <div class="objective" *ngFor="let objective of vm.objectives; trackBy: trackByObjective" [attr.data-tone]="objective.tone">
+            <div class="objective-label">
+              <strong>{{ objective.label }}</strong>
+              <span>{{ objective.currentPercent | number:'1.0-2' }}% vs {{ objective.targetPercent | number:'1.0-2' }}%</span>
+            </div>
+            <div class="objective-bar">
+              <span class="current" [style.width.%]="objective.currentPercent"></span>
+            </div>
+            <small>Brecha: {{ objective.gapPercent | number:'1.0-2' }}%</small>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
+</ng-container>

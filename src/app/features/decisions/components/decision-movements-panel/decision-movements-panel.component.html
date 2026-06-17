@@ -1,0 +1,166 @@
+<section class="panel" *ngIf="movements as vm">
+  <div class="section-head">
+    <div>
+      <p class="eyebrow">Movimientos recientes</p>
+      <h3>Compras, ventas y flujo operativo detectado</h3>
+    </div>
+  </div>
+
+  <div class="movement-summary">
+    <article class="metric" *ngFor="let item of vm.summaryByCurrency; trackBy: trackBySummary">
+      <p>{{ item.currency }}</p>
+      <strong>{{ privacyEnabled ? 'Oculto' : item.operatingFlow }}</strong>
+      <small>Compras {{ privacyEnabled ? 'Oculto' : item.purchasesGross }} · Ventas {{ privacyEnabled ? 'Oculto' : item.salesGross }}</small>
+    </article>
+  </div>
+
+  <p class="warning">
+    Flujo operativo detectado = ventas brutas - compras brutas. Este flujo surge de las compras y ventas registradas en el Excel. No representa necesariamente aporte neto real.
+  </p>
+
+  <div class="grid-2">
+    <article class="box">
+      <h4>Rango de movimientos recientes</h4>
+      <div class="movement-range-presets">
+        <button
+          type="button"
+          *ngFor="let preset of movementPresets"
+          class="secondary preset"
+          [class.active]="movementDateRange?.preset === preset.preset"
+          (click)="presetSelected.emit(preset.preset)">
+          {{ preset.label }}
+        </button>
+      </div>
+      <div class="movement-range-grid">
+        <label>
+          Desde
+          <input type="date" [ngModel]="movementDateRange?.from" (ngModelChange)="onDateChange('from', $event)" />
+        </label>
+        <label>
+          Hasta
+          <input type="date" [ngModel]="movementDateRange?.to" (ngModelChange)="onDateChange('to', $event)" />
+        </label>
+      </div>
+      <p class="muted">Rango analizado: {{ vm.rangeLabel }} · Preset: {{ vm.rangePresetLabel }}</p>
+      <p class="muted">Referencia: {{ vm.referenceDate }} · Desde: {{ vm.startDate }}</p>
+      <p class="muted">El rango se basa en la última fecha válida detectada en Tabla6 y Tabla13.</p>
+      <h4>Compras recientes dentro del rango seleccionado</h4>
+      <div class="table-wrap" *ngIf="vm.recentPurchases.length; else noRecentPurchases">
+        <table class="table compact">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Especie</th>
+              <th>Moneda</th>
+              <th>Cantidad</th>
+              <th>Monto</th>
+              <th>Resultado %</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of vm.recentPurchases; trackBy: trackByRow">
+              <td>{{ row.date }}</td>
+              <td>{{ row.symbol }}</td>
+              <td>{{ row.currency }}</td>
+              <td>{{ privacyEnabled ? 'Oculto' : row.quantity }}</td>
+              <td>{{ privacyEnabled ? 'Oculto' : row.amount }}</td>
+              <td>{{ row.resultPercent || 'N/D' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ng-template #noRecentPurchases>
+        <p class="empty">No hay compras recientes en el período.</p>
+      </ng-template>
+      <p class="muted" *ngIf="vm.morePurchases > 0">+ {{ vm.morePurchases }} movimientos más en el período.</p>
+    </article>
+
+    <article class="box">
+      <h4>Ventas recientes dentro del rango seleccionado</h4>
+      <div class="table-wrap" *ngIf="vm.recentSales.length; else noRecentSales">
+        <table class="table compact">
+          <thead>
+            <tr>
+              <th>Fecha venta</th>
+              <th>Especie</th>
+              <th>Moneda</th>
+              <th>Cantidad</th>
+              <th>Monto</th>
+              <th>Variación %</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of vm.recentSales; trackBy: trackByRow">
+              <td>{{ row.date }}</td>
+              <td>{{ row.symbol }}</td>
+              <td>{{ row.currency }}</td>
+              <td>{{ privacyEnabled ? 'Oculto' : row.quantity }}</td>
+              <td>{{ privacyEnabled ? 'Oculto' : row.amount }}</td>
+              <td>{{ row.resultPercent || 'N/D' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ng-template #noRecentSales>
+        <p class="empty">No hay ventas recientes en el período.</p>
+      </ng-template>
+      <p class="muted" *ngIf="vm.moreSales > 0">+ {{ vm.moreSales }} movimientos más en el período.</p>
+    </article>
+  </div>
+
+  <div class="grid-2">
+    <article class="box">
+      <h4>Posibles posiciones cerradas o instrumentos operativos</h4>
+      <div class="table-wrap" *ngIf="vm.closedPositions.length; else noClosed">
+        <table class="table compact">
+          <thead>
+            <tr>
+              <th>Especie</th>
+              <th>Fecha</th>
+              <th>Moneda</th>
+              <th>Nota</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of vm.closedPositions; trackBy: trackByRow">
+              <td>{{ row.symbol }}</td>
+              <td>{{ row.date }}</td>
+              <td>{{ row.currency }}</td>
+              <td>{{ row.note }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ng-template #noClosed>
+        <p class="empty">No se detectaron cierres claros en el período.</p>
+      </ng-template>
+    </article>
+
+    <article class="box">
+      <h4>Nuevas posiciones detectadas</h4>
+      <div class="table-wrap" *ngIf="vm.newPositions.length; else noNewPositions">
+        <table class="table compact">
+          <thead>
+            <tr>
+              <th>Especie</th>
+              <th>Fecha</th>
+              <th>Moneda</th>
+              <th>Nota</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of vm.newPositions; trackBy: trackByRow">
+              <td>{{ row.symbol }}</td>
+              <td>{{ row.date }}</td>
+              <td>{{ row.currency }}</td>
+              <td>{{ row.note }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ng-template #noNewPositions>
+        <p class="empty">No se detectaron nuevas posiciones en el período.</p>
+      </ng-template>
+    </article>
+  </div>
+</section>

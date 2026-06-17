@@ -1,0 +1,40 @@
+<section class="panel">
+  <div class="section-head">
+    <div>
+      <p class="eyebrow">Señales</p>
+      <h3>Resumen de señales</h3>
+    </div>
+    <a routerLink="/alertas" class="secondary-link">Ver señales completas</a>
+  </div>
+
+  <ng-container *ngIf="signalsSummary as vm; else noSignalsSummary">
+    <div class="signal-summary" *ngIf="vm.total30D > 0; else noSignalsDetected">
+      <article class="metric">
+        <p>Señales 30D</p>
+        <strong>{{ vm.total30D }}</strong>
+        <small>Resumen táctico breve; el detalle completo vive en Alertas</small>
+      </article>
+      <article class="box">
+        <h4>Caídas 30D</h4>
+        <p class="muted" *ngIf="vm.caidas30D.length; else noCaidas">{{ vm.caidas30D.join(', ') }}</p>
+        <ng-template #noCaidas>
+          <p class="empty">Sin caídas 30D destacadas.</p>
+        </ng-template>
+      </article>
+      <article class="box">
+        <h4>Recuperaciones 30D</h4>
+        <p class="muted" *ngIf="vm.recuperaciones30D.length; else noRecuperaciones">{{ vm.recuperaciones30D.join(', ') }}</p>
+        <ng-template #noRecuperaciones>
+          <p class="empty">Sin recuperaciones 30D destacadas.</p>
+        </ng-template>
+      </article>
+    </div>
+    <ng-template #noSignalsDetected>
+      <p class="empty">No hay señales cargadas.</p>
+    </ng-template>
+  </ng-container>
+
+  <ng-template #noSignalsSummary>
+    <p class="empty">No hay señales cargadas.</p>
+  </ng-template>
+</section>

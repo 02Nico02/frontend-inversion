@@ -1,0 +1,13 @@
+@use '../decision-shared' as *;
+
+.signal-summary {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr 1.5fr;
+  gap: 0.75rem;
+}
+
+@media (max-width: 1180px) {
+  .signal-summary {
+    grid-template-columns: 1fr;
+  }
+}

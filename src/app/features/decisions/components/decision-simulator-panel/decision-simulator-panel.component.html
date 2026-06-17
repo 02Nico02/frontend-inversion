@@ -1,0 +1,106 @@
+<section class="panel" *ngIf="simulation as vm">
+  <div class="section-head">
+    <div>
+      <p class="eyebrow">Simulador</p>
+      <h3>Aporte mensual proyectado</h3>
+    </div>
+  </div>
+
+  <div class="simulator">
+    <label>
+      Moneda del simulador
+      <select [ngModel]="simulationCurrency" (ngModelChange)="simulationCurrencyChange.emit($event)">
+        <option value="ARS">ARS</option>
+        <option value="USD">USD</option>
+      </select>
+    </label>
+    <label>
+      Aporte mensual
+      <input type="number" min="0" [ngModel]="monthlyContribution" (ngModelChange)="emitNumber(monthlyContributionChange, $event)" />
+    </label>
+    <label>
+      Meses
+      <input type="number" min="0" [ngModel]="months" (ngModelChange)="emitNumber(monthsChange, $event)" />
+    </label>
+    <label>
+      Tasa usada
+      <select [ngModel]="simulationRateMode" (ngModelChange)="simulationRateModeChange.emit($event)">
+        <option value="real12m">Real últimos 12 meses</option>
+        <option value="nominal12m">Nominal últimos 12 meses</option>
+        <option value="realYtd">Real YTD</option>
+        <option value="nominalYtd">Nominal YTD</option>
+        <option value="real3m">Real últimos 3 meses anualizado</option>
+        <option value="conservative">Conservador</option>
+        <option value="manual">Manual</option>
+      </select>
+    </label>
+    <label>
+      Rendimiento anual esperado %
+      <input type="number" min="-100" step="0.1" [ngModel]="annualReturnPercent" (ngModelChange)="emitNumber(annualReturnPercentChange, $event)" [disabled]="simulationRateMode !== 'manual'" />
+    </label>
+  </div>
+
+  <div class="simulation-note">
+    <span>
+      Tasa usada: {{ vm.rateLabel }}
+      <ng-container *ngIf="vm.ratePercent !== null; else noRate">
+        ({{ vm.ratePercent | number:'1.0-2' }}%)
+      </ng-container>
+      <ng-template #noRate>(N/D)</ng-template>
+      · Fuente: {{ vm.rateSource }}
+    </span>
+    <span>
+      Periodo: {{ vm.ratePeriod || 'N/D' }} · Meses usados: {{ vm.rateMonthsUsed === null ? 'N/D' : vm.rateMonthsUsed }} · {{ vm.rateAnnualized ? 'Anualizada' : 'No anualizada' }}
+    </span>
+    <span *ngIf="vm.rateWarning">{{ vm.rateWarning }}</span>
+    <span>{{ vm.warning }}</span>
+  </div>
+
+  <div class="cards cards-3">
+    <article class="metric">
+      <p>Capital actual</p>
+      <strong>{{ privacyEnabled ? 'Oculto' : vm.nominalCurrentValue }}</strong>
+      <small>Base para la proyección</small>
+    </article>
+    <article class="metric">
+      <p>Aportes estimados</p>
+      <strong>{{ privacyEnabled ? 'Oculto' : vm.nominalAportes }}</strong>
+      <small>{{ months }} meses</small>
+    </article>
+    <article class="metric">
+      <p>Valor futuro nominal</p>
+      <strong>{{ privacyEnabled ? 'Oculto' : vm.nominalFutureValue }}</strong>
+      <small>Escenario nominal</small>
+    </article>
+    <article class="metric">
+      <p>Ganancia nominal estimada</p>
+      <strong>{{ privacyEnabled ? 'Oculto' : vm.nominalGain }}</strong>
+      <small>No es una predicción</small>
+    </article>
+    <article class="metric">
+      <p>Valor futuro real</p>
+      <strong>{{ privacyEnabled ? 'Oculto' : (vm.realFutureValue || 'N/D') }}</strong>
+      <small>Si hay tasa real disponible</small>
+    </article>
+    <article class="metric">
+      <p>Ganancia real estimada</p>
+      <strong>{{ privacyEnabled ? 'Oculto' : (vm.realGain || 'N/D') }}</strong>
+      <small>Escenario ajustado por inflación</small>
+    </article>
+  </div>
+
+  <div class="projection-chart" *ngIf="!privacyEnabled; else privacyProjection">
+    <app-simple-chart
+      title="Proyección de capital"
+      subtitle="Escenario nominal"
+      mode="line"
+      [points]="vm.points"
+      [currency]="simulationCurrency"
+      [valueKind]="'money'"
+      [showAverage]="false">
+    </app-simple-chart>
+  </div>
+  <ng-template #privacyProjection>
+    <p class="warning">La vista del gráfico de proyección se oculta mientras el modo privacidad está activo.</p>
+  </ng-template>
+</section>

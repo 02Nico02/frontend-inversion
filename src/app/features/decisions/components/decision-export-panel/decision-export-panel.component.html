@@ -1,0 +1,104 @@
+<section class="panel export-panel">
+  <div class="section-head">
+    <div>
+      <p class="eyebrow">Exportación GPT</p>
+      <h3>Exportar contexto para ChatGPT</h3>
+    </div>
+  </div>
+
+  <p class="lead export-lead">
+    El archivo se genera localmente en el navegador. No se sube a ningún servidor.
+    <span *ngIf="privacyEnabled" class="privacy-warning">El modo privacidad está activo. Si exportas con datos reales, el archivo puede contener importes sensibles.</span>
+  </p>
+
+  <div class="export-grid">
+    <label>
+      Formato
+      <select [ngModel]="exportFormat" (ngModelChange)="exportFormatChange.emit($event)">
+        <option value="markdown">Markdown (.md)</option>
+        <option value="json">JSON (.json)</option>
+        <option value="both">Ambos</option>
+      </select>
+    </label>
+
+    <label>
+      Modo de exportación
+      <select [ngModel]="exportMode" (ngModelChange)="exportModeChange.emit($event)">
+        <option value="summary">Resumido para ChatGPT (recomendado)</option>
+        <option value="full">Completo técnico</option>
+      </select>
+    </label>
+
+    <label>
+      <input type="checkbox" [ngModel]="includeFullPurchases" (ngModelChange)="includeFullPurchasesChange.emit($event)" />
+      Incluir compras completas
+    </label>
+
+    <label>
+      <input type="checkbox" [ngModel]="includeMonthlyHistory" (ngModelChange)="includeMonthlyHistoryChange.emit($event)" />
+      Incluir historial mensual
+    </label>
+
+    <label>
+      <input type="checkbox" [ngModel]="includeSignals" (ngModelChange)="includeSignalsChange.emit($event)" />
+      Incluir señales
+    </label>
+
+    <label>
+      <input type="checkbox" [ngModel]="includeDataReview" (ngModelChange)="includeDataReviewChange.emit($event)" />
+      Incluir datos a revisar
+    </label>
+
+    <label>
+      <input type="checkbox" [ngModel]="includeSimulation" (ngModelChange)="includeSimulationChange.emit($event)" />
+      Incluir simulación
+    </label>
+
+    <label>
+      <input type="checkbox" [ngModel]="maskSensitiveExports" (ngModelChange)="maskSensitiveExportsChange.emit($event)" />
+      Enmascarar importes en exportación
+    </label>
+  </div>
+
+  <section class="panel liquidity-panel">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">Liquidez operativa</p>
+        <h3>Cash disponible opcional</h3>
+      </div>
+    </div>
+
+    <p class="lead export-lead">
+      Estos valores no salen del Excel. Si los completás, el export los incluirá; si no, quedarán como "No informado".
+    </p>
+
+    <div class="export-grid cash-grid">
+      <label>
+        Cash ARS disponible
+        <input type="number" min="0" [ngModel]="weeklyContext?.cashArs" (ngModelChange)="emitCash(cashArsChange, $event)" />
+      </label>
+
+      <label>
+        Cash USD disponible
+        <input type="number" min="0" [ngModel]="weeklyContext?.cashUsd" (ngModelChange)="emitCash(cashUsdChange, $event)" />
+      </label>
+    </div>
+
+    <div class="export-grid period-grid">
+      <div class="range-summary">
+        <p>Rango de movimientos usado en el export</p>
+        <strong>{{ rangeLabel }}</strong>
+        <small>Preset: {{ rangePresetLabel }}</small>
+      </div>
+
+      <div class="export-actions align-end">
+        <button type="button" class="secondary" (click)="clearCash.emit()">Limpiar cash disponible</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="export-actions">
+    <button type="button" class="primary" (click)="downloadExport.emit()">Exportar contexto GPT</button>
+    <button type="button" class="secondary" (click)="copyExport.emit()">Copiar resumen al portapapeles</button>
+  </div>
+</section>

@@ -1,592 +1,71 @@
-﻿<section class="page" *ngIf="state.snapshot as snapshot">
+<section class="page" *ngIf="state.snapshot as snapshot">
   <ng-container *ngIf="vm; else emptyState">
-    <header class="page-header">
-      <div>
-        <p class="eyebrow">Decisiones</p>
-        <h2>Centro de decisión, semáforo y simulador</h2>
-        <p class="lead">
-          Vista base para revisar concentración, señales y posibles acciones sin inventar datos fuera del workbook.
-        </p>
-      </div>
+    <app-decision-summary-panel [dashboard]="vm" [currencyScope]="currencyScope"></app-decision-summary-panel>
 
-      <div class="traffic" [class.green]="vm.trafficLight === 'green'" [class.yellow]="vm.trafficLight === 'yellow'" [class.red]="vm.trafficLight === 'red'" [class.gray]="vm.trafficLight === 'gray'">
-        <span class="traffic-label">{{ vm.trafficLightLabel }}</span>
-        <strong>{{ vm.trafficLightReason }}</strong>
-      </div>
-    </header>
+    <app-decision-liquidity-panel
+      [liquidity]="vm.liquidityCards"
+      [privacyEnabled]="privacyMode.enabled">
+    </app-decision-liquidity-panel>
 
-    <section class="panel controls">
-      <div class="control-group">
-        <label>
-          Moneda del análisis
-          <select [(ngModel)]="currencyScope" (ngModelChange)="onControlsChange()">
-            <option value="ALL">Sin conversión</option>
-            <option value="ARS">ARS</option>
-            <option value="USD">USD</option>
-          </select>
-        </label>
+    <app-decision-movements-panel
+      [movements]="vm.movements"
+      [movementDateRange]="movementDateRange"
+      [movementPresets]="movementPresets"
+      [privacyEnabled]="privacyMode.enabled"
+      (movementDateRangeChange)="movementDateRange = $event; persistMovementRange(); refreshVm()"
+      (presetSelected)="setMovementPreset($event)">
+    </app-decision-movements-panel>
 
-        <label>
-          Moneda del simulador
-          <select [(ngModel)]="simulationCurrency" (ngModelChange)="onControlsChange()">
-            <option value="ARS">ARS</option>
-            <option value="USD">USD</option>
-          </select>
-        </label>
-      </div>
+    <app-decision-simulator-panel
+      [simulation]="vm.simulation"
+      [simulationCurrency]="simulationCurrency"
+      [monthlyContribution]="monthlyContribution"
+      [months]="months"
+      [annualReturnPercent]="annualReturnPercent"
+      [simulationRateMode]="simulationRateMode"
+      [performanceReferences]="vm.performance"
+      [privacyEnabled]="privacyMode.enabled"
+      (simulationCurrencyChange)="simulationCurrency = $event; onControlsChange()"
+      (monthlyContributionChange)="monthlyContribution = $event; onControlsChange()"
+      (monthsChange)="months = $event; onControlsChange()"
+      (annualReturnPercentChange)="annualReturnPercent = $event; onControlsChange()"
+      (simulationRateModeChange)="simulationRateMode = $event; onControlsChange()">
+    </app-decision-simulator-panel>
 
-      <p class="warning" *ngIf="currencyScope === 'ALL'">
-        Sin conversión mezcla ARS y USD. Usalo solo como referencia visual.
-      </p>
-    </section>
+    <app-decision-performance-panel
+      [performance]="vm.performance"
+      [privacyEnabled]="privacyMode.enabled">
+    </app-decision-performance-panel>
 
-    <section class="panel">
-      <div class="section-head">
-        <div>
-          <p class="eyebrow">Liquidez operativa</p>
-          <h3>Cash informado y liquidez detectada</h3>
-        </div>
-      </div>
+    <app-decision-export-panel
+      [exportMode]="exportMode"
+      [exportFormat]="exportFormat"
+      [includeFullPurchases]="includeFullPurchases"
+      [includeMonthlyHistory]="includeMonthlyHistory"
+      [includeSignals]="includeSignals"
+      [includeDataReview]="includeDataReview"
+      [includeSimulation]="includeSimulation"
+      [maskSensitiveExports]="maskSensitiveExports"
+      [privacyEnabled]="privacyMode.enabled"
+      [weeklyContext]="weeklyContext"
+      [rangeLabel]="vm.movements.rangeLabel"
+      [rangePresetLabel]="vm.movements.rangePresetLabel"
+      (exportModeChange)="exportMode = $event; onControlsChange()"
+      (exportFormatChange)="exportFormat = $event; onControlsChange()"
+      (includeFullPurchasesChange)="includeFullPurchases = $event; onControlsChange()"
+      (includeMonthlyHistoryChange)="includeMonthlyHistory = $event; onControlsChange()"
+      (includeSignalsChange)="includeSignals = $event; onControlsChange()"
+      (includeDataReviewChange)="includeDataReview = $event; onControlsChange()"
+      (includeSimulationChange)="includeSimulation = $event; onControlsChange()"
+      (maskSensitiveExportsChange)="maskSensitiveExports = $event; onControlsChange()"
+      (cashArsChange)="weeklyContext.cashArs = $event; persistWeeklyContext(); onControlsChange()"
+      (cashUsdChange)="weeklyContext.cashUsd = $event; persistWeeklyContext(); onControlsChange()"
+      (clearCash)="clearWeeklyContext(); onControlsChange()"
+      (copyExport)="copySummary(snapshot)"
+      (downloadExport)="exportContext(snapshot)">
+    </app-decision-export-panel>
 
-      <div class="cards cards-3 cards-tight">
-        <article class="metric" *ngFor="let item of vm.liquidityCards; trackBy: trackByItem">
-          <p>{{ item.title }}</p>
-          <strong>{{ item.value }}</strong>
-          <small>{{ item.note }}</small>
-        </article>
-      </div>
-    </section>
-
-    <section class="cards">
-      <article class="metric" *ngFor="let card of vm.cards; trackBy: trackByItem" [attr.data-tone]="card.tone">
-        <p>{{ card.title }}</p>
-        <strong>{{ card.value }}</strong>
-        <small>{{ card.note }}</small>
-      </article>
-    </section>
-
-    <section class="panel">
-      <div class="section-head">
-        <div>
-          <p class="eyebrow">Semaforo</p>
-          <h3>Lectura rapida del portafolio</h3>
-        </div>
-      </div>
-
-      <div class="grid-2">
-        <article class="box">
-          <h4>Acciones sugeridas</h4>
-          <div class="action-list" *ngIf="vm.actions.length; else noActions">
-            <div class="action" *ngFor="let action of vm.actions; trackBy: trackByItem" [attr.data-tone]="action.tone">
-              <strong>{{ action.title }}</strong>
-              <p>{{ action.note }}</p>
-            </div>
-          </div>
-          <ng-template #noActions>
-            <p class="empty">No hay alertas criticas por ahora. Seguir monitoreando.</p>
-          </ng-template>
-        </article>
-
-        <article class="box">
-          <h4>Referencias de concentracion</h4>
-          <div class="objective-list">
-            <div class="objective" *ngFor="let objective of vm.objectives; trackBy: trackByItem" [attr.data-tone]="objective.tone">
-              <div class="objective-label">
-                <strong>{{ objective.label }}</strong>
-                <span>{{ objective.currentPercent | number:'1.0-2' }}% vs {{ objective.targetPercent | number:'1.0-2' }}%</span>
-              </div>
-              <div class="objective-bar">
-                <span class="current" [style.width.%]="objective.currentPercent"></span>
-              </div>
-              <small>Brecha: {{ objective.gapPercent | number:'1.0-2' }}%</small>
-            </div>
-          </div>
-        </article>
-      </div>
-    </section>
-
-    <section class="panel">
-      <div class="section-head">
-        <div>
-          <p class="eyebrow">Movimientos recientes</p>
-          <h3>Compras, ventas y flujo operativo detectado</h3>
-        </div>
-      </div>
-
-      <div class="movement-summary">
-        <article class="metric" *ngFor="let item of vm.movements.summaryByCurrency; trackBy: trackByItem">
-          <p>{{ item.currency }}</p>
-          <strong>{{ item.operatingFlow }}</strong>
-          <small>Compras {{ item.purchasesGross }} · Ventas {{ item.salesGross }}</small>
-        </article>
-      </div>
-
-      <p class="warning">
-        Flujo operativo detectado = ventas brutas - compras brutas. Este flujo surge de las compras y ventas registradas en el Excel. No representa necesariamente aporte neto real.
-      </p>
-
-      <div class="grid-2">
-        <article class="box">
-          <h4>Rango de movimientos recientes</h4>
-          <div class="movement-range-presets">
-            <button
-              type="button"
-              *ngFor="let preset of movementPresets"
-              class="secondary preset"
-              [class.active]="movementDateRange.preset === preset.preset"
-              (click)="setMovementPreset(preset.preset)">
-              {{ preset.label }}
-            </button>
-          </div>
-          <div class="movement-range-grid">
-            <label>
-              Desde
-              <input
-                type="date"
-                [ngModel]="movementDateRange.from"
-                (ngModelChange)="onMovementDateChange('from', $event)" />
-            </label>
-            <label>
-              Hasta
-              <input
-                type="date"
-                [ngModel]="movementDateRange.to"
-                (ngModelChange)="onMovementDateChange('to', $event)" />
-            </label>
-          </div>
-          <p class="muted">Rango analizado: {{ vm.movements.rangeLabel }} · Preset: {{ vm.movements.rangePresetLabel }}</p>
-          <p class="muted">Referencia: {{ vm.movements.referenceDate }} · Desde: {{ vm.movements.startDate }}</p>
-          <p class="muted">El rango se basa en la última fecha válida detectada en Tabla6 y Tabla13.</p>
-          <h4>Compras recientes dentro del rango seleccionado</h4>
-          <div class="table-wrap" *ngIf="vm.movements.recentPurchases.length; else noRecentPurchases">
-            <table class="table compact">
-              <thead>
-                <tr>
-                  <th>Fecha</th>
-                  <th>Especie</th>
-                  <th>Moneda</th>
-                  <th>Cantidad</th>
-                  <th>Monto</th>
-                  <th>Resultado %</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let row of vm.movements.recentPurchases; trackBy: trackByItem">
-                  <td>{{ row.date }}</td>
-                  <td>{{ row.symbol }}</td>
-                  <td>{{ row.currency }}</td>
-                  <td>{{ row.quantity }}</td>
-                  <td>{{ row.amount }}</td>
-                  <td>{{ row.resultPercent || 'N/D' }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <ng-template #noRecentPurchases>
-            <p class="empty">No hay compras recientes en el período.</p>
-          </ng-template>
-          <p class="muted" *ngIf="vm.movements.morePurchases > 0">+ {{ vm.movements.morePurchases }} movimientos más en el período.</p>
-        </article>
-
-        <article class="box">
-          <h4>Ventas recientes dentro del rango seleccionado</h4>
-          <div class="table-wrap" *ngIf="vm.movements.recentSales.length; else noRecentSales">
-            <table class="table compact">
-              <thead>
-                <tr>
-                  <th>Fecha venta</th>
-                  <th>Especie</th>
-                  <th>Moneda</th>
-                  <th>Cantidad</th>
-                  <th>Monto</th>
-                  <th>Variación %</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let row of vm.movements.recentSales; trackBy: trackByItem">
-                  <td>{{ row.date }}</td>
-                  <td>{{ row.symbol }}</td>
-                  <td>{{ row.currency }}</td>
-                  <td>{{ row.quantity }}</td>
-                  <td>{{ row.amount }}</td>
-                  <td>{{ row.resultPercent || 'N/D' }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <ng-template #noRecentSales>
-            <p class="empty">No hay ventas recientes en el período.</p>
-          </ng-template>
-          <p class="muted" *ngIf="vm.movements.moreSales > 0">+ {{ vm.movements.moreSales }} movimientos más en el período.</p>
-        </article>
-      </div>
-
-      <div class="grid-2">
-        <article class="box">
-          <h4>Posibles posiciones cerradas o instrumentos operativos</h4>
-          <div class="table-wrap" *ngIf="vm.movements.closedPositions.length; else noClosed">
-            <table class="table compact">
-              <thead>
-                <tr>
-                  <th>Especie</th>
-                  <th>Fecha</th>
-                  <th>Moneda</th>
-                  <th>Nota</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let row of vm.movements.closedPositions; trackBy: trackByItem">
-                  <td>{{ row.symbol }}</td>
-                  <td>{{ row.date }}</td>
-                  <td>{{ row.currency }}</td>
-                  <td>{{ row.note }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <ng-template #noClosed>
-            <p class="empty">No se detectaron cierres claros en el período.</p>
-          </ng-template>
-        </article>
-
-        <article class="box">
-          <h4>Nuevas posiciones detectadas</h4>
-          <div class="table-wrap" *ngIf="vm.movements.newPositions.length; else noNewPositions">
-            <table class="table compact">
-              <thead>
-                <tr>
-                  <th>Especie</th>
-                  <th>Fecha</th>
-                  <th>Moneda</th>
-                  <th>Nota</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let row of vm.movements.newPositions; trackBy: trackByItem">
-                  <td>{{ row.symbol }}</td>
-                  <td>{{ row.date }}</td>
-                  <td>{{ row.currency }}</td>
-                  <td>{{ row.note }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <ng-template #noNewPositions>
-            <p class="empty">No se detectaron nuevas posiciones en el período.</p>
-          </ng-template>
-        </article>
-      </div>
-    </section>
-
-    <section class="panel">
-      <div class="section-head">
-        <div>
-          <p class="eyebrow">Simulador</p>
-          <h3>Aporte mensual proyectado</h3>
-        </div>
-      </div>
-
-      <div class="simulator">
-        <label>
-          Aporte mensual
-          <input type="number" min="0" [(ngModel)]="monthlyContribution" (ngModelChange)="onControlsChange()" />
-        </label>
-        <label>
-          Meses
-          <input type="number" min="0" [(ngModel)]="months" (ngModelChange)="onControlsChange()" />
-        </label>
-        <label>
-          Tasa usada
-          <select [(ngModel)]="simulationRateMode" (ngModelChange)="onControlsChange()">
-            <option value="real12m">Real últimos 12 meses</option>
-            <option value="nominal12m">Nominal últimos 12 meses</option>
-            <option value="realYtd">Real YTD</option>
-            <option value="nominalYtd">Nominal YTD</option>
-            <option value="real3m">Real últimos 3 meses anualizado</option>
-            <option value="conservative">Conservador</option>
-            <option value="manual">Manual</option>
-          </select>
-        </label>
-        <label>
-          Rendimiento anual esperado %
-          <input type="number" min="-100" step="0.1" [(ngModel)]="annualReturnPercent" (ngModelChange)="onControlsChange()" [disabled]="simulationRateMode !== 'manual'" />
-        </label>
-      </div>
-
-      <div class="simulation-note">
-        <span>
-          Tasa usada: {{ vm.simulation.rateLabel }}
-          <ng-container *ngIf="vm.simulation.ratePercent !== null; else noRate">
-            ({{ vm.simulation.ratePercent | number:'1.0-2' }}%)
-          </ng-container>
-          <ng-template #noRate>(N/D)</ng-template>
-          · Fuente: {{ vm.simulation.rateSource }}
-        </span>
-        <span>
-          Periodo: {{ vm.simulation.ratePeriod || 'N/D' }} · Meses usados: {{ vm.simulation.rateMonthsUsed === null ? 'N/D' : vm.simulation.rateMonthsUsed }} · {{ vm.simulation.rateAnnualized ? 'Anualizada' : 'No anualizada' }}
-        </span>
-        <span *ngIf="vm.simulation.rateWarning">{{ vm.simulation.rateWarning }}</span>
-        <span>{{ vm.simulation.warning }}</span>
-      </div>
-
-      <div class="cards cards-3">
-        <article class="metric">
-          <p>Capital actual</p>
-          <strong>{{ vm.simulation.nominalCurrentValue }}</strong>
-          <small>Base para la proyección</small>
-        </article>
-        <article class="metric">
-          <p>Aportes estimados</p>
-          <strong>{{ vm.simulation.nominalAportes }}</strong>
-          <small>{{ months }} meses</small>
-        </article>
-        <article class="metric">
-          <p>Valor futuro nominal</p>
-          <strong>{{ vm.simulation.nominalFutureValue }}</strong>
-          <small>Escenario nominal</small>
-        </article>
-        <article class="metric">
-          <p>Ganancia nominal estimada</p>
-          <strong>{{ vm.simulation.nominalGain }}</strong>
-          <small>No es una predicción</small>
-        </article>
-        <article class="metric">
-          <p>Valor futuro real</p>
-          <strong>{{ vm.simulation.realFutureValue || 'N/D' }}</strong>
-          <small>Si hay tasa real disponible</small>
-        </article>
-        <article class="metric">
-          <p>Ganancia real estimada</p>
-          <strong>{{ vm.simulation.realGain || 'N/D' }}</strong>
-          <small>Escenario ajustado por inflación</small>
-        </article>
-      </div>
-
-      <div class="projection-chart" *ngIf="!privacyMode.enabled; else privacyProjection">
-        <app-simple-chart
-          title="Proyección de capital"
-          subtitle="Escenario nominal"
-          mode="line"
-          [points]="vm.simulation.points"
-          [currency]="simulationCurrency"
-          [valueKind]="'money'"
-          [showAverage]="false">
-        </app-simple-chart>
-      </div>
-      <ng-template #privacyProjection>
-        <p class="warning">La vista del gráfico de proyección se oculta mientras el modo privacidad está activo.</p>
-      </ng-template>
-    </section>
-
-    <section class="panel">
-      <div class="section-head">
-        <div>
-          <p class="eyebrow">Rendimiento historico e inflacion</p>
-          <h3>Referencias compuestas para el simulador</h3>
-        </div>
-      </div>
-
-      <p class="warning" *ngIf="vm.performance.warnings.length">
-        Se detectaron diferencias entre el rendimiento real reportado por el Excel y el rendimiento real recalculado con inflación. Para el simulador se usa el valor recalculado cuando existe.
-      </p>
-
-      <div class="table-wrap" *ngIf="vm.performance.references.length; else noPerformanceReferences">
-        <table class="table compact">
-          <thead>
-            <tr>
-              <th>Referencia</th>
-              <th>Tipo</th>
-              <th>Periodo</th>
-              <th>Meses</th>
-              <th>Tasa anual</th>
-              <th>Retorno del periodo</th>
-              <th>Fuente</th>
-              <th>Observacion</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let ref of vm.performance.references; trackBy: trackByItem">
-              <td>{{ ref.label }}</td>
-              <td>{{ ref.type }}</td>
-              <td>{{ ref.period }}</td>
-              <td>{{ ref.monthsUsed }}</td>
-              <td>{{ ref.annualRatePercent === null ? 'N/D' : (ref.annualRatePercent | number:'1.0-2') + '%' }}</td>
-              <td>{{ ref.periodReturnPercent === null ? 'N/D' : (ref.periodReturnPercent | number:'1.0-2') + '%' }}</td>
-              <td>{{ ref.source }}</td>
-              <td>{{ ref.warning || 'OK' }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <ng-template #noPerformanceReferences>
-        <p class="empty">No hay datos suficientes para calcular referencias históricas.</p>
-      </ng-template>
-
-      <div class="table-wrap" *ngIf="vm.performance.monthlyRows.length">
-        <h4>Últimos 6 meses</h4>
-        <table class="table compact">
-          <thead>
-            <tr>
-              <th>Mes</th>
-              <th>Nominal %</th>
-              <th>Inflación %</th>
-              <th>Real usado %</th>
-              <th>Observación</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let row of vm.performance.monthlyRows.slice(-6); trackBy: trackByItem">
-              <td>{{ row.label }}</td>
-              <td>{{ row.nominalPercent === null ? 'N/D' : (row.nominalPercent | number:'1.0-2') + '%' }}</td>
-              <td>{{ row.inflationPercent === null ? 'N/D' : (row.inflationPercent | number:'1.0-2') + '%' }}</td>
-              <td>{{ row.realPercent === null ? 'N/D' : (row.realPercent | number:'1.0-2') + '%' }}</td>
-              <td>{{ row.warning || row.realPercentSource }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="panel export-panel">
-      <div class="section-head">
-        <div>
-          <p class="eyebrow">Exportacion GPT</p>
-          <h3>Exportar contexto para ChatGPT</h3>
-        </div>
-      </div>
-
-      <p class="lead export-lead">
-        El archivo se genera localmente en el navegador. No se sube a ningun servidor.
-        <span *ngIf="privacyMode.enabled" class="privacy-warning">El modo privacidad esta activo. Si exportas con datos reales, el archivo puede contener importes sensibles.</span>
-      </p>
-
-      <div class="export-grid">
-        <label>
-          Formato
-          <select [(ngModel)]="exportFormat" (ngModelChange)="onControlsChange()">
-            <option value="markdown">Markdown (.md)</option>
-            <option value="json">JSON (.json)</option>
-            <option value="both">Ambos</option>
-          </select>
-        </label>
-
-        <label>
-          Modo de exportacion
-          <select [(ngModel)]="exportMode" (ngModelChange)="onControlsChange()">
-            <option value="summary">Resumido para ChatGPT (recomendado)</option>
-            <option value="full">Completo tecnico</option>
-          </select>
-        </label>
-
-        <label>
-          <input type="checkbox" [(ngModel)]="includeFullPurchases" (ngModelChange)="onControlsChange()" />
-          Incluir compras completas
-        </label>
-
-        <label>
-          <input type="checkbox" [(ngModel)]="includeMonthlyHistory" (ngModelChange)="onControlsChange()" />
-          Incluir historial mensual
-        </label>
-
-        <label>
-          <input type="checkbox" [(ngModel)]="includeSignals" (ngModelChange)="onControlsChange()" />
-          Incluir señales
-        </label>
-
-        <label>
-          <input type="checkbox" [(ngModel)]="includeDataReview" (ngModelChange)="onControlsChange()" />
-          Incluir datos a revisar
-        </label>
-
-        <label>
-          <input type="checkbox" [(ngModel)]="includeSimulation" (ngModelChange)="onControlsChange()" />
-          Incluir simulacion
-        </label>
-
-        <label>
-          <input type="checkbox" [(ngModel)]="maskSensitiveExports" (ngModelChange)="onControlsChange()" />
-          Enmascarar importes en exportacion
-        </label>
-      </div>
-
-      <section class="panel liquidity-panel">
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">Liquidez operativa</p>
-            <h3>Cash disponible opcional</h3>
-          </div>
-        </div>
-
-        <p class="lead export-lead">
-          Estos valores no salen del Excel. Si los completás, el export los incluirá; si no, quedarán como "No informado".
-        </p>
-
-        <div class="export-grid cash-grid">
-          <label>
-            Cash ARS disponible
-            <input type="number" min="0" [(ngModel)]="weeklyContext.cashArs" (ngModelChange)="persistWeeklyContext(); onControlsChange()" />
-          </label>
-
-          <label>
-            Cash USD disponible
-            <input type="number" min="0" [(ngModel)]="weeklyContext.cashUsd" (ngModelChange)="persistWeeklyContext(); onControlsChange()" />
-          </label>
-        </div>
-
-        <div class="export-grid period-grid">
-          <div class="range-summary">
-            <p>Rango de movimientos usado en el export</p>
-            <strong>{{ vm.movements.rangeLabel }}</strong>
-            <small>Preset: {{ vm.movements.rangePresetLabel }}</small>
-          </div>
-
-          <div class="export-actions align-end">
-            <button type="button" class="secondary" (click)="clearWeeklyContext()">Limpiar cash disponible</button>
-          </div>
-        </div>
-      </section>
-
-      <div class="export-actions">
-        <button type="button" class="primary" (click)="exportContext(snapshot)">Exportar contexto GPT</button>
-        <button type="button" class="secondary" (click)="copySummary(snapshot)">Copiar resumen al portapapeles</button>
-      </div>
-    </section>
-
-    <section class="panel">
-      <div class="section-head">
-        <div>
-          <p class="eyebrow">Señales</p>
-          <h3>Resumen de señales</h3>
-        </div>
-        <a routerLink="/alertas" class="secondary-link">Ver señales completas</a>
-      </div>
-
-      <div class="signal-summary" *ngIf="vm.signalSummary.total30D > 0; else noSignalsSummary">
-        <article class="metric">
-          <p>Señales 30D</p>
-          <strong>{{ vm.signalSummary.total30D }}</strong>
-          <small>Resumen táctico breve; el detalle completo vive en Alertas</small>
-        </article>
-        <article class="box">
-          <h4>Caídas 30D</h4>
-          <p class="muted" *ngIf="vm.signalSummary.caidas30D.length; else noCaidas">{{ vm.signalSummary.caidas30D.join(', ') }}</p>
-          <ng-template #noCaidas>
-            <p class="empty">Sin caídas 30D destacadas.</p>
-          </ng-template>
-        </article>
-        <article class="box">
-          <h4>Recuperaciones 30D</h4>
-          <p class="muted" *ngIf="vm.signalSummary.recuperaciones30D.length; else noRecuperaciones">{{ vm.signalSummary.recuperaciones30D.join(', ') }}</p>
-          <ng-template #noRecuperaciones>
-            <p class="empty">Sin recuperaciones 30D destacadas.</p>
-          </ng-template>
-        </article>
-      </div>
-      <ng-template #noSignalsSummary>
-        <p class="empty">No hay señales cargadas.</p>
-      </ng-template>
-    </section>
-
+    <app-decision-signals-summary [signalsSummary]="vm.signalSummary"></app-decision-signals-summary>
   </ng-container>
 
   <ng-template #emptyState>
@@ -596,4 +75,3 @@
     </article>
   </ng-template>
 </section>
-

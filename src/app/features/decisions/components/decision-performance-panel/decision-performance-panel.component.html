@@ -1,0 +1,68 @@
+<section class="panel" *ngIf="performance as vm">
+  <div class="section-head">
+    <div>
+      <p class="eyebrow">Rendimiento histórico e inflación</p>
+      <h3>Referencias compuestas para el simulador</h3>
+    </div>
+  </div>
+
+  <p class="warning" *ngIf="vm.warnings.length">
+    Se detectaron diferencias entre el rendimiento real reportado por el Excel y el rendimiento real recalculado con inflación. Para el simulador se usa el valor recalculado cuando existe.
+  </p>
+
+  <div class="table-wrap" *ngIf="vm.references.length; else noPerformanceReferences">
+    <table class="table compact">
+      <thead>
+        <tr>
+          <th>Referencia</th>
+          <th>Tipo</th>
+          <th>Periodo</th>
+          <th>Meses</th>
+          <th>Tasa anual</th>
+          <th>Retorno del periodo</th>
+          <th>Fuente</th>
+          <th>Observación</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let ref of vm.references; trackBy: trackByRow">
+          <td>{{ ref.label }}</td>
+          <td>{{ ref.type }}</td>
+          <td>{{ ref.period }}</td>
+          <td>{{ ref.monthsUsed }}</td>
+          <td>{{ ref.annualRatePercent === null ? 'N/D' : (ref.annualRatePercent | number:'1.0-2') + '%' }}</td>
+          <td>{{ ref.periodReturnPercent === null ? 'N/D' : (ref.periodReturnPercent | number:'1.0-2') + '%' }}</td>
+          <td>{{ ref.source }}</td>
+          <td>{{ ref.warning || 'OK' }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <ng-template #noPerformanceReferences>
+    <p class="empty">No hay datos suficientes para calcular referencias históricas.</p>
+  </ng-template>
+
+  <div class="table-wrap" *ngIf="vm.monthlyRows.length">
+    <h4>Últimos 6 meses</h4>
+    <table class="table compact">
+      <thead>
+        <tr>
+          <th>Mes</th>
+          <th>Nominal %</th>
+          <th>Inflación %</th>
+          <th>Real usado %</th>
+          <th>Observación</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of vm.monthlyRows.slice(-6); trackBy: trackByRow">
+          <td>{{ row.label }}</td>
+          <td>{{ row.nominalPercent === null ? 'N/D' : (row.nominalPercent | number:'1.0-2') + '%' }}</td>
+          <td>{{ row.inflationPercent === null ? 'N/D' : (row.inflationPercent | number:'1.0-2') + '%' }}</td>
+          <td>{{ row.realPercent === null ? 'N/D' : (row.realPercent | number:'1.0-2') + '%' }}</td>
+          <td>{{ row.warning || row.realPercentSource }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>

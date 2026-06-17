@@ -1,20 +1,33 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
-import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
-import { SimpleChartComponent } from '../../../../shared/components/simple-chart/simple-chart.component';
 import { PortfolioAppState, PortfolioStateService } from '../../../../core/services/portfolio-state.service';
 import { PrivacyModeService } from '../../../../core/services/privacy-mode.service';
-import { DecisionInsightsService } from '../../services/decision-insights.service';
+import { DecisionInsightsService, DecisionViewModel } from '../../services/decision-insights.service';
 import { ExportFormat, ExportCurrencyScope, ExportMode, ExportSimulationCurrency, GptPortfolioExportOptions, GptPortfolioExportService, WeeklyManualContext } from '../../services/gpt-portfolio-export.service';
 import { FileDownloadService } from '../../../../core/services/file-download.service';
 import { DecisionDashboardService, SimulationRateMode } from '../../services/decision-dashboard.service';
 import { MovementDateRange, MovementDateRangeService, MovementRangePreset } from '../../services/movement-date-range.service';
+import { DecisionSummaryPanelComponent } from '../../components/decision-summary-panel/decision-summary-panel.component';
+import { DecisionLiquidityPanelComponent } from '../../components/decision-liquidity-panel/decision-liquidity-panel.component';
+import { DecisionMovementsPanelComponent } from '../../components/decision-movements-panel/decision-movements-panel.component';
+import { DecisionSimulatorPanelComponent } from '../../components/decision-simulator-panel/decision-simulator-panel.component';
+import { DecisionPerformancePanelComponent } from '../../components/decision-performance-panel/decision-performance-panel.component';
+import { DecisionExportPanelComponent } from '../../components/decision-export-panel/decision-export-panel.component';
+import { DecisionSignalsSummaryComponent } from '../../components/decision-signals-summary/decision-signals-summary.component';
 
 @Component({
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, SimpleChartComponent],
+  imports: [
+    CommonModule,
+    DecisionSummaryPanelComponent,
+    DecisionLiquidityPanelComponent,
+    DecisionMovementsPanelComponent,
+    DecisionSimulatorPanelComponent,
+    DecisionPerformancePanelComponent,
+    DecisionExportPanelComponent,
+    DecisionSignalsSummaryComponent
+  ],
   templateUrl: './decisions-page.component.html',
   styleUrls: ['./decisions-page.component.scss']
 })
@@ -200,7 +213,7 @@ export class DecisionsPageComponent {
     }
   }
 
-  private persistMovementRange(): void {
+  persistMovementRange(): void {
     try {
       localStorage.setItem(this.movementDateRangeStorageKey, JSON.stringify(this.movementDateRange));
     } catch {

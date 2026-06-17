@@ -1,0 +1,16 @@
+<section class="panel" *ngIf="liquidity?.length">
+  <div class="section-head">
+    <div>
+      <p class="eyebrow">Liquidez operativa</p>
+      <h3>Cash informado y liquidez detectada</h3>
+    </div>
+  </div>
+
+  <div class="cards cards-3 cards-tight">
+    <article class="metric" *ngFor="let item of liquidity; trackBy: trackByCard">
+      <p>{{ item.title }}</p>
+      <strong>{{ privacyEnabled ? 'Oculto' : item.value }}</strong>
+      <small>{{ item.note }}</small>
+    </article>
+  </div>
+</section>
