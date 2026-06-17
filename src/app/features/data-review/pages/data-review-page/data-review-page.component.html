@@ -1,49 +1,162 @@
-<section class="page" *ngIf="state.snapshot as snapshot">
-  <header class="page-header">
-    <div>
+<section class="page" *ngIf="vm as vm">
+  <header class="hero panel">
+    <div class="hero__copy">
       <p class="eyebrow">Datos a revisar</p>
-      <h2>Salud del workbook y hallazgos</h2>
+      <h2>Auditoría del workbook y hallazgos de salud</h2>
+      <p class="hero__meta">
+        {{ vm.filteredIssues }} problemas visibles de {{ vm.totalIssues }} totales
+      </p>
+    </div>
+
+    <div class="hero__status">
+      <span class="status-pill" [class.status-pill--ok]="vm.hasWorkbook" [class.status-pill--muted]="!vm.hasWorkbook">
+        {{ vm.hasWorkbook ? 'Excel cargado' : 'Esperando archivo' }}
+      </span>
     </div>
   </header>
 
-  <ng-container *ngIf="snapshot.dataset && snapshot.workbook; else emptyState">
-    <div class="metrics">
-      <article class="panel"><strong>Críticos</strong><span>{{ report(snapshot).summary.criticalProblems }}</span></article>
-      <article class="panel"><strong>Advertencias</strong><span>{{ report(snapshot).summary.warnings }}</span></article>
-      <article class="panel"><strong>Sin clasificación</strong><span>{{ report(snapshot).summary.uncategorizedAssets }}</span></article>
-      <article class="panel"><strong>Sin histórico</strong><span>{{ report(snapshot).summary.assetsWithoutHistory }}</span></article>
+  <section class="summary-grid" *ngIf="vm.hasWorkbook">
+    <article class="summary-card summary-card--critical">
+      <span>Críticas</span>
+      <strong>{{ vm.criticalCount }}</strong>
+    </article>
+    <article class="summary-card summary-card--warning">
+      <span>Advertencias</span>
+      <strong>{{ vm.warningCount }}</strong>
+    </article>
+    <article class="summary-card summary-card--info">
+      <span>Informativas</span>
+      <strong>{{ vm.infoCount }}</strong>
+    </article>
+    <article class="summary-card summary-card--neutral">
+      <span>Fuentes afectadas</span>
+      <strong>{{ vm.sourceGroups.length }}</strong>
+    </article>
+    <article class="summary-card summary-card--neutral">
+      <span>Especies afectadas</span>
+      <strong>{{ vm.symbols.length }}</strong>
+    </article>
+  </section>
+
+  <section class="panel filters-panel" *ngIf="vm.hasWorkbook">
+    <div class="filters-panel__header">
+      <div>
+        <p class="eyebrow">Filtros</p>
+        <h3>Filtrá por severidad, fuente, especie y texto</h3>
+      </div>
+
+      <button type="button" class="ghost-button" (click)="clearFilters()">Limpiar filtros</button>
     </div>
 
-    <section class="panel">
-      <div class="table-wrap">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Severidad</th>
-              <th>Fuente</th>
-              <th>Especie</th>
-              <th>Problema</th>
-              <th>Sugerencia</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let item of report(snapshot).findings | slice:0:40">
-              <td>{{ item.severity }}</td>
-              <td>{{ item.source }}</td>
-              <td>{{ item.symbol || 'General' }}</td>
-              <td>{{ item.problem }}</td>
-              <td>{{ item.suggestion }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-  </ng-container>
+    <div class="filters-grid">
+      <label class="field">
+        <span>Severidad</span>
+        <select name="severity" [(ngModel)]="filters.severity" (ngModelChange)="onFiltersChange()">
+          <option *ngFor="let option of severityOptions" [ngValue]="option.value">{{ option.label }}</option>
+        </select>
+      </label>
 
-  <ng-template #emptyState>
-    <article class="panel">
-      <h3>No hay datos cargados</h3>
-      <p>Importá el Excel para ver los hallazgos.</p>
-    </article>
-  </ng-template>
+      <label class="field">
+        <span>Fuente</span>
+        <select name="source" [(ngModel)]="filters.source" (ngModelChange)="onFiltersChange()">
+          <option value="all">Todas</option>
+          <option *ngFor="let source of vm.sources" [ngValue]="source">{{ source }}</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Especie</span>
+        <select name="symbol" [(ngModel)]="filters.symbol" (ngModelChange)="onFiltersChange()">
+          <option value="all">Todas</option>
+          <option *ngFor="let symbol of vm.symbols" [ngValue]="symbol">{{ symbol }}</option>
+        </select>
+      </label>
+
+      <label class="field field--wide">
+        <span>Texto libre</span>
+        <input
+          name="text"
+          type="search"
+          [(ngModel)]="filters.text"
+          (ngModelChange)="onFiltersChange()"
+          placeholder="Buscar por problema, sugerencia o fuente"
+        />
+      </label>
+    </div>
+  </section>
+
+  <section class="panel source-groups" *ngIf="vm.hasWorkbook && vm.sourceGroups.length">
+    <div class="section-header">
+      <div>
+        <p class="eyebrow">Agrupación</p>
+        <h3>Problemas por fuente</h3>
+      </div>
+    </div>
+
+    <div class="source-groups__list">
+      <span class="source-chip" *ngFor="let group of vm.sourceGroups">
+        {{ group.source }}: <strong>{{ group.count }}</strong>
+      </span>
+    </div>
+  </section>
+
+  <section class="panel empty-state" *ngIf="!vm.hasWorkbook">
+    <h3>Sin datos cargados</h3>
+    <p>Importá el Excel para revisar la salud de los datos.</p>
+  </section>
+
+  <ng-container *ngIf="vm.hasWorkbook">
+    <section class="panel empty-state" *ngIf="vm.emptyMessage; else results">
+      <h3>Sin resultados</h3>
+      <p>{{ vm.emptyMessage }}</p>
+    </section>
+
+    <ng-template #results>
+      <section class="panel table-panel">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Problemas</p>
+            <h3>Listado compacto</h3>
+          </div>
+          <span class="section-header__count">{{ vm.filteredIssues }} visibles</span>
+        </div>
+
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Severidad</th>
+                <th>Fuente</th>
+                <th>Especie</th>
+                <th>Problema</th>
+                <th>Sugerencia</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let issue of vm.issues; trackBy: trackByIssue">
+                <td>
+                  <span class="severity-pill severity-pill--{{ issue.severity }}">{{ issue.severityLabel }}</span>
+                </td>
+                <td>{{ formatSource(issue.source) }}</td>
+                <td>
+                  <strong>{{ issue.symbol }}</strong>
+                </td>
+                <td>{{ formatText(issue.problem) }}</td>
+                <td>{{ formatText(issue.suggestion) }}</td>
+                <td>
+                  <ng-container *ngIf="issue.actionLink; else plainAction">
+                    <a class="action-link" [routerLink]="issue.actionLink">{{ issue.actionLabel }}</a>
+                  </ng-container>
+                  <ng-template #plainAction>
+                    <span class="plain-action">{{ issue.actionLabel }}</span>
+                  </ng-template>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </ng-template>
+  </ng-container>
 </section>
