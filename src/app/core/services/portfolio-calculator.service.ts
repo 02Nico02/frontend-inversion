@@ -10,6 +10,7 @@ import {
   ManualAlert,
   MarketSignal,
   MonthlyInvestmentSummary,
+  MonthlyPerformanceRow,
   PlatformDistribution,
   PortfolioDataset,
   PortfolioPosition,
@@ -47,6 +48,7 @@ export class PortfolioCalculatorService {
     ]);
     const monthlySummary = this.mapMonthlySummary(this.findTable(tables, ['HistorialMensualReconstruido']));
     const annualSummary = this.mapAnnualSummary(this.findTable(tables, ['Tabla60']));
+    const monthlyPerformance = this.mapMonthlyPerformance(this.findTable(tables, ['Tabla9']));
     const strategicSplit = this.mapStrategicSplit(this.findTable(tables, ['Tabla35']));
     const platformDistribution = this.mapPlatforms(this.findTable(tables, ['Tabla38']));
 
@@ -62,6 +64,7 @@ export class PortfolioCalculatorService {
       signals,
       monthlySummary,
       annualSummary,
+      monthlyPerformance,
       strategicSplit,
       platformDistribution
     };
@@ -392,11 +395,11 @@ export class PortfolioCalculatorService {
       sales: this.normalization.asNumber(this.normalization.pickValue(row, ['Ventas'])),
       endValue: this.normalization.asNumber(this.normalization.pickValue(row, ['ValFin'])),
       result: this.normalization.asNumber(this.normalization.pickValue(row, ['Resultado'])),
-      variationPercent: this.normalization.asPercent(this.normalization.pickValue(row, ['Variacion %'])),
-      inflationPercent: this.normalization.asPercent(this.normalization.pickValue(row, ['Inflacion %'])),
-      realReturnPercent: this.normalization.asPercent(this.normalization.pickValue(row, ['Rend. Real %'])),
-      accumulatedRealReturnPercent: this.normalization.asPercent(this.normalization.pickValue(row, ['Rend. Real Acum %'])),
-      contributionRatio: this.normalization.asPercent(this.normalization.pickValue(row, ['Ratio Aporte'])),
+      variationPercent: this.normalization.asNumber(this.normalization.pickValue(row, ['Variacion %'])),
+      inflationPercent: this.normalization.asNumber(this.normalization.pickValue(row, ['Inflacion %'])),
+      realReturnPercent: this.normalization.asNumber(this.normalization.pickValue(row, ['Rend. Real %'])),
+      accumulatedRealReturnPercent: this.normalization.asNumber(this.normalization.pickValue(row, ['Rend. Real Acum %'])),
+      contributionRatio: this.normalization.asNumber(this.normalization.pickValue(row, ['Ratio Aporte'])),
       goodMarket: this.normalization.asText(this.normalization.pickValue(row, ['Buen Mercado'])),
       goodContribution: this.normalization.asText(this.normalization.pickValue(row, ['Buen Aporte'])),
       monthType: this.normalization.asText(this.normalization.pickValue(row, ['Tipo de Mes'])),
@@ -415,11 +418,27 @@ export class PortfolioCalculatorService {
       sales: this.normalization.asNumber(this.normalization.pickValue(row, ['Ventas'])),
       endValue: this.normalization.asNumber(this.normalization.pickValue(row, ['Val Fin'])),
       result: this.normalization.asNumber(this.normalization.pickValue(row, ['Resultado'])),
-      returnPercent: this.normalization.asPercent(this.normalization.pickValue(row, ['Rend. %'])),
-      inflation: this.normalization.asPercent(this.normalization.pickValue(row, ['Inflacion'])),
-      realReturn: this.normalization.asPercent(this.normalization.pickValue(row, ['Rend. Real'])),
-      contributionRatio: this.normalization.asPercent(this.normalization.pickValue(row, ['Ratio Aporte']))
+      returnPercent: this.normalization.asNumber(this.normalization.pickValue(row, ['Rend. %'])),
+      inflation: this.normalization.asNumber(this.normalization.pickValue(row, ['Inflacion'])),
+      realReturn: this.normalization.asNumber(this.normalization.pickValue(row, ['Rend. Real'])),
+      contributionRatio: this.normalization.asNumber(this.normalization.pickValue(row, ['Ratio Aporte']))
     }));
+  }
+
+  private mapMonthlyPerformance(table: WorkbookTableData | null): MonthlyPerformanceRow[] {
+    if (!table) {
+      return [];
+    }
+    return table.rows
+      .map((row) => ({
+        month: this.normalization.asText(this.normalization.pickValue(row, ['MES'])) ?? '',
+        monthlyTotal: this.normalization.asNumber(this.normalization.pickValue(row, ['TOTAL DEL MES'])),
+        accumulated: this.normalization.asNumber(this.normalization.pickValue(row, ['ACUMULADO'])),
+        startValue: this.normalization.asNumber(this.normalization.pickValue(row, ['Val. Inicio'])),
+        variationPercent: this.normalization.asNumber(this.normalization.pickValue(row, ['VARIACIÃ“N %', 'VARIACION %'])),
+        realReturnPercent: this.normalization.asNumber(this.normalization.pickValue(row, ['REND. REAL']))
+      }))
+      .filter((item) => item.month && !/^total$/i.test(item.month));
   }
 
   private mapStrategicSplit(table: WorkbookTableData | null): StrategicSplit[] {

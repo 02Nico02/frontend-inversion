@@ -138,6 +138,15 @@ export interface AnnualInvestmentSummary {
   contributionRatio: number | null;
 }
 
+export interface MonthlyPerformanceRow {
+  month: string;
+  monthlyTotal: number | null;
+  accumulated: number | null;
+  startValue: number | null;
+  variationPercent: number | null;
+  realReturnPercent: number | null;
+}
+
 export interface StrategicSplit {
   date: string | Date | null;
   valueARS: number | null;
@@ -189,6 +198,7 @@ export interface PortfolioDataset {
   signals: MarketSignal[];
   monthlySummary: MonthlyInvestmentSummary[];
   annualSummary: AnnualInvestmentSummary[];
+  monthlyPerformance: MonthlyPerformanceRow[];
   strategicSplit: StrategicSplit[];
   platformDistribution: PlatformDistribution[];
 }

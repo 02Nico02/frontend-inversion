@@ -41,6 +41,41 @@ export function parseLocaleNumber(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+export function normalizePercent(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const absolute = Math.abs(value);
+    if (absolute < 0.2) {
+      return value * 100;
+    }
+    return value;
+  }
+
+  const text = String(value).trim();
+  if (!text) {
+    return null;
+  }
+
+  const hasPercentSign = text.includes('%');
+  const parsed = parseLocaleNumber(text);
+  if (parsed === null) {
+    return null;
+  }
+
+  if (hasPercentSign) {
+    return parsed;
+  }
+
+  const absolute = Math.abs(parsed);
+  if (absolute < 0.2) {
+    return parsed * 100;
+  }
+  return parsed;
+}
+
 export function parseBoolean(value: unknown): boolean | null {
   if (typeof value === 'boolean') {
     return value;
@@ -137,24 +172,5 @@ export function toIsoDate(value: unknown): string | null {
 }
 
 export function parsePercentageValue(value: unknown): number | null {
-  if (value === null || value === undefined || value === '') {
-    return null;
-  }
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    const absolute = Math.abs(value);
-    return absolute <= 1 ? value * 100 : value;
-  }
-  const text = String(value).trim();
-  if (!text) {
-    return null;
-  }
-  const hasPercentSign = /%/.test(text);
-  const parsed = parseLocaleNumber(text);
-  if (parsed === null) {
-    return null;
-  }
-  if (hasPercentSign) {
-    return parsed;
-  }
-  return Math.abs(parsed) <= 1 ? parsed * 100 : parsed;
+  return normalizePercent(value);
 }

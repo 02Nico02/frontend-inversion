@@ -1,12 +1,14 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
 import { SimpleChartComponent } from '../../../../shared/components/simple-chart/simple-chart.component';
 import { PortfolioAppState, PortfolioStateService } from '../../../../core/services/portfolio-state.service';
 import { PrivacyModeService } from '../../../../core/services/privacy-mode.service';
 import { DecisionInsightsService } from '../../services/decision-insights.service';
 import { ExportFormat, ExportCurrencyScope, ExportMode, ExportSimulationCurrency, GptPortfolioExportOptions, GptPortfolioExportService, WeeklyManualContext } from '../../services/gpt-portfolio-export.service';
 import { FileDownloadService } from '../../../../core/services/file-download.service';
+import { DecisionDashboardService, SimulationRateMode } from '../../services/decision-dashboard.service';
 
 @Component({
   standalone: true,
@@ -16,35 +18,74 @@ import { FileDownloadService } from '../../../../core/services/file-download.ser
 })
 export class DecisionsPageComponent {
   readonly weeklyContextStorageKey = 'frontend-inversion.weekly-export-context';
+  vm: any = null;
   currencyScope: ExportCurrencyScope = 'ALL';
   simulationCurrency: ExportSimulationCurrency = 'ARS';
   exportMode: ExportMode = 'summary';
   monthlyContribution = 100000;
   months = 12;
   annualReturnPercent = 15;
+  simulationRateMode: SimulationRateMode = 'real12m';
   exportFormat: ExportFormat = 'markdown';
   includeFullPurchases = false;
   includeMonthlyHistory = true;
   includeSignals = true;
   includeDataReview = true;
-  includeSimulation = true;
+  includeSimulation = false;
   maskSensitiveExports = false;
   movementsPeriodDays = 7;
   weeklyContext: WeeklyManualContext = this.loadWeeklyContext();
+  private readonly subscription = new Subscription();
 
   constructor(
     public readonly state: PortfolioStateService,
     public readonly privacyMode: PrivacyModeService,
     private readonly insights: DecisionInsightsService,
+    private readonly dashboard: DecisionDashboardService,
     private readonly exporter: GptPortfolioExportService,
     private readonly downloader: FileDownloadService
-  ) {}
-
-  model(snapshot: PortfolioAppState) {
-    return this.insights.build(snapshot, this.currencyScope, this.simulationCurrency, this.monthlyContribution, this.months, this.annualReturnPercent);
+  ) {
+    this.refreshVm();
   }
 
-  trackByItem(index: number, item: { label?: unknown; symbol?: unknown; title?: unknown }): string {
+  ngOnInit(): void {
+    this.subscription.add(
+      this.state.state$.subscribe(() => {
+        this.refreshVm();
+      })
+    );
+  }
+
+  ngOnDestroy(): void {
+    this.subscription.unsubscribe();
+  }
+
+  refreshVm(): void {
+    const snapshot = this.state.snapshot;
+    const base = this.insights.build(snapshot, this.currencyScope, this.simulationCurrency, this.monthlyContribution, this.months, this.annualReturnPercent);
+    const extras = this.dashboard.build(
+      snapshot,
+      this.weeklyContext,
+      this.movementsPeriodDays,
+      this.currencyScope,
+      this.simulationCurrency,
+      this.monthlyContribution,
+      this.months,
+      this.simulationRateMode,
+      this.annualReturnPercent
+    );
+
+    this.vm = {
+      ...base,
+      ...extras
+    };
+  }
+
+  onControlsChange(): void {
+    this.refreshVm();
+  }
+
+  trackByItem(index: number, item: any): string {
     return String(item.label ?? item.symbol ?? item.title ?? index);
   }
 
@@ -57,7 +98,7 @@ export class DecisionsPageComponent {
       }
     }
 
-    const viewModel = this.model(snapshot);
+    const viewModel = this.insights.build(snapshot, this.currencyScope, this.simulationCurrency, this.monthlyContribution, this.months, this.annualReturnPercent);
     const result = this.exporter.buildExport(snapshot, viewModel, options);
     const baseName = `contexto-portafolio-${this.today()}`;
 
@@ -70,7 +111,7 @@ export class DecisionsPageComponent {
   }
 
   async copySummary(snapshot: PortfolioAppState): Promise<void> {
-    const text = this.exporter.buildClipboardSummary(snapshot, this.model(snapshot), this.exportOptions());
+    const text = this.exporter.buildClipboardSummary(snapshot, this.insights.build(snapshot, this.currencyScope, this.simulationCurrency, this.monthlyContribution, this.months, this.annualReturnPercent), this.exportOptions());
     await this.downloader.copyText(text);
   }
 

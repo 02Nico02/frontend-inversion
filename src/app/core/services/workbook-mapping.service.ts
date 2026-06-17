@@ -9,7 +9,7 @@ export class WorkbookMappingService {
       primaryName: 'Tabla6',
       aliases: ['Tabla6'],
       critical: true,
-      expectedColumns: ['ID', 'Fecha', 'ESPECIE', 'MONEDA', 'CANT.', 'PREC. COMP.', 'TOTAL', 'PREC. ACT.', 'VALORI. ACT.', 'VARIACIÓN', 'Var_cuenta_rem_%', 'Valor_cuenta_rem', 'Monto', 'TEM', 'TNA', 'TOP', 'TENDENCIA']
+      expectedColumns: ['ID', 'Fecha', 'ESPECIE', 'MONEDA', 'CANT.', 'PREC. COMP.', 'TOTAL', 'PREC. ACT.', 'VALORI. ACT.', 'VARIACIÃ“N', 'Var_cuenta_rem_%', 'Valor_cuenta_rem', 'Monto', 'TEM', 'TNA', 'TOP', 'TENDENCIA']
     },
     {
       key: 'positions',
@@ -44,7 +44,7 @@ export class WorkbookMappingService {
       primaryName: 'ObjetivosPorEspecie',
       aliases: ['ObjetivosPorEspecie'],
       critical: false,
-      expectedColumns: ['Especie', 'Condición', 'Precio objetivo', 'Notas', 'Estado']
+      expectedColumns: ['Especie', 'CondiciÃ³n', 'Precio objetivo', 'Notas', 'Estado']
     },
     {
       key: 'alertsHigh',
@@ -65,49 +65,56 @@ export class WorkbookMappingService {
       primaryName: 'AlertasEspeciesEnCaida_5D',
       aliases: ['AlertasEspeciesEnCaida_5D', 'EspeciesEnCaida_5D'],
       critical: false,
-      expectedColumns: ['ESPECIE', 'Fecha Inicio', 'Precio Inicio', 'Fecha Fin', 'Precio Fin', 'Variación %']
+      expectedColumns: ['ESPECIE', 'Fecha Inicio', 'Precio Inicio', 'Fecha Fin', 'Precio Fin', 'VariaciÃ³n %']
     },
     {
       key: 'signalsUp5',
       primaryName: 'EspeciesEnRecuperacion_5D',
       aliases: ['EspeciesEnRecuperacion_5D'],
       critical: false,
-      expectedColumns: ['ESPECIE', 'Fecha Inicio', 'Precio Inicio', 'Fecha Fin', 'Precio Fin', 'Variación %']
+      expectedColumns: ['ESPECIE', 'Fecha Inicio', 'Precio Inicio', 'Fecha Fin', 'Precio Fin', 'VariaciÃ³n %']
     },
     {
       key: 'signalsDown30',
       primaryName: 'EspeciesEnCaida_30D',
       aliases: ['EspeciesEnCaida_30D'],
       critical: false,
-      expectedColumns: ['ESPECIE', 'Fecha Inicio', 'Precio Inicio', 'Fecha Fin', 'Precio Fin', 'Variación %']
+      expectedColumns: ['ESPECIE', 'Fecha Inicio', 'Precio Inicio', 'Fecha Fin', 'Precio Fin', 'VariaciÃ³n %']
     },
     {
       key: 'signalsUp30',
       primaryName: 'EspeciesEnRecuperacion_30D',
       aliases: ['EspeciesEnRecuperacion_30D'],
       critical: false,
-      expectedColumns: ['ESPECIE', 'Fecha Inicio', 'Precio Inicio', 'Fecha Fin', 'Precio Fin', 'Variación %']
+      expectedColumns: ['ESPECIE', 'Fecha Inicio', 'Precio Inicio', 'Fecha Fin', 'Precio Fin', 'VariaciÃ³n %']
     },
     {
       key: 'monthlySummary',
       primaryName: 'HistorialMensualReconstruido',
       aliases: ['HistorialMensualReconstruido'],
       critical: false,
-      expectedColumns: ['MES', 'ValInicio', 'Compras', 'Ventas', 'ValFin', 'Resultado', 'VARIACIÓN %', 'Inflación %', 'Rend. Real %', 'ColAux', 'Rend. Real Acum %', 'Ratio Aporte', 'Buen Mercado', 'Buen Aporte', 'Tipo de Mes', 'Año']
+      expectedColumns: ['MES', 'ValInicio', 'Compras', 'Ventas', 'ValFin', 'Resultado', 'VARIACIÃ“N %', 'InflaciÃ³n %', 'Rend. Real %', 'ColAux', 'Rend. Real Acum %', 'Ratio Aporte', 'Buen Mercado', 'Buen Aporte', 'Tipo de Mes', 'AÃ±o']
     },
     {
       key: 'annualSummary',
       primaryName: 'Tabla60',
       aliases: ['Tabla60'],
       critical: false,
-      expectedColumns: ['Año', 'Val Inicio', 'Compras', 'Ventas', 'Val Fin', 'Resultado', 'Rend. %', 'Inflación', 'Rend. Real', 'Ratio Aporte']
+      expectedColumns: ['AÃ±o', 'Val Inicio', 'Compras', 'Ventas', 'Val Fin', 'Resultado', 'Rend. %', 'InflaciÃ³n', 'Rend. Real', 'Ratio Aporte']
+    },
+    {
+      key: 'monthlyPerformance',
+      primaryName: 'Tabla9',
+      aliases: ['Tabla9'],
+      critical: false,
+      expectedColumns: ['MES', 'TOTAL DEL MES', 'ACUMULADO', 'Val. Inicio', 'VARIACIÃ“N %', 'REND. REAL']
     },
     {
       key: 'strategicSplit',
       primaryName: 'Tabla35',
       aliases: ['Tabla35'],
       critical: false,
-      expectedColumns: ['FECHA', 'VALOR AR', 'VALOR USD', '% JUBILACIÓN', '% AHORRO', 'MONTO JUB. AR', 'MONTO JUB. USD', 'MONTO AHOR. AR', 'MONTO AHOR. USD']
+      expectedColumns: ['FECHA', 'VALOR AR', 'VALOR USD', '% JUBILACIÃ“N', '% AHORRO', 'MONTO JUB. AR', 'MONTO JUB. USD', 'MONTO AHOR. AR', 'MONTO AHOR. USD']
     },
     {
       key: 'platforms',
@@ -121,7 +128,7 @@ export class WorkbookMappingService {
       primaryName: 'Tabla39',
       aliases: ['Tabla39'],
       critical: false,
-      expectedColumns: ['CUATRIMESTRE', 'AÑO', 'INGRESO', 'EGRESO', 'BALANCE']
+      expectedColumns: ['CUATRIMESTRE', 'AÃ‘O', 'INGRESO', 'EGRESO', 'BALANCE']
     }
   ];
 }

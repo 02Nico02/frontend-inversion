@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { CurrencyMapperService, CanonicalCurrency } from './currency-mapper.service';
 import { normalizeText } from '../utils/excel.utils';
-import { parseExcelDate, parseLocaleNumber, parsePercentageValue, toIsoDate } from '../utils/value-parsing.utils';
+import { normalizePercent, parseExcelDate, parseLocaleNumber, toIsoDate } from '../utils/value-parsing.utils';
 
 export interface ColumnAliasMap {
   [normalizedName: string]: string[];
@@ -122,7 +122,7 @@ export class DataNormalizationService {
   }
 
   asPercent(value: unknown): number | null {
-    return parsePercentageValue(value);
+    return normalizePercent(value);
   }
 
   normalizeCurrency(value: unknown): string | null {

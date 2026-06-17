@@ -134,15 +134,19 @@ export class ChartConfigService {
             {
               type: 'inside',
               xAxisIndex: 0,
+              filterMode: 'filter',
               zoomOnMouseWheel: true,
               moveOnMouseWheel: true,
-              moveOnMouseMove: true
+              moveOnMouseMove: false,
+              throttle: 30
             },
             {
               type: 'slider',
               xAxisIndex: 0,
               height: 22,
               bottom: 18,
+              filterMode: 'filter',
+              brushSelect: false,
               borderColor: 'rgba(148, 163, 184, 0.2)',
               backgroundColor: 'rgba(255, 255, 255, 0.04)',
               fillerColor: 'rgba(77, 210, 200, 0.22)',
@@ -160,7 +164,13 @@ export class ChartConfigService {
         {
           type: 'line',
           name: config.subtitle ?? config.title,
-          data: points.map((point) => point.value),
+          data: points.map((point) => ({
+            name: point.label,
+            value: point.value,
+            date: point.date ?? null,
+            changeAmount: point.changeAmount ?? null,
+            changePercent: point.changePercent ?? null
+          })),
           smooth: true,
           showSymbol: !manyPoints,
           symbol: 'circle',
@@ -316,6 +326,7 @@ export class ChartConfigService {
   private buildLineTooltip(currency: string, valueKind: ValueKind) {
     return {
       trigger: 'axis',
+      triggerOn: 'mousemove|click',
       confine: true,
       backgroundColor: 'rgba(8, 12, 24, 0.96)',
       borderColor: 'rgba(148, 163, 184, 0.18)',
@@ -327,20 +338,34 @@ export class ChartConfigService {
       },
       formatter: (params: unknown) => {
         const entries = Array.isArray(params) ? params : [params];
-        const first = entries[0] as { data?: number; axisValueLabel?: string; seriesName?: string; dataIndex?: number };
-        const dataIndex = typeof first?.dataIndex === 'number' ? first.dataIndex : null;
-        const data = dataIndex !== null ? this.lastLinePoints[dataIndex] ?? null : null;
+        const first = entries[0] as {
+          data?: { name?: string; value?: number; date?: string | null } | number;
+          axisValueLabel?: string;
+          seriesName?: string;
+          value?: number;
+          name?: string;
+        };
+        const payload = typeof first?.data === 'object' && first.data !== null ? first.data : null;
+        const value = typeof first?.value === 'number'
+          ? first.value
+          : typeof first?.data === 'number'
+            ? first.data
+            : typeof payload?.value === 'number'
+              ? payload.value
+              : null;
+        const label = first?.axisValueLabel
+          ?? first?.name
+          ?? payload?.name
+          ?? '';
         const lines: string[] = [];
         if (first?.seriesName) {
           lines.push(`<strong>${first.seriesName}</strong>`);
         }
-        if (data?.label) {
-          lines.push(`Fecha: ${data.label}`);
-        } else if (first?.axisValueLabel) {
-          lines.push(`Fecha: ${first.axisValueLabel}`);
+        if (label) {
+          lines.push(`Fecha: ${label}`);
         }
-        if (typeof data?.value === 'number') {
-          lines.push(`Valor: ${this.formatAxisValue(data.value, valueKind, currency)}`);
+        if (typeof value === 'number' && Number.isFinite(value)) {
+          lines.push(`Valor: ${this.formatAxisValue(value, valueKind, currency)}`);
         }
         return lines.join('<br/>');
       }
@@ -377,7 +402,7 @@ export class ChartConfigService {
   }
 
   private normalizeLinePoints(points: SeriesPoint[]): LineDatum[] {
-    this.lastLinePoints = [...points]
+    return [...points]
       .filter((point) => point.value !== null && point.value !== undefined)
       .map((point) => ({
         label: point.label || this.formatDate(point.date),
@@ -387,7 +412,6 @@ export class ChartConfigService {
         changePercent: point.changePercent ?? null
       }))
       .filter((point) => !!point.label);
-    return this.lastLinePoints;
   }
 
   private normalizeBars(points: ChartPoint[], topN: number, includeOther: boolean): BarDatum[] {
@@ -450,6 +474,4 @@ export class ChartConfigService {
     const year = date.getUTCFullYear();
     return `${day}-${month}-${year}`;
   }
-
-  private lastLinePoints: LineDatum[] = [];
 }
