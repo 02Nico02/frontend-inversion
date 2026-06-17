@@ -1,30 +1,280 @@
-<section class="page" *ngIf="state.snapshot as snapshot">
-      <header class="page-header">
+<section class="page" *ngIf="vm as vm">
+  <header class="hero panel">
+    <div class="hero__copy">
+      <p class="eyebrow">Alertas</p>
+      <h2>Alertas manuales, calculadas y señales</h2>
+      <p class="hero__meta">
+        {{ vm.filteredAlerts }} visibles de {{ vm.totalAlerts }} totales
+      </p>
+    </div>
+
+    <div class="hero__status">
+      <span class="status-pill" [class.status-pill--ok]="vm.hasWorkbook" [class.status-pill--muted]="!vm.hasWorkbook">
+        {{ vm.hasWorkbook ? 'Excel cargado' : 'Esperando archivo' }}
+      </span>
+    </div>
+  </header>
+
+  <nav class="tabs" aria-label="Secciones de alertas">
+    <button
+      *ngFor="let tab of tabs"
+      type="button"
+      class="tab"
+      [class.tab--active]="activeTab === tab.key"
+      [attr.aria-pressed]="activeTab === tab.key"
+      (click)="setActiveTab(tab.key)"
+    >
+      <span>{{ tab.label }}</span>
+      <strong>{{ getTabCount(tab.key) }}</strong>
+    </button>
+  </nav>
+
+  <section class="panel filters-panel">
+    <div class="filters-panel__header">
+      <div>
+        <p class="eyebrow">Filtros</p>
+        <h3>Filtrá por símbolo, tipo, severidad, distancia y moneda</h3>
+      </div>
+
+      <button type="button" class="ghost-button" (click)="clearFilters()">Limpiar filtros</button>
+    </div>
+
+    <div class="filters-grid">
+      <label class="field">
+        <span>Símbolo</span>
+        <input
+          name="symbolFilter"
+          type="search"
+          [(ngModel)]="filters.symbol"
+          (ngModelChange)="onFiltersChange()"
+          placeholder="Buscar por ticker"
+        />
+      </label>
+
+      <label class="field">
+        <span>Estado</span>
+        <select
+          name="stateFilter"
+          [(ngModel)]="filters.state"
+          (ngModelChange)="onFiltersChange()"
+        >
+          <option *ngFor="let option of stateOptions" [ngValue]="option.value">{{ option.label }}</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Tipo</span>
+        <select
+          name="typeFilter"
+          [(ngModel)]="filters.type"
+          (ngModelChange)="onFiltersChange()"
+        >
+          <option *ngFor="let option of typeOptions" [ngValue]="option.value">{{ option.label }}</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Severidad</span>
+        <select
+          name="severityFilter"
+          [(ngModel)]="filters.severity"
+          (ngModelChange)="onFiltersChange()"
+        >
+          <option *ngFor="let option of severityOptions" [ngValue]="option.value">{{ option.label }}</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Distancia</span>
+        <select
+          name="distanceFilter"
+          [(ngModel)]="filters.distance"
+          (ngModelChange)="onFiltersChange()"
+        >
+          <option *ngFor="let option of distanceOptions" [ngValue]="option.value">{{ option.label }}</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Moneda</span>
+        <select
+          name="currencyFilter"
+          [(ngModel)]="filters.currency"
+          (ngModelChange)="onFiltersChange()"
+        >
+          <option *ngFor="let option of currencyOptions" [ngValue]="option.value">{{ option.label }}</option>
+        </select>
+      </label>
+    </div>
+
+    <label class="toggle">
+      <input
+        name="includeDoubtfulSignals"
+        type="checkbox"
+        [(ngModel)]="filters.includeDoubtfulSignals"
+        (ngModelChange)="onFiltersChange()"
+      />
+      <span>Incluir señales dudosas</span>
+    </label>
+  </section>
+
+  <section class="summary-grid" *ngIf="vm.cards.length">
+    <article class="summary-card" *ngFor="let card of vm.cards" [class.summary-card--critical]="card.tone === 'critical'" [class.summary-card--warning]="card.tone === 'warning'" [class.summary-card--success]="card.tone === 'success'" [class.summary-card--info]="card.tone === 'info'">
+      <p>{{ card.label }}</p>
+      <strong>{{ card.value }}</strong>
+    </article>
+  </section>
+
+  <section class="panel empty-state" *ngIf="vm.emptyMessage; else results">
+    <h3>Sin resultados</h3>
+    <p>{{ vm.emptyMessage }}</p>
+  </section>
+
+  <ng-template #results>
+    <section class="panel table-section" *ngIf="vm.manualRows.length">
+      <div class="section-header">
         <div>
-          <p class="eyebrow">Alertas</p>
-          <h2>Alertas manuales, calculadas y señales</h2>
+          <p class="eyebrow">Alertas operativas</p>
+          <h3>
+            {{ activeTab === 'manual' ? 'Manuales' : activeTab === 'calculated' ? 'Calculadas' : 'Manuales y calculadas' }}
+          </h3>
         </div>
-      </header>
+        <span class="section-header__count">{{ vm.manualRows.length }} filas</span>
+      </div>
 
-      <ng-container *ngIf="snapshot.combinedAlerts.length; else emptyState">
-        <section class="panel" *ngFor="let group of groups">
-          <h3>{{ group.label }}</h3>
-          <div class="grid">
-            <article class="card" *ngFor="let alert of alertsByGroup(snapshot, group.key)">
-              <strong>{{ alert.symbol }}</strong>
-              <span>{{ alert.status }}</span>
-              <small>Actual: {{ alert.currentPrice ?? 'N/D' }}</small>
-              <small>Objetivo: {{ alert.targetPrice ?? 'N/D' }}</small>
-              <small>Distancia: {{ alert.distancePercent === null || alert.distancePercent === undefined ? 'N/D' : (alert.distancePercent | number:'1.2-2') + '%' }}</small>
-            </article>
-          </div>
-        </section>
-      </ng-container>
-
-      <ng-template #emptyState>
-        <article class="panel">
-          <h3>No hay alertas</h3>
-          <p>Importá el Excel para ver las alertas y señales.</p>
-        </article>
-      </ng-template>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Símbolo</th>
+              <th>Estado</th>
+              <th>Condición</th>
+              <th>Severidad</th>
+              <th>Moneda</th>
+              <th>Actual</th>
+              <th>Objetivo</th>
+              <th>Distancia</th>
+              <th>Observación</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of vm.manualRows; trackBy: trackByRow">
+              <td>
+                <strong>{{ row.symbol }}</strong>
+                <small>{{ row.note }}</small>
+              </td>
+              <td><span class="chip chip--{{ row.stateKey }}">{{ row.status }}</span></td>
+              <td>{{ row.condition }}</td>
+              <td><span class="badge badge--{{ row.severity }}">{{ row.severity }}</span></td>
+              <td>{{ formatCurrencyLabel(row.currency) }}</td>
+              <td>{{ formatMoney(row.currentPrice, row.currency) }}</td>
+              <td>{{ formatMoney(row.targetPrice, row.currency) }}</td>
+              <td>{{ formatPercent(row.distancePercent) }}</td>
+              <td>{{ row.observation }}</td>
+              <td>
+                <a class="detail-link" [routerLink]="row.actionLink">Ver detalle</a>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </section>
+
+    <section class="panel table-section" *ngIf="vm.signal5dRows.length">
+      <div class="section-header">
+        <div>
+          <p class="eyebrow">Señales técnicas</p>
+          <h3>Señales 5D</h3>
+        </div>
+        <span class="section-header__count">{{ vm.signal5dRows.length }} filas</span>
+      </div>
+
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Símbolo</th>
+              <th>Estado</th>
+              <th>Inicio</th>
+              <th>Fin</th>
+              <th>Actual</th>
+              <th>Objetivo</th>
+              <th>Variación</th>
+              <th>Condición</th>
+              <th>Observación</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of vm.signal5dRows; trackBy: trackByRow">
+              <td>
+                <strong>{{ row.symbol }}</strong>
+                <small>{{ row.note }}</small>
+              </td>
+              <td><span class="chip chip--{{ row.stateKey }}">{{ row.status }}</span></td>
+              <td>{{ row.startDate }}</td>
+              <td>{{ row.endDate }}</td>
+              <td>{{ formatMoney(row.currentPrice, row.currency) }}</td>
+              <td>{{ formatMoney(row.targetPrice, row.currency) }}</td>
+              <td>{{ formatPercent(row.variationPercent) }}</td>
+              <td>{{ row.condition }}</td>
+              <td>{{ row.observation }}</td>
+              <td>
+                <a class="detail-link" [routerLink]="row.actionLink">Ver detalle</a>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel table-section" *ngIf="vm.signal30dRows.length">
+      <div class="section-header">
+        <div>
+          <p class="eyebrow">Señales técnicas</p>
+          <h3>Señales 30D</h3>
+        </div>
+        <span class="section-header__count">{{ vm.signal30dRows.length }} filas</span>
+      </div>
+
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Símbolo</th>
+              <th>Estado</th>
+              <th>Inicio</th>
+              <th>Fin</th>
+              <th>Actual</th>
+              <th>Objetivo</th>
+              <th>Variación</th>
+              <th>Condición</th>
+              <th>Observación</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of vm.signal30dRows; trackBy: trackByRow">
+              <td>
+                <strong>{{ row.symbol }}</strong>
+                <small>{{ row.note }}</small>
+              </td>
+              <td><span class="chip chip--{{ row.stateKey }}">{{ row.status }}</span></td>
+              <td>{{ row.startDate }}</td>
+              <td>{{ row.endDate }}</td>
+              <td>{{ formatMoney(row.currentPrice, row.currency) }}</td>
+              <td>{{ formatMoney(row.targetPrice, row.currency) }}</td>
+              <td>{{ formatPercent(row.variationPercent) }}</td>
+              <td>{{ row.condition }}</td>
+              <td>{{ row.observation }}</td>
+              <td>
+                <a class="detail-link" [routerLink]="row.actionLink">Ver detalle</a>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </ng-template>
+</section>
