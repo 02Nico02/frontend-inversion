@@ -114,6 +114,16 @@ export class ChartConfigService {
       yAxis: {
         type: 'value',
         splitNumber: 4,
+        axisPointer: {
+          show: true,
+          type: 'line',
+          snap: true,
+          lineStyle: {
+            color: 'rgba(229, 238, 252, 0.45)',
+            width: 1,
+            type: 'dashed'
+          }
+        },
         axisLabel: {
           color: '#9db0d1',
           formatter: (value: number) => this.formatAxisValue(value, valueKind, currency)
@@ -334,7 +344,7 @@ export class ChartConfigService {
         color: '#e5eefc'
       },
       axisPointer: {
-        type: 'line'
+        type: 'cross'
       },
       formatter: (params: unknown) => {
         const entries = Array.isArray(params) ? params : [params];
