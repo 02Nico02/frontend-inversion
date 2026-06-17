@@ -51,6 +51,7 @@ export interface DecisionSimulationResult {
   projectedValue: string;
   projectedGain: string;
   horizonLabel: string;
+  warning: string | null;
 }
 
 export interface DecisionViewModel {
@@ -92,9 +93,11 @@ export class DecisionInsightsService {
   ): DecisionViewModel {
     const allPositions = snapshot.dataset ? this.calculator.enrichPositions(snapshot.dataset.positions, snapshot.dataset.classifications) : [];
     const positions = currencyScope === 'ALL' ? allPositions : allPositions.filter((position) => position.currency === currencyScope);
+    const simulationPositions = allPositions.filter((position) => position.currency === simulationCurrency);
     const concentrationReport = this.concentration.buildReport(positions, currencyScope);
     const healthReport = snapshot.dataset && snapshot.workbook ? this.healthService.buildReport(snapshot.dataset, snapshot.workbook.validation) : null;
     const summary = this.summaryForPositions(positions);
+    const simulationSummary = this.summaryForPositions(simulationPositions);
 
     const trafficLight = this.trafficLight(snapshot, concentrationReport, healthReport?.summary ?? null);
     const trafficLightReason = this.trafficLightReason(snapshot, concentrationReport, healthReport?.summary ?? null);
@@ -110,13 +113,13 @@ export class DecisionInsightsService {
         monthlyContribution,
         months,
         annualReturnPercent,
-        active: monthlyContribution > 0 && months > 0 && annualReturnPercent > 0
+        active: monthlyContribution >= 0 && months > 0 && Number.isFinite(annualReturnPercent)
       },
       cards: this.cards(summary, currencyScope, concentrationReport, healthReport?.summary ?? null),
       actions: this.actions(positions, concentrationReport, healthReport?.summary ?? null, snapshot.combinedAlerts ?? []),
       objectives: this.objectives(concentrationReport),
       signalSummary: this.signalSummary(snapshot.dataset?.signals ?? []),
-      simulation: this.simulation(summary.totalCurrentValue, simulationCurrency, monthlyContribution, months, annualReturnPercent)
+      simulation: this.simulation(simulationSummary.totalCurrentValue, simulationCurrency, monthlyContribution, months, annualReturnPercent)
     };
   }
 
@@ -250,7 +253,7 @@ export class DecisionInsightsService {
   private simulation(currentValue: number, currency: 'ARS' | 'USD', monthlyContribution: number, months: number, annualReturnPercent: number): DecisionSimulationResult {
     const safeMonths = Math.max(0, Math.floor(months));
     const safeContribution = Math.max(0, monthlyContribution);
-    const monthlyRate = Math.max(0, annualReturnPercent) / 100 / 12;
+    const monthlyRate = annualReturnPercent / 100 / 12;
 
     let projected = currentValue;
     for (let index = 0; index < safeMonths; index += 1) {
@@ -259,12 +262,16 @@ export class DecisionInsightsService {
 
     const invested = currentValue + safeContribution * safeMonths;
     const gain = projected - invested;
+    const warning = annualReturnPercent < 0
+      ? 'Tasa negativa: escenario defensivo, no una predicción.'
+      : null;
 
     return {
       invested: this.currencyMapper.formatCurrency(invested, currency),
       projectedValue: this.currencyMapper.formatCurrency(projected, currency),
       projectedGain: this.currencyMapper.formatCurrency(gain, currency),
-      horizonLabel: `${safeMonths} meses`
+      horizonLabel: `${safeMonths} meses`,
+      warning
     };
   }
 

@@ -4,7 +4,7 @@ import { PortfolioCalculatorService } from '../../../core/services/portfolio-cal
 import { PortfolioAppState } from '../../../core/services/portfolio-state.service';
 import { parseExcelDate } from '../../../core/utils/value-parsing.utils';
 import { MovementDateRange, MovementDateRangeService } from './movement-date-range.service';
-import { PerformanceReferenceBundle, PerformanceReferenceService, PerformanceReference } from './performance-reference.service';
+import { PerformanceReferenceBundle, PerformanceReferenceService } from './performance-reference.service';
 import { WeeklyManualContext } from './gpt-portfolio-export.service';
 
 export type SimulationRateMode = 'manual' | 'real12m' | 'nominal12m' | 'realYtd' | 'nominalYtd' | 'real3m' | 'conservative';
@@ -55,10 +55,25 @@ interface SimulationSeriesPoint {
   value: number;
 }
 
+interface SelectedRateReference {
+  label: string;
+  ratePercent: number | null;
+  source: string;
+  period: string | null;
+  monthsUsed: number | null;
+  annualized: boolean;
+  warning: string | null;
+}
+
 export interface SimulationSection {
   rateMode: SimulationRateMode;
   rateLabel: string;
   rateSource: string;
+  ratePeriod: string | null;
+  rateMonthsUsed: number | null;
+  rateAnnualized: boolean;
+  rateWarning: string | null;
+  baseCurrency: CanonicalCurrency;
   ratePercent: number | null;
   referenceRealLabel: string | null;
   nominalCurrentValue: string;
@@ -274,23 +289,23 @@ export class DecisionDashboardService {
         };
       });
 
-    const soldSymbols = new Set(sales.map((item) => item.symbol.toUpperCase()));
+    const soldSymbols = new Set(saleRows.map((item) => item.symbol.toUpperCase()));
     const openSymbols = new Set(positions.map((item) => item.symbol.toUpperCase()));
-    const closedPositions = sales
+    const closedPositions = saleRows
       .filter((item) => !openSymbols.has(item.symbol.toUpperCase()) || this.isCaucion(item.symbol))
       .slice(0, 8)
       .map((item) => ({
-        date: this.formatDate(this.parseDate(item.sellDate ?? item.buyDate)),
+        date: this.formatDate(item.date),
         symbol: item.symbol,
         currency: this.normalizeCurrency(item.currency),
         quantity: this.currencyMapper.formatNumber(item.quantity),
-        amount: this.currencyMapper.formatCurrency(item.total ?? item.amount ?? item.currentValue ?? null, item.currency),
+        amount: this.currencyMapper.formatCurrency(item.amount, item.currency),
         note: this.isCaucion(item.symbol)
-          ? 'Operación de caución / liquidez, no posición estratégica'
+          ? 'Instrumento operativo de caución / liquidez'
           : soldSymbols.has(item.symbol.toUpperCase())
             ? 'Posible posición cerrada'
             : 'Venta detectada',
-        resultPercent: this.percentageOrNda(item.variation)
+        resultPercent: item.resultPercent
       }));
 
     return {
@@ -320,12 +335,12 @@ export class DecisionDashboardService {
     rateMode: SimulationRateMode,
     manualAnnualReturnPercent: number
   ): SimulationSection {
-    const filtered = currencyScope === 'ALL'
-      ? positions
-      : positions.filter((position) => this.normalizeCurrency(position.currency) === currencyScope);
-    const currentValue = filtered.reduce((sum, position) => sum + Number(position.currentValue ?? 0), 0);
+    const currentValue = positions
+      .filter((position) => this.normalizeCurrency(position.currency) === simulationCurrency)
+      .reduce((sum, position) => sum + Number(position.currentValue ?? 0), 0);
     const selected = this.selectReference(performance, rateMode, manualAnnualReturnPercent);
     const nominalRate = selected.ratePercent;
+    const rateWarning = selected.warning ?? (nominalRate !== null && nominalRate < 0 ? 'La tasa usada es negativa. El escenario es defensivo, no una predicción.' : null);
     const realReference = performance.references.find((reference) => reference.type === 'real' && reference.period === '12M' && reference.annualRatePercent !== null)
       ?? performance.references.find((reference) => reference.type === 'real' && reference.period === 'YTD' && reference.annualRatePercent !== null)
       ?? null;
@@ -337,6 +352,11 @@ export class DecisionDashboardService {
       rateMode,
       rateLabel: selected.label,
       rateSource: selected.source,
+      ratePeriod: selected.period,
+      rateMonthsUsed: selected.monthsUsed,
+      rateAnnualized: selected.annualized,
+      rateWarning,
+      baseCurrency: simulationCurrency,
       ratePercent: nominalRate,
       referenceRealLabel: realReference?.label ?? null,
       nominalCurrentValue: this.currencyMapper.formatCurrency(currentValue, simulationCurrency),
@@ -345,14 +365,25 @@ export class DecisionDashboardService {
       nominalGain: this.currencyMapper.formatCurrency(nominalProjection.gain, simulationCurrency),
       realFutureValue: realProjection ? this.currencyMapper.formatCurrency(realProjection.futureValue, simulationCurrency) : null,
       realGain: realProjection ? this.currencyMapper.formatCurrency(realProjection.gain, simulationCurrency) : null,
-      warning: 'La proyección es un escenario basado en datos históricos cargados. No es una predicción ni garantía.',
+      warning: [
+        'La proyección es un escenario basado en datos históricos cargados. No es una predicción ni garantía.',
+        rateWarning
+      ].filter((part): part is string => !!part).join(' '),
       points: nominalProjection.points
     };
   }
 
-  private selectReference(performance: PerformanceReferenceBundle, rateMode: SimulationRateMode, manualAnnualReturnPercent: number): { label: string; ratePercent: number | null; source: string } {
+  private selectReference(performance: PerformanceReferenceBundle, rateMode: SimulationRateMode, manualAnnualReturnPercent: number): SelectedRateReference {
     if (rateMode === 'manual') {
-      return { label: 'Manual', ratePercent: manualAnnualReturnPercent, source: 'Edición manual' };
+      return {
+        label: 'Manual',
+        ratePercent: manualAnnualReturnPercent,
+        source: 'Edición manual',
+        period: 'manual',
+        monthsUsed: null,
+        annualized: false,
+        warning: null
+      };
     }
 
     const lookup: Record<Exclude<SimulationRateMode, 'manual' | 'conservative'>, { type: 'nominal' | 'real'; period: '12M' | 'YTD' | '3M' }> = {
@@ -369,12 +400,16 @@ export class DecisionDashboardService {
         ?? performance.references.find((reference) => reference.type === 'nominal' && reference.period === '12M' && reference.annualRatePercent !== null)
         ?? null;
       const conservative = base?.annualRatePercent !== null && base?.annualRatePercent !== undefined
-        ? Math.max(0, base.annualRatePercent / 2)
+        ? base.annualRatePercent / 2
         : 0;
       return {
         label: `Conservador (${base?.label ?? 'referencia histórica'})`,
         ratePercent: conservative,
-        source: base ? `${base.source} · 50% de referencia` : 'Regla conservadora'
+        source: base ? `${base.source} · 50% de referencia` : 'Regla conservadora',
+        period: base?.period ?? 'manual',
+        monthsUsed: base?.monthsUsed ?? null,
+        annualized: base?.period !== 'YTD' && base?.period !== 'manual',
+        warning: base?.warning ?? null
       };
     }
 
@@ -384,21 +419,29 @@ export class DecisionDashboardService {
       return {
         label: found.label,
         ratePercent: found.annualRatePercent,
-        source: found.source
+        source: found.source,
+        period: found.period,
+        monthsUsed: found.monthsUsed,
+        annualized: found.period !== 'YTD',
+        warning: found.warning ?? null
       };
     }
 
     return {
       label: 'Manual',
       ratePercent: manualAnnualReturnPercent,
-      source: 'Fallback manual'
+      source: 'Fallback manual',
+      period: 'manual',
+      monthsUsed: null,
+      annualized: false,
+      warning: null
     };
   }
 
   private project(currentValue: number, monthlyContribution: number, months: number, annualRatePercent: number | null): { futureValue: number; gain: number; points: SimulationSeriesPoint[] } {
     const safeMonths = Math.max(0, Math.floor(months));
     const safeContribution = Math.max(0, monthlyContribution);
-    const monthlyRate = annualRatePercent !== null && Number.isFinite(annualRatePercent) ? Math.max(0, annualRatePercent) / 100 / 12 : 0;
+    const monthlyRate = annualRatePercent !== null && Number.isFinite(annualRatePercent) ? annualRatePercent / 100 / 12 : 0;
     const points: SimulationSeriesPoint[] = [];
     const today = new Date();
     const baseDate = this.startOfUtcMonth(today);

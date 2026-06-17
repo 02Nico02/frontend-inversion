@@ -1,11 +1,11 @@
-<section class="page" *ngIf="state.snapshot as snapshot">
+﻿<section class="page" *ngIf="state.snapshot as snapshot">
   <ng-container *ngIf="vm; else emptyState">
     <header class="page-header">
       <div>
         <p class="eyebrow">Decisiones</p>
-        <h2>Centro de decision, semaforo y simulador</h2>
+        <h2>Centro de decisión, semáforo y simulador</h2>
         <p class="lead">
-          Vista base para revisar concentracion, senales y posibles acciones sin inventar datos fuera del workbook.
+          Vista base para revisar concentración, señales y posibles acciones sin inventar datos fuera del workbook.
         </p>
       </div>
 
@@ -18,9 +18,9 @@
     <section class="panel controls">
       <div class="control-group">
         <label>
-          Moneda del analisis
+          Moneda del análisis
           <select [(ngModel)]="currencyScope" (ngModelChange)="onControlsChange()">
-            <option value="ALL">Sin conversion</option>
+            <option value="ALL">Sin conversión</option>
             <option value="ARS">ARS</option>
             <option value="USD">USD</option>
           </select>
@@ -36,7 +36,7 @@
       </div>
 
       <p class="warning" *ngIf="currencyScope === 'ALL'">
-        Sin conversion mezcla ARS y USD. Usalo solo como referencia visual.
+        Sin conversión mezcla ARS y USD. Usalo solo como referencia visual.
       </p>
     </section>
 
@@ -309,7 +309,7 @@
         </label>
         <label>
           Rendimiento anual esperado %
-          <input type="number" min="0" step="0.1" [(ngModel)]="annualReturnPercent" (ngModelChange)="onControlsChange()" [disabled]="simulationRateMode !== 'manual'" />
+          <input type="number" min="-100" step="0.1" [(ngModel)]="annualReturnPercent" (ngModelChange)="onControlsChange()" [disabled]="simulationRateMode !== 'manual'" />
         </label>
       </div>
 
@@ -322,6 +322,10 @@
           <ng-template #noRate>(N/D)</ng-template>
           · Fuente: {{ vm.simulation.rateSource }}
         </span>
+        <span>
+          Periodo: {{ vm.simulation.ratePeriod || 'N/D' }} · Meses usados: {{ vm.simulation.rateMonthsUsed === null ? 'N/D' : vm.simulation.rateMonthsUsed }} · {{ vm.simulation.rateAnnualized ? 'Anualizada' : 'No anualizada' }}
+        </span>
+        <span *ngIf="vm.simulation.rateWarning">{{ vm.simulation.rateWarning }}</span>
         <span>{{ vm.simulation.warning }}</span>
       </div>
 
@@ -383,7 +387,7 @@
       </div>
 
       <p class="warning" *ngIf="vm.performance.warnings.length">
-        Se detectaron diferencias entre el rendimiento real reportado por el Excel y el rendimiento real recalculado con inflacion. Para el simulador se usa el valor recalculado cuando existe.
+        Se detectaron diferencias entre el rendimiento real reportado por el Excel y el rendimiento real recalculado con inflación. Para el simulador se usa el valor recalculado cuando existe.
       </p>
 
       <div class="table-wrap" *ngIf="vm.performance.references.length; else noPerformanceReferences">
@@ -551,7 +555,7 @@
     <section class="panel">
       <div class="section-head">
         <div>
-          <p class="eyebrow">Senales</p>
+          <p class="eyebrow">Señales</p>
           <h3>Resumen de señales</h3>
         </div>
         <a routerLink="/alertas" class="secondary-link">Ver señales completas</a>
@@ -583,80 +587,13 @@
       </ng-template>
     </section>
 
-    <section class="panel">
-      <div class="section-head">
-        <div>
-          <p class="eyebrow">Senales</p>
-          <h3>Resumen de señales</h3>
-        </div>
-      </div>
-
-      <div class="table-wrap" *ngIf="false">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Especie</th>
-              <th>Tipo</th>
-              <th>Periodo</th>
-              <th>Inicio</th>
-              <th>Fin</th>
-              <th>Variacion</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let signal of vm.signals; trackBy: trackByItem">
-              <td>{{ signal.symbol }}</td>
-              <td>{{ signal.signalType }}</td>
-              <td>{{ signal.period }}</td>
-              <td>{{ signal.startDate }}</td>
-              <td>{{ signal.endDate }}</td>
-              <td>{{ signal.variationPercent }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <ng-template #noSignals>
-        <p class="empty">No hay señales cargadas.</p>
-      </ng-template>
-    </section>
-
-    <section class="charts" *ngIf="false">
-      <app-simple-chart
-        title="Top holdings"
-        subtitle="Concentracion por especie"
-        mode="bars"
-        [points]="vm.topHoldings"
-        [currency]="currencyScope === 'ALL' ? 'ARS' : currencyScope"
-        [topN]="10"
-        [includeOther]="false">
-      </app-simple-chart>
-
-      <app-simple-chart
-        title="Mix sectorial"
-        subtitle="Distribucion por sector"
-        mode="bars"
-        [points]="vm.sectorMix"
-        [currency]="currencyScope === 'ALL' ? 'ARS' : currencyScope"
-        [topN]="8"
-        [includeOther]="false">
-      </app-simple-chart>
-
-      <app-simple-chart
-        title="Tipo de activo"
-        subtitle="Distribucion por categoria"
-        mode="bars"
-        [points]="vm.assetTypeMix"
-        [currency]="currencyScope === 'ALL' ? 'ARS' : currencyScope"
-        [topN]="8"
-        [includeOther]="false">
-      </app-simple-chart>
-    </section>
   </ng-container>
 
   <ng-template #emptyState>
     <article class="panel">
       <h3>No hay datos para decisiones</h3>
-      <p>Importa el Excel para habilitar el semaforo, las acciones sugeridas y el simulador.</p>
+      <p>Importa el Excel para habilitar el semáforo, las acciones sugeridas y el simulador.</p>
     </article>
   </ng-template>
 </section>
+

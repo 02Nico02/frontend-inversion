@@ -41,16 +41,12 @@ export function parseLocaleNumber(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-export function normalizePercent(value: unknown): number | null {
+export function parseDisplayedPercent(value: unknown): number | null {
   if (value === null || value === undefined || value === '') {
     return null;
   }
 
   if (typeof value === 'number' && Number.isFinite(value)) {
-    const absolute = Math.abs(value);
-    if (absolute < 0.2) {
-      return value * 100;
-    }
     return value;
   }
 
@@ -69,11 +65,46 @@ export function normalizePercent(value: unknown): number | null {
     return parsed;
   }
 
-  const absolute = Math.abs(parsed);
-  if (absolute < 0.2) {
+  return parsed;
+}
+
+export function parseExcelDecimalPercent(value: unknown): number | null {
+  const parsed = parseDisplayedPercent(value);
+  if (parsed === null) {
+    return null;
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= 1) {
+    return value * 100;
+  }
+
+  if (typeof value === 'string' && !value.includes('%') && Math.abs(parsed) <= 1) {
     return parsed * 100;
   }
+
   return parsed;
+}
+
+export function parsePercentByColumn(value: unknown, columnName: string): number | null {
+  const column = String(columnName ?? '').trim().toLowerCase();
+  if (
+    column.includes('variacion') ||
+    column.includes('variación') ||
+    column.includes('rend') ||
+    column.includes('inflacion') ||
+    column.includes('inflación') ||
+    column.includes('resultado') ||
+    column.includes('jubil') ||
+    column.includes('ahorro') ||
+    column.includes('ratio') ||
+    column.includes('tem') ||
+    column.includes('tna') ||
+    column.includes('top')
+  ) {
+    return parseDisplayedPercent(value);
+  }
+
+  return parseDisplayedPercent(value);
 }
 
 export function parseBoolean(value: unknown): boolean | null {
@@ -172,5 +203,5 @@ export function toIsoDate(value: unknown): string | null {
 }
 
 export function parsePercentageValue(value: unknown): number | null {
-  return normalizePercent(value);
+  return parseDisplayedPercent(value);
 }

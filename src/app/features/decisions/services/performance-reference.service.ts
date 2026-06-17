@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { MonthlyInvestmentSummary, MonthlyPerformanceRow } from '../../../core/models/portfolio.models';
-import { parseExcelDate, parseLocaleNumber } from '../../../core/utils/value-parsing.utils';
+import { parseDisplayedPercent, parseExcelDate } from '../../../core/utils/value-parsing.utils';
 
 export type PerformanceType = 'nominal' | 'real';
 export type PerformancePeriod = '3M' | '12M' | 'YTD' | 'manual';
@@ -383,18 +383,7 @@ export class PerformanceReferenceService {
   }
 
   private parseMonthlyPercent(value: unknown): number | null {
-    if (value === null || value === undefined || value === '') {
-      return null;
-    }
-    if (typeof value === 'number' && Number.isFinite(value)) {
-      return value;
-    }
-    const text = String(value).trim();
-    if (!text) {
-      return null;
-    }
-    const parsed = parseLocaleNumber(text.replace('%', ''));
-    return parsed;
+    return parseDisplayedPercent(value);
   }
 
   private calculateRealPercent(nominalPercent: number | null, inflationPercent: number | null): number | null {
