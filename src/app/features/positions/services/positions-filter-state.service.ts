@@ -10,7 +10,7 @@ export interface PositionsFilterState {
   resultDirection: 'all' | 'positive' | 'negative';
   alerts: 'all' | 'with' | 'without';
   classification: 'all' | 'with' | 'without';
-  sortField: 'symbol' | 'resultAmount' | 'resultPercent' | 'currentValue' | 'portfolioWeight';
+  sortField: 'symbol' | 'resultAmount' | 'resultPercent' | 'currentValue' | 'portfolioWeight' | 'minimumDifferenceAmount' | 'minimumDifferencePercent';
   sortDirection: 'asc' | 'desc';
   pageSize: 10 | 25 | 50 | 'all';
   pageIndex: number;

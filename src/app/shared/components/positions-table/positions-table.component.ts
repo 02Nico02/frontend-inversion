@@ -9,10 +9,40 @@ import { FilterChipComponent } from '../filter-chip/filter-chip.component';
 import { SearchableSelectComponent, SearchableSelectOption } from '../searchable-select/searchable-select.component';
 import { PositionsFilterStateService } from '../../../features/positions/services/positions-filter-state.service';
 
-type SortField = 'symbol' | 'resultAmount' | 'resultPercent' | 'currentValue' | 'portfolioWeight';
+type SortField =
+  | 'symbol'
+  | 'resultAmount'
+  | 'resultPercent'
+  | 'currentValue'
+  | 'portfolioWeight'
+  | 'minimumDifferenceAmount'
+  | 'minimumDifferencePercent';
 type SortDirection = 'asc' | 'desc';
 type PageSize = 10 | 25 | 50 | 'all';
 type FilterKey = 'symbol' | 'currency' | 'assetType' | 'sector' | 'subsector' | 'region' | 'resultDirection' | 'alerts' | 'classification';
+type ColumnKey =
+  | 'symbol'
+  | 'currency'
+  | 'quantity'
+  | 'averagePrice'
+  | 'currentPrice'
+  | 'totalInvested'
+  | 'currentValue'
+  | 'resultAmount'
+  | 'resultPercent'
+  | 'weight'
+  | 'minimumExpected'
+  | 'minimumDifferenceAmount'
+  | 'minimumDifferencePercent'
+  | 'minimumStatus'
+  | 'alerts'
+  | 'action';
+type ColumnsPreset = 'default' | 'basic' | 'benchmark' | 'full';
+
+interface ColumnDefinition {
+  key: ColumnKey;
+  label: string;
+}
 
 @Component({
   selector: 'app-positions-table',
@@ -22,6 +52,54 @@ type FilterKey = 'symbol' | 'currency' | 'assetType' | 'sector' | 'subsector' | 
   styleUrls: ['./positions-table.component.scss'],
 })
 export class PositionsTableComponent implements OnInit, OnChanges {
+  private readonly storageKey = 'frontend-inversion.positions.visible-columns';
+  readonly columnDefinitions: ColumnDefinition[] = [
+    { key: 'symbol', label: 'Especie' },
+    { key: 'currency', label: 'Moneda' },
+    { key: 'quantity', label: 'Cantidad' },
+    { key: 'averagePrice', label: 'Precio prom.' },
+    { key: 'currentPrice', label: 'Precio act.' },
+    { key: 'totalInvested', label: 'Total inv.' },
+    { key: 'currentValue', label: 'Total actual' },
+    { key: 'resultAmount', label: 'Resultado $' },
+    { key: 'resultPercent', label: 'Resultado %' },
+    { key: 'weight', label: 'Peso %' },
+    { key: 'minimumExpected', label: 'Mínimo esperado' },
+    { key: 'minimumDifferenceAmount', label: 'Vs mínimo' },
+    { key: 'minimumDifferencePercent', label: '% vs mínimo' },
+    { key: 'minimumStatus', label: 'Estado real' },
+    { key: 'alerts', label: 'Alertas' },
+    { key: 'action', label: 'Acción' }
+  ];
+  readonly defaultVisibleColumns: ColumnKey[] = [
+    'symbol',
+    'currency',
+    'quantity',
+    'currentPrice',
+    'totalInvested',
+    'currentValue',
+    'resultAmount',
+    'resultPercent',
+    'minimumDifferenceAmount',
+    'minimumDifferencePercent',
+    'action'
+  ];
+  readonly basicPresetColumns: ColumnKey[] = ['symbol', 'currency', 'quantity', 'currentPrice', 'currentValue', 'resultAmount', 'resultPercent', 'action'];
+  readonly benchmarkPresetColumns: ColumnKey[] = [
+    'symbol',
+    'currency',
+    'quantity',
+    'currentPrice',
+    'totalInvested',
+    'currentValue',
+    'resultAmount',
+    'resultPercent',
+    'minimumDifferenceAmount',
+    'minimumDifferencePercent',
+    'action'
+  ];
+  readonly fullPresetColumns: ColumnKey[] = this.columnDefinitions.map((column) => column.key);
+
   @Input() positions: PortfolioPosition[] = [];
   @Input() alerts: CombinedAlert[] = [];
   @Input() minimumPerformance: MinimumPerformanceBySymbol[] = [];
@@ -44,7 +122,8 @@ export class PositionsTableComponent implements OnInit, OnChanges {
   pageSize: PageSize = 10;
   pageIndex = 0;
   showAdvancedFilters = false;
-  showMinimumBenchmark = false;
+  showColumnMenu = false;
+  visibleColumns: ColumnKey[] = [];
   private minimumPerformanceMap = new Map<string, MinimumPerformanceBySymbol>();
 
   constructor(
@@ -71,6 +150,7 @@ export class PositionsTableComponent implements OnInit, OnChanges {
   }
 
   ngOnInit(): void {
+    this.visibleColumns = this.loadVisibleColumns();
     this.persistState();
   }
 
@@ -117,7 +197,21 @@ export class PositionsTableComponent implements OnInit, OnChanges {
         const direction = this.sortDirection === 'asc' ? 1 : -1;
         const aValue = this.sortValue(a);
         const bValue = this.sortValue(b);
-        return aValue > bValue ? direction : aValue < bValue ? -direction : 0;
+        const aNull = aValue === null || aValue === undefined;
+        const bNull = bValue === null || bValue === undefined;
+        if (aNull && bNull) {
+          return 0;
+        }
+        if (aNull) {
+          return 1;
+        }
+        if (bNull) {
+          return -1;
+        }
+        if (aValue === bValue) {
+          return 0;
+        }
+        return aValue > bValue ? direction : -direction;
       });
   }
 
@@ -188,12 +282,46 @@ export class PositionsTableComponent implements OnInit, OnChanges {
     );
   }
 
+  isColumnVisible(key: ColumnKey): boolean {
+    return this.visibleColumns.includes(key);
+  }
+
   requestDetail(symbol: string): void {
     this.detailRequested.emit(symbol);
   }
 
-  toggleMinimumBenchmark(): void {
-    this.showMinimumBenchmark = !this.showMinimumBenchmark;
+  toggleColumnMenu(): void {
+    this.showColumnMenu = !this.showColumnMenu;
+  }
+
+  closeColumnMenu(): void {
+    this.showColumnMenu = false;
+  }
+
+  toggleColumn(key: ColumnKey): void {
+    this.visibleColumns = this.visibleColumns.includes(key)
+      ? this.visibleColumns.filter((item) => item !== key)
+      : [...this.visibleColumns, key];
+    this.persistVisibleColumns();
+  }
+
+  applyPreset(preset: ColumnsPreset): void {
+    switch (preset) {
+      case 'basic':
+        this.visibleColumns = [...this.basicPresetColumns];
+        break;
+      case 'benchmark':
+        this.visibleColumns = [...this.benchmarkPresetColumns];
+        break;
+      case 'full':
+        this.visibleColumns = [...this.fullPresetColumns];
+        break;
+      case 'default':
+      default:
+        this.visibleColumns = [...this.defaultVisibleColumns];
+        break;
+    }
+    this.persistVisibleColumns();
   }
 
   weightFor(position: PortfolioPosition): number {
@@ -251,6 +379,40 @@ export class PositionsTableComponent implements OnInit, OnChanges {
     this.pageIndex = 0;
     this.showAdvancedFilters = false;
     this.persistState();
+  }
+
+  get visibleColumnCount(): number {
+    return this.visibleColumns.length;
+  }
+
+  private loadVisibleColumns(): ColumnKey[] {
+    if (typeof localStorage === 'undefined') {
+      return [...this.defaultVisibleColumns];
+    }
+    try {
+      const raw = localStorage.getItem(this.storageKey);
+      if (!raw) {
+        return [...this.defaultVisibleColumns];
+      }
+      const parsed = JSON.parse(raw) as unknown;
+      const keys = Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [];
+      return this.normalizeVisibleColumns(keys);
+    } catch {
+      return [...this.defaultVisibleColumns];
+    }
+  }
+
+  private persistVisibleColumns(): void {
+    if (typeof localStorage === 'undefined') {
+      return;
+    }
+    localStorage.setItem(this.storageKey, JSON.stringify(this.visibleColumns));
+  }
+
+  private normalizeVisibleColumns(keys: string[]): ColumnKey[] {
+    const allowed = new Set(this.columnDefinitions.map((column) => column.key));
+    const filtered = keys.filter((key): key is ColumnKey => allowed.has(key as ColumnKey));
+    return filtered.length ? filtered : [...this.defaultVisibleColumns];
   }
 
   private minimumPerformanceKey(symbol: string, currency: string): string {
@@ -374,7 +536,8 @@ export class PositionsTableComponent implements OnInit, OnChanges {
     });
   }
 
-  private sortValue(position: PortfolioPosition): string | number {
+  private sortValue(position: PortfolioPosition): string | number | null {
+    const minimum = this.minimumPerformanceFor(position);
     switch (this.sortField) {
       case 'symbol':
         return position.symbol;
@@ -385,6 +548,11 @@ export class PositionsTableComponent implements OnInit, OnChanges {
       case 'portfolioWeight':
         return position.portfolioWeight ?? -Infinity;
       case 'currentValue':
+        return position.currentValue;
+      case 'minimumDifferenceAmount':
+        return minimum?.valueVsMinimumAmount ?? null;
+      case 'minimumDifferencePercent':
+        return minimum?.valueVsMinimumPercent ?? null;
       default:
         return position.currentValue;
     }
@@ -400,6 +568,10 @@ export class PositionsTableComponent implements OnInit, OnChanges {
         return 'Resultado %';
       case 'portfolioWeight':
         return 'Peso';
+      case 'minimumDifferenceAmount':
+        return 'Vs mínimo';
+      case 'minimumDifferencePercent':
+        return '% vs mínimo';
       case 'currentValue':
       default:
         return 'Total actual';

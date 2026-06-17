@@ -10,6 +10,48 @@
       <ng-container *ngIf="snapshot.dataset && snapshot.summary; else emptyState">
         <app-dashboard-summary-panel [summary]="snapshot.summary"></app-dashboard-summary-panel>
 
+        <article class="panel benchmark-panel" *ngIf="minimumPerformanceSummary(snapshot) as minimumSummary" [ngClass]="minimumPerformanceStatusClass(minimumSummary.status)">
+          <div class="metric-head">
+            <div>
+              <p class="eyebrow">Balance vs mínimo ARS</p>
+              <h3>{{ minimumPerformanceStatusLabel(minimumSummary.status) }}</h3>
+            </div>
+            <strong class="badge">{{ minimumSummary.comparableLotsCount }} lotes</strong>
+          </div>
+
+            <div class="metric-grid compact" *ngIf="minimumSummary.status !== 'missing'; else missingBenchmark">
+              <div class="metric-cell">
+                <span>Balance</span>
+                <strong [class.positive]="(minimumSummary.balanceVsMinimumArs ?? 0) >= 0" [class.negative]="(minimumSummary.balanceVsMinimumArs ?? 0) < 0">
+                  {{ minimumSummary.balanceVsMinimumArs !== null ? percent(minimumSummary.balanceVsMinimumPercentArs ?? 0) : 'N/D' }}
+                </strong>
+              </div>
+              <div class="metric-cell">
+                <span>Balance $</span>
+                <strong [class.positive]="(minimumSummary.balanceVsMinimumArs ?? 0) >= 0" [class.negative]="(minimumSummary.balanceVsMinimumArs ?? 0) < 0">
+                  {{ minimumSummary.balanceVsMinimumArs !== null ? (minimumSummary.balanceVsMinimumArs | currency:'ARS':'symbol-narrow':'1.2-2') : 'N/D' }}
+                </strong>
+              </div>
+              <div class="metric-cell">
+                <span>Comparable ARS</span>
+                <strong>{{ minimumSummary.currentComparableArs !== null ? (minimumSummary.currentComparableArs | currency:'ARS':'symbol-narrow':'1.2-2') : 'N/D' }}</strong>
+              </div>
+              <div class="metric-cell">
+                <span>Mínimo esperado ARS</span>
+                <strong>{{ minimumSummary.minimumExpectedArs !== null ? (minimumSummary.minimumExpectedArs | currency:'ARS':'symbol-narrow':'1.2-2') : 'N/D' }}</strong>
+              </div>
+            </div>
+
+            <ng-template #missingBenchmark>
+              <div class="empty-benchmark">
+                <strong>N/D</strong>
+                <p>No hay datos suficientes para calcular el benchmark mínimo.</p>
+              </div>
+            </ng-template>
+
+            <p class="benchmark-note">{{ minimumSummary.description }}</p>
+        </article>
+
         <div class="mini-grid">
           <article class="panel">
             <p class="eyebrow">Salud de datos</p>

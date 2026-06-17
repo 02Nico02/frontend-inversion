@@ -45,3 +45,17 @@ export interface MinimumPerformanceBySymbol {
   lots: MinimumPerformanceLot[];
   notes: string[];
 }
+
+export type MinimumPerformanceSummaryStatus = 'positive' | 'negative' | 'neutral' | 'missing';
+
+export interface MinimumPerformanceSummary {
+  currency: 'ARS';
+  comparableLotsCount: number;
+  currentComparableArs: number | null;
+  minimumExpectedArs: number | null;
+  balanceVsMinimumArs: number | null;
+  balanceVsMinimumPercentArs: number | null;
+  status: MinimumPerformanceSummaryStatus;
+  description: string;
+  notes: string[];
+}

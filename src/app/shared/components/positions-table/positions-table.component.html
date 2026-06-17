@@ -8,10 +8,36 @@
       <div class="summary-chip" *ngIf="filteredPositions.length">
         {{ filteredPositions.length }} posiciones filtradas
       </div>
-      <button type="button" class="clear" (click)="toggleMinimumBenchmark()">
-        {{ showMinimumBenchmark ? 'Ocultar benchmark minimo' : 'Mostrar benchmark minimo' }}
+      <button
+        type="button"
+        class="clear"
+        [attr.aria-expanded]="showColumnMenu"
+        (click)="toggleColumnMenu()"
+      >
+        Columnas
       </button>
       <button type="button" class="clear" (click)="clearFilters()">Limpiar filtros</button>
+    </div>
+  </div>
+
+  <div class="columns-panel" *ngIf="showColumnMenu">
+    <div class="columns-panel__header">
+      <strong>Columnas visibles</strong>
+      <button type="button" class="clear" (click)="closeColumnMenu()">Cerrar</button>
+    </div>
+
+    <div class="columns-panel__presets">
+      <button type="button" class="clear" (click)="applyPreset('basic')">Vista básica</button>
+      <button type="button" class="clear" (click)="applyPreset('benchmark')">Vista benchmark</button>
+      <button type="button" class="clear" (click)="applyPreset('full')">Vista completa</button>
+      <button type="button" class="clear" (click)="applyPreset('default')">Restablecer</button>
+    </div>
+
+    <div class="columns-panel__grid">
+      <label *ngFor="let column of columnDefinitions">
+        <input type="checkbox" [checked]="isColumnVisible(column.key)" (change)="toggleColumn(column.key)" />
+        <span>{{ column.label }}</span>
+      </label>
     </div>
   </div>
 
@@ -43,6 +69,8 @@
         <option value="resultAmount">Resultado</option>
         <option value="resultPercent">Resultado %</option>
         <option value="portfolioWeight">Peso</option>
+        <option value="minimumDifferenceAmount">Vs mínimo</option>
+        <option value="minimumDifferencePercent">% vs mínimo</option>
       </select>
     </label>
 
@@ -157,57 +185,55 @@
     <table>
       <thead>
         <tr>
-          <th class="sticky-col">Especie</th>
-          <th>Moneda</th>
-          <th class="num">Cantidad</th>
-          <th class="num">Precio prom.</th>
-          <th class="num">Precio act.</th>
-          <th class="num">Total inv.</th>
-          <th class="num">Total actual</th>
-          <th class="num">Resultado $</th>
-          <th class="num">Resultado %</th>
-          <th class="num">Peso %</th>
-          <th class="num" *ngIf="showMinimumBenchmark">Minimo esperado</th>
-          <th class="num" *ngIf="showMinimumBenchmark">Vs minimo</th>
-          <th class="num" *ngIf="showMinimumBenchmark">% vs minimo</th>
-          <th *ngIf="showMinimumBenchmark">Estado real</th>
-          <th class="num">Alertas</th>
-          <th>Acción</th>
+          <th class="sticky-col" *ngIf="isColumnVisible('symbol')">Especie</th>
+          <th *ngIf="isColumnVisible('currency')">Moneda</th>
+          <th class="num" *ngIf="isColumnVisible('quantity')">Cantidad</th>
+          <th class="num" *ngIf="isColumnVisible('averagePrice')">Precio prom.</th>
+          <th class="num" *ngIf="isColumnVisible('currentPrice')">Precio act.</th>
+          <th class="num" *ngIf="isColumnVisible('totalInvested')">Total inv.</th>
+          <th class="num" *ngIf="isColumnVisible('currentValue')">Total actual</th>
+          <th class="num" *ngIf="isColumnVisible('resultAmount')">Resultado $</th>
+          <th class="num" *ngIf="isColumnVisible('resultPercent')">Resultado %</th>
+          <th class="num" *ngIf="isColumnVisible('weight')">Peso %</th>
+          <th class="num" *ngIf="isColumnVisible('minimumExpected')">Mínimo esperado</th>
+          <th class="num" *ngIf="isColumnVisible('minimumDifferenceAmount')">Vs mínimo</th>
+          <th class="num" *ngIf="isColumnVisible('minimumDifferencePercent')">% vs mínimo</th>
+          <th *ngIf="isColumnVisible('minimumStatus')">Estado real</th>
+          <th class="num" *ngIf="isColumnVisible('alerts')">Alertas</th>
+          <th *ngIf="isColumnVisible('action')">Acción</th>
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let position of pagedPositions; trackBy: trackBySymbol" (click)="requestDetail(position.symbol)">
-          <td class="sticky-col clickable">
+        <tr *ngFor="let position of pagedPositions; trackBy: trackBySymbol">
+          <td class="sticky-col" *ngIf="isColumnVisible('symbol')">
             <strong>{{ position.symbol }}</strong>
           </td>
-          <td>{{ currencyLabel(position.currency) }}</td>
-          <td class="num">{{ formatNumber(position.quantity) }}</td>
-          <td class="num">{{ formatMoney(position.averagePrice, position.currency) }}</td>
-          <td class="num">{{ formatMoney(position.currentPrice, position.currency) }}</td>
-          <td class="num">{{ formatMoney(position.totalInvested, position.currency) }}</td>
-          <td class="num">{{ formatMoney(position.currentValue, position.currency) }}</td>
-          <td class="num" [class.positive]="position.resultAmount > 0" [class.negative]="position.resultAmount < 0">{{ formatMoney(position.resultAmount, position.currency) }}</td>
-          <td class="num" [class.positive]="(position.resultPercent ?? 0) > 0" [class.negative]="(position.resultPercent ?? 0) < 0">{{ formatPercent(position.resultPercent) }}</td>
-          <td class="num">{{ formatPercent(weightFor(position)) }}</td>
-          <ng-container *ngIf="showMinimumBenchmark">
-            <ng-container *ngIf="minimumPerformanceFor(position) as minimum; else missingMinimum">
-              <td class="num">{{ formatMoney(minimum.minimumExpectedValue, position.currency) }}</td>
-              <td class="num" [class.positive]="(minimum.valueVsMinimumAmount ?? 0) >= 0" [class.negative]="(minimum.valueVsMinimumAmount ?? 0) < 0">{{ formatMoney(minimum.valueVsMinimumAmount, position.currency) }}</td>
-              <td class="num" [class.positive]="(minimum.valueVsMinimumPercent ?? 0) >= 0" [class.negative]="(minimum.valueVsMinimumPercent ?? 0) < 0">{{ formatPercent(minimum.valueVsMinimumPercent) }}</td>
-              <td>{{ minimumStatusLabel(minimum.status) }}</td>
-            </ng-container>
-            <ng-template #missingMinimum>
-              <td class="num">N/D</td>
-              <td class="num">N/D</td>
-              <td class="num">N/D</td>
-              <td>Sin datos</td>
-            </ng-template>
-          </ng-container>
-          <td class="num">
+          <td *ngIf="isColumnVisible('currency')">{{ currencyLabel(position.currency) }}</td>
+          <td class="num" *ngIf="isColumnVisible('quantity')">{{ formatNumber(position.quantity) }}</td>
+          <td class="num" *ngIf="isColumnVisible('averagePrice')">{{ formatMoney(position.averagePrice, position.currency) }}</td>
+          <td class="num" *ngIf="isColumnVisible('currentPrice')">{{ formatMoney(position.currentPrice, position.currency) }}</td>
+          <td class="num" *ngIf="isColumnVisible('totalInvested')">{{ formatMoney(position.totalInvested, position.currency) }}</td>
+          <td class="num" *ngIf="isColumnVisible('currentValue')">{{ formatMoney(position.currentValue, position.currency) }}</td>
+          <td class="num" *ngIf="isColumnVisible('resultAmount')" [class.positive]="position.resultAmount > 0" [class.negative]="position.resultAmount < 0">
+            {{ formatMoney(position.resultAmount, position.currency) }}
+          </td>
+          <td class="num" *ngIf="isColumnVisible('resultPercent')" [class.positive]="(position.resultPercent ?? 0) > 0" [class.negative]="(position.resultPercent ?? 0) < 0">
+            {{ formatPercent(position.resultPercent) }}
+          </td>
+          <td class="num" *ngIf="isColumnVisible('weight')">{{ formatPercent(weightFor(position)) }}</td>
+          <td class="num" *ngIf="isColumnVisible('minimumExpected')">{{ formatMoney(minimumPerformanceFor(position)?.minimumExpectedValue, position.currency) }}</td>
+          <td class="num" *ngIf="isColumnVisible('minimumDifferenceAmount')" [class.positive]="(minimumPerformanceFor(position)?.valueVsMinimumAmount ?? 0) >= 0" [class.negative]="(minimumPerformanceFor(position)?.valueVsMinimumAmount ?? 0) < 0">
+            {{ formatMoney(minimumPerformanceFor(position)?.valueVsMinimumAmount, position.currency) }}
+          </td>
+          <td class="num" *ngIf="isColumnVisible('minimumDifferencePercent')" [class.positive]="(minimumPerformanceFor(position)?.valueVsMinimumPercent ?? 0) >= 0" [class.negative]="(minimumPerformanceFor(position)?.valueVsMinimumPercent ?? 0) < 0">
+            {{ formatPercent(minimumPerformanceFor(position)?.valueVsMinimumPercent) }}
+          </td>
+          <td *ngIf="isColumnVisible('minimumStatus')">{{ minimumStatusLabel(minimumPerformanceFor(position)?.status) }}</td>
+          <td class="num" *ngIf="isColumnVisible('alerts')">
             <span class="alert-pill" [class.alerted]="hasAlert(position.symbol)">{{ alertCount(position.symbol) }}</span>
           </td>
-          <td>
-            <button type="button" class="toggle" (click)="requestDetail(position.symbol); $event.stopPropagation()">Detalle</button>
+          <td *ngIf="isColumnVisible('action')">
+            <button type="button" class="toggle" (click)="requestDetail(position.symbol)">Detalle</button>
           </td>
         </tr>
       </tbody>

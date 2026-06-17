@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { CalendarBenchmarkRow, MinimumPerformanceBySymbol, MinimumPerformanceLot, MinimumPerformanceStatus } from '../models/minimum-performance.model';
+import { CalendarBenchmarkRow, MinimumPerformanceBySymbol, MinimumPerformanceLot, MinimumPerformanceStatus, MinimumPerformanceSummary } from '../models/minimum-performance.model';
 import { InvestmentOperation } from '../models/portfolio.models';
 import { PortfolioAppState } from './portfolio-state.service';
 import { CurrencyMapperService } from './currency-mapper.service';
@@ -63,6 +63,70 @@ export class MinimumPerformanceService {
         }
         return a.currency.localeCompare(b.currency, 'es');
       });
+  }
+
+  buildMinimumPerformanceSummary(snapshot: PortfolioAppState): MinimumPerformanceSummary {
+    const lots = this.buildLots(snapshot).filter((lot) => lot.currency === 'ARS');
+    const comparableLots = lots.filter((lot) => lot.status === 'beats-minimum' || lot.status === 'below-minimum');
+
+    if (!comparableLots.length) {
+      return {
+        currency: 'ARS',
+        comparableLotsCount: 0,
+        currentComparableArs: null,
+        minimumExpectedArs: null,
+        balanceVsMinimumArs: null,
+        balanceVsMinimumPercentArs: null,
+        status: 'missing',
+        description: 'No hay datos suficientes para calcular el benchmark mínimo.',
+        notes: this.uniqueNotes([
+          ...lots.flatMap((lot) => lot.notes),
+          'No hay posiciones ARS comparables para el benchmark mínimo.'
+        ])
+      };
+    }
+
+    const currentComparableArs = this.sumNumbers(comparableLots.map((lot) => lot.currentValue));
+    const minimumExpectedArs = this.sumNumbers(comparableLots.map((lot) => lot.minimumExpectedValue));
+
+    if (currentComparableArs === null || minimumExpectedArs === null || minimumExpectedArs <= 0) {
+      return {
+        currency: 'ARS',
+        comparableLotsCount: comparableLots.length,
+        currentComparableArs: currentComparableArs ?? null,
+        minimumExpectedArs: minimumExpectedArs ?? null,
+        balanceVsMinimumArs: null,
+        balanceVsMinimumPercentArs: null,
+        status: 'missing',
+        description: 'No hay datos suficientes para calcular el benchmark mínimo.',
+        notes: this.uniqueNotes([
+          ...comparableLots.flatMap((lot) => lot.notes),
+          'No hay valores suficientes para calcular el agregado.'
+        ])
+      };
+    }
+
+    const balanceVsMinimumArs = currentComparableArs - minimumExpectedArs;
+    const balanceVsMinimumPercentArs = ((currentComparableArs / minimumExpectedArs) - 1) * 100;
+    const status: MinimumPerformanceSummary['status'] =
+      balanceVsMinimumArs > 0 ? 'positive' : balanceVsMinimumArs < 0 ? 'negative' : 'neutral';
+
+    return {
+      currency: 'ARS',
+      comparableLotsCount: comparableLots.length,
+      currentComparableArs,
+      minimumExpectedArs,
+      balanceVsMinimumArs,
+      balanceVsMinimumPercentArs,
+      status,
+      description:
+        status === 'positive'
+          ? 'El portafolio ARS supera el rendimiento mínimo esperado.'
+          : status === 'negative'
+            ? 'El portafolio ARS está por debajo del rendimiento mínimo esperado.'
+            : 'El portafolio ARS está en línea con el rendimiento mínimo esperado.',
+      notes: this.uniqueNotes(comparableLots.flatMap((lot) => lot.notes))
+    };
   }
 
   findIndexForDate(rows: CalendarBenchmarkRow[], date: Date): number | null {
