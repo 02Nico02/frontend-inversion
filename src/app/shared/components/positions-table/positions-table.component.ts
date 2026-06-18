@@ -354,7 +354,7 @@ export class PositionsTableComponent implements OnInit, OnChanges {
   }
 
   minimumUsesAdjustedComparableValue(position: PortfolioPosition): boolean {
-    return Boolean(this.minimumPerformanceFor(position)?.usesAdjustedComparableValue);
+    return Boolean(this.minimumPerformanceFor(position)?.usesAmortizationAdjustedBenchmark);
   }
 
   movementSummaryFor(position: PortfolioPosition): InvestmentMovementSummary | null {
@@ -386,7 +386,7 @@ export class PositionsTableComponent implements OnInit, OnChanges {
 
   minimumAdjustmentTooltip(position: PortfolioPosition): string | null {
     const minimum = this.minimumPerformanceFor(position);
-    if (!minimum || !minimum.usesAdjustedComparableValue) {
+    if (!minimum || !minimum.usesAmortizationAdjustedBenchmark) {
       return null;
     }
 
@@ -394,17 +394,18 @@ export class PositionsTableComponent implements OnInit, OnChanges {
       'Benchmark ajustado por movimientos de inversión.',
       'Para comparar contra el mínimo esperado se usa:',
       'Total actual + rentas cobradas + amortizaciones cobradas.',
-      'Esto evita castigar bonos amortizantes por devoluciones de capital.',
+      'El mínimo esperado ajustado incluye capital amortizado, benchmark acumulado por tramos y capital remanente ajustado.',
       `Total actual: ${this.formatMoney(minimum.marketCurrentValue ?? minimum.currentValue, position.currency)}`,
       `Rentas cobradas: ${this.formatMoney(minimum.incomeAmount, position.currency)}`,
       `Amortizaciones cobradas: ${this.formatMoney(minimum.capitalReturnedAmount, position.currency)}`,
       `Valor comparable: ${this.formatMoney(minimum.comparableValue, position.currency)}`,
-      `Mínimo esperado: ${this.formatMoney(minimum.minimumExpectedValue, position.currency)}`,
+      `Capital amortizado incluido en mínimo: ${this.formatMoney(minimum.capitalReturnedAmount, position.currency)}`,
+      `Benchmark acumulado por tramos: ${this.formatMoney(minimum.benchmarkAccruedAmount, position.currency)}`,
+      `Capital remanente ajustado: ${this.formatMoney(minimum.remainingExposedCapital, position.currency)}`,
+      `Mínimo esperado ajustado: ${this.formatMoney(minimum.minimumExpectedValue, position.currency)}`,
       `Vs mínimo ajustado: ${this.formatMoney(minimum.valueVsMinimumAmount, position.currency)}`
     ].join(' ');
-  }
-
-  minimumStatusLabel(status: MinimumPerformanceBySymbol['status'] | null | undefined): string {
+  }  minimumStatusLabel(status: MinimumPerformanceBySymbol['status'] | null | undefined): string {
     switch (status) {
       case 'beats-minimum':
         return 'Supera mínimo';

@@ -81,7 +81,7 @@ export class MinimumPerformanceService {
         if (!summary.usesAdjustedComparableValue && (movementCountsByGroup.get(key) ?? 0) > 0) {
           summary.notes = this.uniqueNotes([
             ...summary.notes,
-            'Movimientos detectados, pero no se pudieron aplicar al benchmark minimo.'
+            'Movimientos detectados, pero no se pudieron aplicar al benchmark mínimo.'
           ]);
         }
         return summary;
@@ -108,10 +108,10 @@ export class MinimumPerformanceService {
         balanceVsMinimumArs: null,
         balanceVsMinimumPercentArs: null,
         status: 'missing',
-        description: 'No hay datos suficientes para calcular el benchmark minimo.',
+        description: 'No hay datos suficientes para calcular el benchmark mínimo.',
         notes: this.uniqueNotes([
           ...lots.flatMap((lot) => lot.notes),
-          'No hay posiciones ARS comparables para el benchmark minimo.'
+          'No hay posiciones ARS comparables para el benchmark mínimo.'
         ])
       };
     }
@@ -128,7 +128,7 @@ export class MinimumPerformanceService {
         balanceVsMinimumArs: null,
         balanceVsMinimumPercentArs: null,
         status: 'missing',
-        description: 'No hay datos suficientes para calcular el benchmark minimo.',
+        description: 'No hay datos suficientes para calcular el benchmark mínimo.',
         notes: this.uniqueNotes([
           ...comparableLots.flatMap((lot) => lot.notes),
           'No hay valores suficientes para calcular el agregado.'
@@ -151,10 +151,10 @@ export class MinimumPerformanceService {
       status,
       description:
         status === 'positive'
-          ? 'El portafolio ARS supera el rendimiento minimo esperado.'
+          ? 'El portafolio ARS supera el rendimiento mínimo esperado.'
           : status === 'negative'
-            ? 'El portafolio ARS esta por debajo del rendimiento minimo esperado.'
-            : 'El portafolio ARS esta en linea con el rendimiento minimo esperado.',
+            ? 'El portafolio ARS está por debajo del rendimiento mínimo esperado.'
+            : 'El portafolio ARS está en línea con el rendimiento mínimo esperado.',
       notes: this.uniqueNotes(comparableLots.flatMap((lot) => lot.notes))
     };
   }
@@ -212,10 +212,10 @@ export class MinimumPerformanceService {
 
     const startInfo = buyDate ? this.findBenchmarkIndexInfo(benchmarkRows, buyDate) : { index: null, beforeStart: false, afterEnd: false };
     if (startInfo.beforeStart) {
-      notes.push('La compra es anterior al inicio del benchmark; se uso el primer indice disponible');
+      notes.push('La compra es anterior al inicio del benchmark; se usó el primer índice disponible');
     }
     if (startInfo.afterEnd) {
-      notes.push('La compra queda luego del ultimo punto de benchmark');
+      notes.push('La compra queda luego del último punto de benchmark');
     }
 
     const startIndex = startInfo.index;
@@ -481,30 +481,32 @@ export class MinimumPerformanceService {
     let exposedCapital = investedAmount;
     let lastIndex = startIndex;
     let benchmarkAccruedAmount = 0;
+    let capitalReturnedAmount = 0;
     let usesAdjustedBenchmark = false;
 
     for (const movement of amortizationMovements) {
       if (!movement.date) {
-        notes.push('Se omitio una amortizacion sin fecha para ajustar el benchmark.');
+        notes.push('Se omitió una amortización sin fecha para ajustar el benchmark.');
         continue;
       }
 
       const movementIndexInfo = this.findBenchmarkIndexInfo(benchmarkRows, movement.date);
       const movementIndex = movementIndexInfo.index;
       if (movementIndex === null || movementIndex <= 0) {
-        notes.push('No se pudo ubicar una amortizacion en el calendario de benchmark.');
+        notes.push('No se pudo ubicar una amortización en el calendario de benchmark.');
         continue;
       }
 
       const benchmarkBeforeAmortization = exposedCapital * (movementIndex / lastIndex);
       benchmarkAccruedAmount += benchmarkBeforeAmortization - exposedCapital;
 
+      capitalReturnedAmount += movement.amount;
       exposedCapital = Math.max(0, exposedCapital - movement.amount);
       lastIndex = movementIndex;
       usesAdjustedBenchmark = true;
 
       if (exposedCapital <= 0) {
-        notes.push('La amortizacion consumio todo el capital expuesto; el benchmark quedo en cero.');
+        notes.push('La amortización supera el capital expuesto del lote. Revisar datos.');
         exposedCapital = 0;
         break;
       }
@@ -514,7 +516,7 @@ export class MinimumPerformanceService {
 
     return {
       usesAdjustedBenchmark,
-      minimumExpectedValueAdjusted: benchmarkAccruedAmount + finalMinimumExpectedValue,
+      minimumExpectedValueAdjusted: capitalReturnedAmount + benchmarkAccruedAmount + finalMinimumExpectedValue,
       benchmarkAccruedAmount,
       remainingExposedCapital: exposedCapital
     };

@@ -239,7 +239,7 @@ export class PortfolioCalculatorService {
         variation: this.normalization.asPercent(this.normalization.pickValue(row, ['VARIACION', 'VARIACIÓN', 'VARIACION %', 'Variacion %', 'Variación %'])),
         amount: this.normalization.asNumber(this.normalization.pickValue(row, ['Monto', 'MONTO'])),
         minimumObjective: this.normalization.asNumber(
-          this.normalization.pickValue(row, ['Objetivo minimo', 'Objetivo mínimo', 'OBJETIVO MINIMO', 'OBJETIVO MÍNIMO']) ?? this.normalization.pickValueByTokens(row, ['OBJETIVO', 'MIN'])
+          this.normalization.pickValue(row, ['Objetivo mínimo', 'Objetivo mínimo', 'OBJETIVO MINIMO', 'OBJETIVO MÍNIMO']) ?? this.normalization.pickValueByTokens(row, ['OBJETIVO', 'MIN'])
         ),
         sourceTable: table.name
       }))
@@ -509,7 +509,7 @@ export class PortfolioCalculatorService {
         monthlyTotal: this.normalization.asNumber(this.normalization.pickValue(row, ['TOTAL DEL MES'])),
         accumulated: this.normalization.asNumber(this.normalization.pickValue(row, ['ACUMULADO'])),
         startValue: this.normalization.asNumber(this.normalization.pickValue(row, ['Val. Inicio'])),
-        variationPercent: this.normalization.asNumber(this.normalization.pickValue(row, ['VARIACIÃ“N %', 'VARIACION %'])),
+        variationPercent: this.normalization.asNumber(this.normalization.pickValue(row, ['VARIACIÓN %', 'VARIACION %'])),
         realReturnPercent: this.normalization.asNumber(this.normalization.pickValue(row, ['REND. REAL']))
       }))
       .filter((item) => item.month && !/^total$/i.test(item.month));

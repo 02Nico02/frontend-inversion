@@ -158,12 +158,10 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
   }
 
   minimumUsesAdjustedComparableValue(detail: AssetDetailViewModel): boolean {
-    return Boolean(detail.movementSummary?.hasAdjustments && this.minimumPerformance?.usesAdjustedComparableValue);
-  }
-
-  minimumAdjustmentTooltip(detail: AssetDetailViewModel): string | null {
+    return Boolean(this.minimumPerformance?.usesAmortizationAdjustedBenchmark);
+  }  minimumAdjustmentTooltip(detail: AssetDetailViewModel): string | null {
     const minimum = this.minimumPerformance;
-    if (!minimum || !minimum.usesAdjustedComparableValue) {
+    if (!minimum || !minimum.usesAmortizationAdjustedBenchmark) {
       return null;
     }
 
@@ -171,17 +169,18 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
       'Benchmark ajustado por movimientos de inversión.',
       'Para comparar contra el mínimo esperado se usa:',
       'Total actual + rentas cobradas + amortizaciones cobradas.',
-      'Esto evita castigar bonos amortizantes por devoluciones de capital.',
+      'El mínimo esperado ajustado incluye capital amortizado, benchmark acumulado por tramos y capital remanente ajustado.',
       `Total actual: ${this.formatMoney(minimum.marketCurrentValue ?? minimum.currentValue, detail.position.currency)}`,
       `Rentas cobradas: ${this.formatMoney(minimum.incomeAmount, detail.position.currency)}`,
       `Amortizaciones cobradas: ${this.formatMoney(minimum.capitalReturnedAmount, detail.position.currency)}`,
       `Valor comparable: ${this.formatMoney(minimum.comparableValue, detail.position.currency)}`,
-      `Mínimo esperado: ${this.formatMoney(minimum.minimumExpectedValue, detail.position.currency)}`,
+      `Capital amortizado incluido en mínimo: ${this.formatMoney(minimum.capitalReturnedAmount, detail.position.currency)}`,
+      `Benchmark acumulado por tramos: ${this.formatMoney(minimum.benchmarkAccruedAmount, detail.position.currency)}`,
+      `Capital remanente ajustado: ${this.formatMoney(minimum.remainingExposedCapital, detail.position.currency)}`,
+      `Mínimo esperado ajustado: ${this.formatMoney(minimum.minimumExpectedValue, detail.position.currency)}`,
       `Vs mínimo ajustado: ${this.formatMoney(minimum.valueVsMinimumAmount, detail.position.currency)}`
     ].join(' ');
-  }
-
-  movementTooltip(detail: AssetDetailViewModel): string | null {
+  }  movementTooltip(detail: AssetDetailViewModel): string | null {
     if (!detail.movementSummary || !detail.movementSummary.hasAdjustments) {
       return detail.movementEntries.length ? 'Movimientos detectados, pero no se pudieron asignar completamente a lotes.' : null;
     }
@@ -230,11 +229,9 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
   }
 
   lotMinimumUsesAdjustedComparableValue(lot: MinimumPerformanceLot): boolean {
-    return Boolean(lot.usesAdjustedComparableValue);
-  }
-
-  lotMinimumAdjustmentTooltip(lot: MinimumPerformanceLot, currency: string): string | null {
-    if (!lot.usesAdjustedComparableValue) {
+    return Boolean(lot.usesAmortizationAdjustedBenchmark);
+  }  lotMinimumAdjustmentTooltip(lot: MinimumPerformanceLot, currency: string): string | null {
+    if (!lot.usesAmortizationAdjustedBenchmark) {
       return null;
     }
 
@@ -242,17 +239,18 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
       'Benchmark ajustado por movimientos de inversión.',
       'Para comparar contra el mínimo esperado se usa:',
       'Total actual + rentas cobradas + amortizaciones cobradas.',
-      'Esto evita castigar bonos amortizantes por devoluciones de capital.',
+      'El mínimo esperado ajustado incluye capital amortizado, benchmark acumulado por tramos y capital remanente ajustado.',
       `Total actual: ${this.formatMoney(lot.marketCurrentValue ?? lot.currentValue, currency)}`,
       `Rentas cobradas: ${this.formatMoney(lot.incomeAmount, currency)}`,
       `Amortizaciones cobradas: ${this.formatMoney(lot.capitalReturnedAmount, currency)}`,
       `Valor comparable: ${this.formatMoney(lot.comparableValue, currency)}`,
-      `Mínimo esperado: ${this.formatMoney(lot.minimumExpectedValue, currency)}`,
+      `Capital amortizado incluido en mínimo: ${this.formatMoney(lot.capitalReturnedAmount, currency)}`,
+      `Benchmark acumulado por tramos: ${this.formatMoney(lot.benchmarkAccruedAmount, currency)}`,
+      `Capital remanente ajustado: ${this.formatMoney(lot.remainingExposedCapital, currency)}`,
+      `Mínimo esperado ajustado: ${this.formatMoney(lot.minimumExpectedValue, currency)}`,
       `Vs mínimo ajustado: ${this.formatMoney(lot.valueVsMinimumAmount, currency)}`
     ].join(' ');
-  }
-
-  lotAdjustmentFor(operation: AssetDetailViewModel['operations'][number], detail: AssetDetailViewModel): InvestmentMovementLotAdjustment | null {
+  }  lotAdjustmentFor(operation: AssetDetailViewModel['operations'][number], detail: AssetDetailViewModel): InvestmentMovementLotAdjustment | null {
     return detail.movementLots.find((lot) => lot.operationId === operation.id) ?? null;
   }
 
