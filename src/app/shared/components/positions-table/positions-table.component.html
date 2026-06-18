@@ -214,19 +214,31 @@
           <td class="num" *ngIf="isColumnVisible('currentPrice')">{{ formatMoney(position.currentPrice, position.currency) }}</td>
           <td class="num" *ngIf="isColumnVisible('totalInvested')">{{ formatMoney(position.totalInvested, position.currency) }}</td>
           <td class="num" *ngIf="isColumnVisible('currentValue')">{{ formatMoney(position.currentValue, position.currency) }}</td>
-          <td class="num" *ngIf="isColumnVisible('resultAmount')" [class.positive]="position.resultAmount > 0" [class.negative]="position.resultAmount < 0">
-            {{ formatMoney(position.resultAmount, position.currency) }}
+          <td class="num" *ngIf="isColumnVisible('resultAmount')" [class.positive]="adjustedResultAmountFor(position) > 0" [class.negative]="adjustedResultAmountFor(position) < 0">
+            <span class="result-cell">
+              <span>{{ formatMoney(adjustedResultAmountFor(position), position.currency) }}</span>
+              <span *ngIf="movementSummaryFor(position)?.hasAdjustments" class="adjusted-info" [attr.title]="resultAdjustmentTooltip(position) || undefined" aria-label="Resultado ajustado por movimientos de inversión">i</span>
+            </span>
           </td>
-          <td class="num" *ngIf="isColumnVisible('resultPercent')" [class.positive]="(position.resultPercent ?? 0) > 0" [class.negative]="(position.resultPercent ?? 0) < 0">
-            {{ formatPercent(position.resultPercent) }}
+          <td class="num" *ngIf="isColumnVisible('resultPercent')" [class.positive]="(adjustedResultPercentFor(position) ?? 0) > 0" [class.negative]="(adjustedResultPercentFor(position) ?? 0) < 0">
+            <span class="result-cell">
+              <span>{{ formatPercent(adjustedResultPercentFor(position)) }}</span>
+              <span *ngIf="movementSummaryFor(position)?.hasAdjustments" class="adjusted-info" [attr.title]="resultAdjustmentTooltip(position) || undefined" aria-label="Resultado ajustado por movimientos de inversión">i</span>
+            </span>
           </td>
           <td class="num" *ngIf="isColumnVisible('weight')">{{ formatPercent(weightFor(position)) }}</td>
           <td class="num" *ngIf="isColumnVisible('minimumExpected')">{{ formatMoney(minimumPerformanceFor(position)?.minimumExpectedValue, position.currency) }}</td>
           <td class="num" *ngIf="isColumnVisible('minimumDifferenceAmount')" [class.positive]="(minimumPerformanceFor(position)?.valueVsMinimumAmount ?? 0) >= 0" [class.negative]="(minimumPerformanceFor(position)?.valueVsMinimumAmount ?? 0) < 0">
-            {{ formatMoney(minimumPerformanceFor(position)?.valueVsMinimumAmount, position.currency) }}
+            <span class="result-cell">
+              <span>{{ formatMoney(minimumPerformanceFor(position)?.valueVsMinimumAmount, position.currency) }}</span>
+              <span *ngIf="minimumUsesAdjustedComparableValue(position)" class="adjusted-info" [attr.title]="minimumAdjustmentTooltip(position) || undefined" aria-label="Benchmark ajustado por movimientos de inversión">i</span>
+            </span>
           </td>
           <td class="num" *ngIf="isColumnVisible('minimumDifferencePercent')" [class.positive]="(minimumPerformanceFor(position)?.valueVsMinimumPercent ?? 0) >= 0" [class.negative]="(minimumPerformanceFor(position)?.valueVsMinimumPercent ?? 0) < 0">
-            {{ formatPercent(minimumPerformanceFor(position)?.valueVsMinimumPercent) }}
+            <span class="result-cell">
+              <span>{{ formatPercent(minimumPerformanceFor(position)?.valueVsMinimumPercent) }}</span>
+              <span *ngIf="minimumUsesAdjustedComparableValue(position)" class="adjusted-info" [attr.title]="minimumAdjustmentTooltip(position) || undefined" aria-label="Benchmark ajustado por movimientos de inversión">i</span>
+            </span>
           </td>
           <td *ngIf="isColumnVisible('minimumStatus')">{{ minimumStatusLabel(minimumPerformanceFor(position)?.status) }}</td>
           <td class="num" *ngIf="isColumnVisible('alerts')">

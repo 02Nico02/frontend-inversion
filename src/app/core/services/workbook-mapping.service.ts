@@ -12,6 +12,13 @@ export class WorkbookMappingService {
       expectedColumns: ['ID', 'Fecha', 'ESPECIE', 'MONEDA', 'CANT.', 'PREC. COMP.', 'TOTAL', 'PREC. ACT.', 'VALORI. ACT.', 'VARIACIÃ“N', 'Var_cuenta_rem_%', 'Valor_cuenta_rem', 'Monto', 'TEM', 'TNA', 'TOP', 'TENDENCIA']
     },
     {
+      key: 'investmentMovements',
+      primaryName: 'TablaMovimientosInversiones',
+      aliases: ['TablaMovimientosInversiones'],
+      critical: false,
+      expectedColumns: ['Fecha', 'Especie', 'Tipo movimiento', 'Monto', 'Afecta rendimiento', 'Afecta capital invertido', 'Observación']
+    },
+    {
       key: 'positions',
       primaryName: 'TablaPosiciones',
       aliases: ['TablaPosiciones'],

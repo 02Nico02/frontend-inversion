@@ -161,6 +161,29 @@
       z-index: 3;
     }
     .num { text-align: right; }
+    .result-cell {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0.4rem;
+      width: 100%;
+    }
+.adjusted-info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 999px;
+  border: 1px solid rgba(110, 231, 183, 0.35);
+  color: var(--ok);
+  background: rgba(110, 231, 183, 0.08);
+  font-size: 0.7rem;
+  line-height: 1;
+  white-space: nowrap;
+  font-weight: 700;
+  cursor: help;
+}
     tbody tr:hover td {
       background: rgba(255, 255, 255, 0.03);
     }

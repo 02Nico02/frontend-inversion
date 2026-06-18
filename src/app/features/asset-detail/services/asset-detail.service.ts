@@ -5,11 +5,13 @@ import {
   InvestmentOperation,
   PortfolioPosition
 } from '../../../core/models/portfolio.models';
+import { InvestmentMovement, InvestmentMovementLotAdjustment, InvestmentMovementSummary } from '../../../core/models/investment-movements.model';
 import { CombinedAlert } from '../../../core/services/alert-mapper.service';
 import { ChartDataService, SeriesPoint } from '../../../core/services/chart-data.service';
 import { CurrencyMapperService } from '../../../core/services/currency-mapper.service';
 import { PortfolioAppState } from '../../../core/services/portfolio-state.service';
 import { PortfolioCalculatorService } from '../../../core/services/portfolio-calculator.service';
+import { InvestmentMovementsPerformanceService } from '../../../core/services/investment-movements-performance.service';
 import { parseExcelDate } from '../../../core/utils/value-parsing.utils';
 
 export interface AssetSummaryMetrics {
@@ -76,6 +78,9 @@ export interface AssetDetailViewModel {
   position: PortfolioPosition;
   classification: AssetClassification | null;
   operations: InvestmentOperation[];
+  movementSummary: InvestmentMovementSummary | null;
+  movementEntries: InvestmentMovement[];
+  movementLots: InvestmentMovementLotAdjustment[];
   manualAlerts: CombinedAlert[];
   calculatedAlerts: CombinedAlert[];
   signalAlerts: CombinedAlert[];
@@ -93,7 +98,8 @@ export class AssetDetailService {
   constructor(
     private readonly calculator: PortfolioCalculatorService,
     private readonly chartData: ChartDataService,
-    private readonly currencyMapper: CurrencyMapperService
+    private readonly currencyMapper: CurrencyMapperService,
+    private readonly movementsPerformance: InvestmentMovementsPerformanceService
   ) {}
 
   buildViewModel(snapshot: PortfolioAppState, symbol: string): AssetDetailViewModel | null {
@@ -105,6 +111,15 @@ export class AssetDetailService {
     }
     const classification = this.classificationFor(position, snapshot.dataset?.classifications ?? []);
     const operations = this.operationsFor(snapshot.dataset?.operations ?? [], normalized);
+    const movementSummaries = this.movementsPerformance.buildSummaryBySymbol(snapshot);
+    const movementEntries = this.movementsPerformance.buildMovements(snapshot).filter((movement) => movement.symbol.toUpperCase() === normalized);
+    const movementLots = this.movementsPerformance
+      .buildLotAdjustments(snapshot)
+      .filter((lot) => lot.symbol.toUpperCase() === normalized);
+    const movementSummary =
+      movementSummaries.find((summary) => summary.symbol.toUpperCase() === normalized && this.currencyMatches(summary.currency, position.currency))
+      ?? movementSummaries.find((summary) => summary.symbol.toUpperCase() === normalized)
+      ?? null;
     const historicalPrices = this.historicalFor(snapshot.dataset?.historicalPrices ?? [], normalized);
     const manualAlerts = (snapshot.combinedAlerts ?? []).filter((alert) => alert.group === 'manual' && alert.symbol.toUpperCase() === normalized);
     const calculatedAlerts = (snapshot.combinedAlerts ?? []).filter((alert) => alert.group === 'calculated' && alert.symbol.toUpperCase() === normalized);
@@ -139,6 +154,9 @@ export class AssetDetailService {
       },
       classification,
       operations,
+      movementSummary,
+      movementEntries,
+      movementLots,
       manualAlerts,
       calculatedAlerts,
       signalAlerts,
@@ -331,6 +349,10 @@ export class AssetDetailService {
     return [...operations]
       .filter((operation) => operation.symbol.toUpperCase() === symbol && (operation.total !== null || operation.amount !== null))
       .sort((a, b) => this.dateValue(a.date) - this.dateValue(b.date));
+  }
+
+  private currencyMatches(left: string, right: string): boolean {
+    return this.currencyMapper.normalizeCurrency(left) === this.currencyMapper.normalizeCurrency(right);
   }
 
   private formatDate(value: string | Date | null | undefined): string {

@@ -4,6 +4,8 @@ import { InvestmentOperation } from '../models/portfolio.models';
 import { PortfolioAppState } from './portfolio-state.service';
 import { CurrencyMapperService } from './currency-mapper.service';
 import { DataNormalizationService } from './data-normalization.service';
+import { InvestmentMovementsPerformanceService } from './investment-movements-performance.service';
+import { AppliedInvestmentMovement } from '../models/investment-movements.model';
 
 type BenchmarkSelection = {
   rows: CalendarBenchmarkRow[];
@@ -11,14 +13,22 @@ type BenchmarkSelection = {
   notes: string[];
 };
 
+type AmortizationBenchmarkResult = {
+  usesAdjustedBenchmark: boolean;
+  minimumExpectedValueAdjusted: number | null;
+  benchmarkAccruedAmount: number | null;
+  remainingExposedCapital: number | null;
+};
+
 @Injectable({ providedIn: 'root' })
 export class MinimumPerformanceService {
   constructor(
     private readonly normalization: DataNormalizationService,
-    private readonly currencyMapper: CurrencyMapperService
+    private readonly currencyMapper: CurrencyMapperService,
+    private readonly movementsPerformance: InvestmentMovementsPerformanceService
   ) {}
 
-  buildLots(snapshot: PortfolioAppState): MinimumPerformanceLot[] {
+  buildLots(snapshot: PortfolioAppState, adjustForMovements = true): MinimumPerformanceLot[] {
     const dataset = snapshot.dataset;
     if (!dataset) {
       return [];
@@ -27,9 +37,19 @@ export class MinimumPerformanceService {
     const benchmark = this.resolveBenchmarkRows(dataset.calendarBenchmarks ?? []);
     const benchmarkRows = benchmark.rows;
     const benchmarkEndIndex = this.lastBenchmarkIndex(benchmarkRows);
+    const movementAdjustments = adjustForMovements ? this.movementsPerformance.buildLotAdjustments(snapshot) : [];
+    const movementAdjustmentsByOperation = new Map(movementAdjustments.map((lot) => [lot.operationId, lot]));
 
     return dataset.operations
-      .map((operation) => this.buildLot(operation, benchmarkRows, benchmarkEndIndex, benchmark))
+      .map((operation) =>
+        this.buildLot(
+          operation,
+          benchmarkRows,
+          benchmarkEndIndex,
+          benchmark,
+          movementAdjustmentsByOperation.get(String(operation.id)) ?? null
+        )
+      )
       .sort((a, b) => {
         const symbolDiff = a.symbol.localeCompare(b.symbol, 'es');
         if (symbolDiff !== 0) {
@@ -44,7 +64,8 @@ export class MinimumPerformanceService {
   }
 
   buildMinimumPerformanceBySymbol(snapshot: PortfolioAppState): MinimumPerformanceBySymbol[] {
-    const lots = this.buildLots(snapshot);
+    const lots = this.buildLots(snapshot, true);
+    const movementCountsByGroup = this.countMovementsByGroup(this.movementsPerformance.buildMovements(snapshot));
     const grouped = new Map<string, MinimumPerformanceLot[]>();
 
     for (const lot of lots) {
@@ -54,8 +75,17 @@ export class MinimumPerformanceService {
       grouped.set(key, bucket);
     }
 
-    return Array.from(grouped.values())
-      .map((bucket) => this.buildSymbolSummary(bucket))
+    return Array.from(grouped.entries())
+      .map(([key, bucket]) => {
+        const summary = this.buildSymbolSummary(bucket);
+        if (!summary.usesAdjustedComparableValue && (movementCountsByGroup.get(key) ?? 0) > 0) {
+          summary.notes = this.uniqueNotes([
+            ...summary.notes,
+            'Movimientos detectados, pero no se pudieron aplicar al benchmark minimo.'
+          ]);
+        }
+        return summary;
+      })
       .sort((a, b) => {
         const symbolDiff = a.symbol.localeCompare(b.symbol, 'es');
         if (symbolDiff !== 0) {
@@ -66,7 +96,7 @@ export class MinimumPerformanceService {
   }
 
   buildMinimumPerformanceSummary(snapshot: PortfolioAppState): MinimumPerformanceSummary {
-    const lots = this.buildLots(snapshot).filter((lot) => lot.currency === 'ARS');
+    const lots = this.buildLots(snapshot, false).filter((lot) => lot.currency === 'ARS');
     const comparableLots = lots.filter((lot) => lot.status === 'beats-minimum' || lot.status === 'below-minimum');
 
     if (!comparableLots.length) {
@@ -78,10 +108,10 @@ export class MinimumPerformanceService {
         balanceVsMinimumArs: null,
         balanceVsMinimumPercentArs: null,
         status: 'missing',
-        description: 'No hay datos suficientes para calcular el benchmark mínimo.',
+        description: 'No hay datos suficientes para calcular el benchmark minimo.',
         notes: this.uniqueNotes([
           ...lots.flatMap((lot) => lot.notes),
-          'No hay posiciones ARS comparables para el benchmark mínimo.'
+          'No hay posiciones ARS comparables para el benchmark minimo.'
         ])
       };
     }
@@ -98,7 +128,7 @@ export class MinimumPerformanceService {
         balanceVsMinimumArs: null,
         balanceVsMinimumPercentArs: null,
         status: 'missing',
-        description: 'No hay datos suficientes para calcular el benchmark mínimo.',
+        description: 'No hay datos suficientes para calcular el benchmark minimo.',
         notes: this.uniqueNotes([
           ...comparableLots.flatMap((lot) => lot.notes),
           'No hay valores suficientes para calcular el agregado.'
@@ -121,10 +151,10 @@ export class MinimumPerformanceService {
       status,
       description:
         status === 'positive'
-          ? 'El portafolio ARS supera el rendimiento mínimo esperado.'
+          ? 'El portafolio ARS supera el rendimiento minimo esperado.'
           : status === 'negative'
-            ? 'El portafolio ARS está por debajo del rendimiento mínimo esperado.'
-            : 'El portafolio ARS está en línea con el rendimiento mínimo esperado.',
+            ? 'El portafolio ARS esta por debajo del rendimiento minimo esperado.'
+            : 'El portafolio ARS esta en linea con el rendimiento minimo esperado.',
       notes: this.uniqueNotes(comparableLots.flatMap((lot) => lot.notes))
     };
   }
@@ -138,7 +168,8 @@ export class MinimumPerformanceService {
     operation: InvestmentOperation,
     benchmarkRows: CalendarBenchmarkRow[],
     benchmarkEndIndex: number | null,
-    benchmark: BenchmarkSelection
+    benchmark: BenchmarkSelection,
+    movementAdjustment: ReturnType<InvestmentMovementsPerformanceService['buildLotAdjustments']>[number] | null
   ): MinimumPerformanceLot {
     const symbol = this.normalization.normalizeSymbol(operation.symbol) ?? '';
     const currency = this.currencyMapper.normalizeCurrency(operation.currency);
@@ -146,6 +177,13 @@ export class MinimumPerformanceService {
     const quantity = this.normalization.asNumber(operation.quantity);
     const investedAmount = this.normalization.asNumber(operation.total ?? operation.amount);
     const currentValue = this.normalization.asNumber(operation.currentValue);
+    const incomeAmount = movementAdjustment?.incomeAmount ?? 0;
+    const capitalReturnedAmount = movementAdjustment?.capitalReturnedAmount ?? 0;
+    const comparableValue = currentValue !== null ? currentValue + incomeAmount + capitalReturnedAmount : null;
+    const usesAdjustedComparableValue = Boolean(
+      movementAdjustment?.movementsCount && (incomeAmount !== 0 || capitalReturnedAmount !== 0)
+    );
+    const amortizationMovements = this.amortizationMovements(movementAdjustment?.appliedMovements ?? []);
     const notes = [...benchmark.notes];
 
     if (!symbol) {
@@ -182,23 +220,39 @@ export class MinimumPerformanceService {
 
     const startIndex = startInfo.index;
     const endIndex = benchmarkEndIndex;
-    const hasRequiredData = currency === 'ARS'
-      && symbol.length > 0
-      && buyDate !== null
-      && investedAmount !== null
-      && investedAmount > 0
-      && currentValue !== null
-      && currentValue >= 0
-      && startIndex !== null
-      && endIndex !== null
-      && startIndex > 0
-      && endIndex > 0;
+    const rawMinimumExpectedValue =
+      investedAmount !== null && startIndex !== null && endIndex !== null && startIndex > 0 && endIndex > 0
+        ? investedAmount * (endIndex / startIndex)
+        : null;
+    const adjustedBenchmark = this.buildAmortizationAdjustedBenchmark(
+      investedAmount,
+      startIndex,
+      endIndex,
+      benchmarkRows,
+      amortizationMovements,
+      notes
+    );
+    const hasRequiredData =
+      currency === 'ARS' &&
+      symbol.length > 0 &&
+      buyDate !== null &&
+      investedAmount !== null &&
+      investedAmount > 0 &&
+      comparableValue !== null &&
+      comparableValue >= 0 &&
+      startIndex !== null &&
+      endIndex !== null &&
+      startIndex > 0 &&
+      endIndex > 0;
 
     let minimumExpectedValue: number | null = null;
     let minimumExpectedReturnPercent: number | null = null;
     let valueVsMinimumAmount: number | null = null;
     let valueVsMinimumPercent: number | null = null;
     let status: MinimumPerformanceStatus = 'review';
+    let benchmarkAccruedAmount: number | null = null;
+    let remainingExposedCapital: number | null = null;
+    let usesAmortizationAdjustedBenchmark = false;
 
     if (currency !== 'ARS') {
       status = 'not-applicable';
@@ -208,10 +262,21 @@ export class MinimumPerformanceService {
     } else if (!hasRequiredData) {
       status = 'review';
     } else {
-      minimumExpectedValue = investedAmount * (endIndex / startIndex);
       minimumExpectedReturnPercent = ((endIndex / startIndex) - 1) * 100;
-      valueVsMinimumAmount = (currentValue ?? 0) - minimumExpectedValue;
-      valueVsMinimumPercent = minimumExpectedValue > 0 ? ((currentValue ?? 0) / minimumExpectedValue - 1) * 100 : null;
+      if (adjustedBenchmark.usesAdjustedBenchmark) {
+        minimumExpectedValue = adjustedBenchmark.minimumExpectedValueAdjusted;
+        benchmarkAccruedAmount = adjustedBenchmark.benchmarkAccruedAmount;
+        remainingExposedCapital = adjustedBenchmark.remainingExposedCapital;
+        usesAmortizationAdjustedBenchmark = true;
+      } else {
+        minimumExpectedValue = rawMinimumExpectedValue;
+      }
+      valueVsMinimumAmount = (comparableValue ?? 0) - (minimumExpectedValue ?? 0);
+      const effectiveMinimumExpectedValue = minimumExpectedValue;
+      valueVsMinimumPercent =
+        effectiveMinimumExpectedValue !== null && effectiveMinimumExpectedValue > 0
+          ? ((comparableValue ?? 0) / effectiveMinimumExpectedValue - 1) * 100
+          : null;
       status = valueVsMinimumAmount >= 0 ? 'beats-minimum' : 'below-minimum';
     }
 
@@ -222,6 +287,16 @@ export class MinimumPerformanceService {
       quantity,
       investedAmount,
       currentValue,
+      marketCurrentValue: currentValue,
+      comparableValue,
+      usesAdjustedComparableValue,
+      incomeAmount,
+      capitalReturnedAmount,
+      minimumExpectedValueRaw: rawMinimumExpectedValue,
+      minimumExpectedValueAdjusted: adjustedBenchmark.minimumExpectedValueAdjusted,
+      usesAmortizationAdjustedBenchmark,
+      benchmarkAccruedAmount,
+      remainingExposedCapital,
       benchmarkStartIndex: startIndex,
       benchmarkEndIndex: endIndex,
       minimumExpectedValue,
@@ -240,13 +315,23 @@ export class MinimumPerformanceService {
     const hasReview = lots.some((lot) => lot.status === 'review');
     const allComparable = lots.every((lot) => lot.status === 'beats-minimum' || lot.status === 'below-minimum');
     const investedAmount = this.sumNumbers(lots.map((lot) => lot.investedAmount));
-    const currentValue = this.sumNumbers(lots.map((lot) => lot.currentValue));
+    const marketCurrentValue = this.sumNumbers(lots.map((lot) => lot.marketCurrentValue ?? lot.currentValue));
+    const currentValue = marketCurrentValue;
+    const comparableValue = this.sumNumbers(lots.map((lot) => lot.comparableValue ?? lot.currentValue));
+    const usesAdjustedComparableValue = lots.some((lot) => lot.usesAdjustedComparableValue);
+    const incomeAmount = this.sumNumbers(lots.map((lot) => lot.incomeAmount)) ?? 0;
+    const capitalReturnedAmount = this.sumNumbers(lots.map((lot) => lot.capitalReturnedAmount)) ?? 0;
+    const minimumExpectedValueRaw = this.sumNumbers(lots.map((lot) => lot.minimumExpectedValueRaw ?? lot.minimumExpectedValue));
+    const minimumExpectedValueAdjusted = this.sumNumbers(lots.map((lot) => lot.minimumExpectedValueAdjusted ?? lot.minimumExpectedValue));
+    const usesAmortizationAdjustedBenchmark = lots.some((lot) => lot.usesAmortizationAdjustedBenchmark);
+    const benchmarkAccruedAmount = this.sumNumbers(lots.map((lot) => lot.benchmarkAccruedAmount));
+    const remainingExposedCapital = this.sumNumbers(lots.map((lot) => lot.remainingExposedCapital));
     const minimumExpectedValue = allComparable ? this.sumNumbers(lots.map((lot) => lot.minimumExpectedValue)) : null;
     const valueVsMinimumAmount =
-      allComparable && currentValue !== null && minimumExpectedValue !== null ? currentValue - minimumExpectedValue : null;
+      allComparable && comparableValue !== null && minimumExpectedValue !== null ? comparableValue - minimumExpectedValue : null;
     const valueVsMinimumPercent =
-      allComparable && currentValue !== null && minimumExpectedValue !== null && minimumExpectedValue > 0
-        ? ((currentValue / minimumExpectedValue) - 1) * 100
+      allComparable && comparableValue !== null && minimumExpectedValue !== null && minimumExpectedValue > 0
+        ? ((comparableValue / minimumExpectedValue) - 1) * 100
         : null;
 
     let status: MinimumPerformanceStatus = 'review';
@@ -266,6 +351,16 @@ export class MinimumPerformanceService {
       lotsCount: lots.length,
       investedAmount,
       currentValue,
+      marketCurrentValue,
+      comparableValue,
+      usesAdjustedComparableValue,
+      incomeAmount,
+      capitalReturnedAmount,
+      minimumExpectedValueRaw,
+      minimumExpectedValueAdjusted,
+      usesAmortizationAdjustedBenchmark,
+      benchmarkAccruedAmount,
+      remainingExposedCapital,
       minimumExpectedValue,
       valueVsMinimumAmount,
       valueVsMinimumPercent,
@@ -348,8 +443,94 @@ export class MinimumPerformanceService {
     return last?.index ?? null;
   }
 
+  private amortizationMovements(movements: AppliedInvestmentMovement[]): AppliedInvestmentMovement[] {
+    return movements
+      .filter((movement) =>
+        movement.affectsInvestedCapital && movement.capitalEffect === 'reduces-cost' && movement.amount > 0
+      )
+      .sort((a, b) => (a.date?.getTime() ?? 0) - (b.date?.getTime() ?? 0));
+  }
+
+  private buildAmortizationAdjustedBenchmark(
+    investedAmount: number | null,
+    startIndex: number | null,
+    endIndex: number | null,
+    benchmarkRows: CalendarBenchmarkRow[],
+    amortizationMovements: AppliedInvestmentMovement[],
+    notes: string[]
+  ): AmortizationBenchmarkResult {
+    if (!amortizationMovements.length) {
+      return {
+        usesAdjustedBenchmark: false,
+        minimumExpectedValueAdjusted: null,
+        benchmarkAccruedAmount: null,
+        remainingExposedCapital: null
+      };
+    }
+
+    if (investedAmount === null || investedAmount <= 0 || startIndex === null || endIndex === null || startIndex <= 0 || endIndex <= 0) {
+      notes.push('No se pudo ajustar el benchmark por amortizaciones por falta de datos.');
+      return {
+        usesAdjustedBenchmark: false,
+        minimumExpectedValueAdjusted: null,
+        benchmarkAccruedAmount: null,
+        remainingExposedCapital: null
+      };
+    }
+
+    let exposedCapital = investedAmount;
+    let lastIndex = startIndex;
+    let benchmarkAccruedAmount = 0;
+    let usesAdjustedBenchmark = false;
+
+    for (const movement of amortizationMovements) {
+      if (!movement.date) {
+        notes.push('Se omitio una amortizacion sin fecha para ajustar el benchmark.');
+        continue;
+      }
+
+      const movementIndexInfo = this.findBenchmarkIndexInfo(benchmarkRows, movement.date);
+      const movementIndex = movementIndexInfo.index;
+      if (movementIndex === null || movementIndex <= 0) {
+        notes.push('No se pudo ubicar una amortizacion en el calendario de benchmark.');
+        continue;
+      }
+
+      const benchmarkBeforeAmortization = exposedCapital * (movementIndex / lastIndex);
+      benchmarkAccruedAmount += benchmarkBeforeAmortization - exposedCapital;
+
+      exposedCapital = Math.max(0, exposedCapital - movement.amount);
+      lastIndex = movementIndex;
+      usesAdjustedBenchmark = true;
+
+      if (exposedCapital <= 0) {
+        notes.push('La amortizacion consumio todo el capital expuesto; el benchmark quedo en cero.');
+        exposedCapital = 0;
+        break;
+      }
+    }
+
+    const finalMinimumExpectedValue = exposedCapital > 0 ? exposedCapital * (endIndex / lastIndex) : 0;
+
+    return {
+      usesAdjustedBenchmark,
+      minimumExpectedValueAdjusted: benchmarkAccruedAmount + finalMinimumExpectedValue,
+      benchmarkAccruedAmount,
+      remainingExposedCapital: exposedCapital
+    };
+  }
+
   private groupKey(symbol: string, currency: string): string {
     return `${symbol}__${currency}`;
+  }
+
+  private countMovementsByGroup(movements: ReturnType<InvestmentMovementsPerformanceService['buildMovements']>): Map<string, number> {
+    const grouped = new Map<string, number>();
+    for (const movement of movements) {
+      const key = this.groupKey(movement.symbol, movement.currency);
+      grouped.set(key, (grouped.get(key) ?? 0) + 1);
+    }
+    return grouped;
   }
 
   private sumNumbers(values: Array<number | null>): number | null {

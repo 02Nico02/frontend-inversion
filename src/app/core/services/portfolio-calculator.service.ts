@@ -7,6 +7,7 @@ import {
   DailyBalance,
   HistoricalPrice,
   InvestmentOperation,
+  InvestmentMovement,
   InvestmentSale,
   ManualAlert,
   MarketSignal,
@@ -32,6 +33,7 @@ export class PortfolioCalculatorService {
 
   buildDataset(tables: WorkbookTableData[]): PortfolioDataset {
     const operations = this.mapOperations(this.findTable(tables, ['Tabla6']));
+    const investmentMovements = this.mapInvestmentMovements(this.findTable(tables, ['TablaMovimientosInversiones']));
     const sales = this.mapSales(this.findTable(tables, ['Tabla13']));
     const positions = this.mapPositions(this.findTable(tables, ['TablaPosiciones']), operations);
     const historicalPrices = this.mapHistoricalPrices(this.findTable(tables, ['Tabla5']));
@@ -62,6 +64,7 @@ export class PortfolioCalculatorService {
     return {
       operations,
       sales,
+      investmentMovements,
       positions,
       historicalPrices,
       dailyBalances,
@@ -179,6 +182,33 @@ export class PortfolioCalculatorService {
         trend: this.normalization.asText(this.normalization.pickValue(row, ['TENDENCIA'])),
         sourceTable: table.name
       }))
+      .filter((item) => item.symbol);
+  }
+
+  private mapInvestmentMovements(table: WorkbookTableData | null): InvestmentMovement[] {
+    if (!table) {
+      return [];
+    }
+
+    return table.rows
+      .map((row) => {
+        const capitalText = this.normalization.asText(this.normalization.pickValue(row, ['Afecta capital invertido']));
+        const affectsInvestedCapital = this.parseMovementBoolean(capitalText);
+
+        return {
+          date: this.normalization.asDate(this.normalization.pickValue(row, ['Fecha'])),
+          symbol: this.normalization.normalizeSymbol(this.normalization.pickValue(row, ['Especie'])) ?? '',
+          currency: this.currencyMapper.normalizeCurrency(this.normalization.pickValue(row, ['Moneda', 'MONEDA'])),
+          type: this.normalization.asText(this.normalization.pickValue(row, ['Tipo movimiento'])) ?? '',
+          amount: this.normalization.asNumber(this.normalization.pickValue(row, ['Monto'])),
+          affectsPerformance: this.parseMovementBoolean(
+            this.normalization.asText(this.normalization.pickValue(row, ['Afecta rendimiento']))
+          ),
+          affectsInvestedCapital,
+          capitalEffect: affectsInvestedCapital ? this.parseCapitalEffect(capitalText) : 'none',
+          note: this.normalization.asText(this.normalization.pickValue(row, ['Observación', 'Observacion']))
+        };
+      })
       .filter((item) => item.symbol);
   }
 
@@ -513,6 +543,42 @@ export class PortfolioCalculatorService {
       currency: this.currencyMapper.normalizeCurrency(this.normalization.pickValue(row, ['moneda']))
       }))
       .filter((item) => item.platform);
+  }
+
+  private parseMovementBoolean(value: string | null): boolean {
+    const text = String(value ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toLowerCase();
+
+    return (
+      text === 'si' ||
+      text.startsWith('si,') ||
+      text.startsWith('si ') ||
+      text === 'yes' ||
+      text.startsWith('yes ') ||
+      text === 'true' ||
+      text === '1'
+    );
+  }
+
+  private parseCapitalEffect(value: string | null): InvestmentMovement['capitalEffect'] {
+    const normalized = String(value ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toUpperCase();
+
+    if (!normalized) {
+      return 'unknown';
+    }
+
+    if (normalized.includes('REDUCE') || normalized.includes('COSTO') || normalized.includes('COST')) {
+      return 'reduces-cost';
+    }
+
+    return 'unknown';
   }
 
   private aggregateByCurrency(positions: PortfolioPosition[]): PortfolioSummary['byCurrency'] {

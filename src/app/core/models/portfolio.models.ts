@@ -1,5 +1,7 @@
 import type { CalendarBenchmarkRow } from './minimum-performance.model';
+import type { InvestmentMovement } from './investment-movements.model';
 export type { CalendarBenchmarkRow } from './minimum-performance.model';
+export type { InvestmentMovement } from './investment-movements.model';
 
 export interface InvestmentOperation {
   id: string;
@@ -192,6 +194,7 @@ export interface PortfolioSummary {
 export interface PortfolioDataset {
   operations: InvestmentOperation[];
   sales: InvestmentSale[];
+  investmentMovements: InvestmentMovement[];
   positions: PortfolioPosition[];
   historicalPrices: HistoricalPrice[];
   dailyBalances: DailyBalance[];

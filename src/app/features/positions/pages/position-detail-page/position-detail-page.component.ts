@@ -8,6 +8,7 @@ import { PortfolioAppState, PortfolioStateService } from '../../../../core/servi
 import { AssetDetailService, AssetDetailViewModel, AssetHistoryStats } from '../../../asset-detail/services/asset-detail.service';
 import { MinimumPerformanceBySymbol, MinimumPerformanceLot } from '../../../../core/models/minimum-performance.model';
 import { MinimumPerformanceService } from '../../../../core/services/minimum-performance.service';
+import { InvestmentMovementLotAdjustment } from '../../../../core/models/investment-movements.model';
 
 type DetailTab = 'summary' | 'operations' | 'alerts' | 'history' | 'classification';
 type SortDirection = 'asc' | 'desc';
@@ -142,6 +143,137 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
 
   weightedReturn(detail: AssetDetailViewModel): string {
     return this.assetDetail.formatPercent(detail.operationMetrics.resultPercent);
+  }
+
+  summaryResultAmount(detail: AssetDetailViewModel): number {
+    return detail.movementSummary?.adjustedResultAmount ?? detail.summaryMetrics.resultAmount;
+  }
+
+  summaryResultPercent(detail: AssetDetailViewModel): number | null {
+    return detail.movementSummary?.adjustedResultPercent ?? detail.summaryMetrics.resultPercent;
+  }
+
+  hasMovementAdjustments(detail: AssetDetailViewModel): boolean {
+    return Boolean(detail.movementSummary?.hasAdjustments);
+  }
+
+  minimumUsesAdjustedComparableValue(detail: AssetDetailViewModel): boolean {
+    return Boolean(detail.movementSummary?.hasAdjustments && this.minimumPerformance?.usesAdjustedComparableValue);
+  }
+
+  minimumAdjustmentTooltip(detail: AssetDetailViewModel): string | null {
+    const minimum = this.minimumPerformance;
+    if (!minimum || !minimum.usesAdjustedComparableValue) {
+      return null;
+    }
+
+    return [
+      'Benchmark ajustado por movimientos de inversión.',
+      'Para comparar contra el mínimo esperado se usa:',
+      'Total actual + rentas cobradas + amortizaciones cobradas.',
+      'Esto evita castigar bonos amortizantes por devoluciones de capital.',
+      `Total actual: ${this.formatMoney(minimum.marketCurrentValue ?? minimum.currentValue, detail.position.currency)}`,
+      `Rentas cobradas: ${this.formatMoney(minimum.incomeAmount, detail.position.currency)}`,
+      `Amortizaciones cobradas: ${this.formatMoney(minimum.capitalReturnedAmount, detail.position.currency)}`,
+      `Valor comparable: ${this.formatMoney(minimum.comparableValue, detail.position.currency)}`,
+      `Mínimo esperado: ${this.formatMoney(minimum.minimumExpectedValue, detail.position.currency)}`,
+      `Vs mínimo ajustado: ${this.formatMoney(minimum.valueVsMinimumAmount, detail.position.currency)}`
+    ].join(' ');
+  }
+
+  movementTooltip(detail: AssetDetailViewModel): string | null {
+    if (!detail.movementSummary || !detail.movementSummary.hasAdjustments) {
+      return detail.movementEntries.length ? 'Movimientos detectados, pero no se pudieron asignar completamente a lotes.' : null;
+    }
+
+    return [
+      'Resultado ajustado por movimientos de inversión.',
+      `Movimientos aplicados: ${detail.movementSummary.movementsCount}`,
+      `Rentas cobradas: ${this.formatMoney(detail.movementSummary.incomeAmount, detail.position.currency)}`,
+      `Amortizaciones cobradas: ${this.formatMoney(detail.movementSummary.capitalReturnedAmount, detail.position.currency)}`,
+      `Resultado sin ajuste: ${this.formatMoney(detail.summaryMetrics.resultAmount, detail.position.currency)}`,
+      `Resultado ajustado: ${this.formatMoney(detail.movementSummary.adjustedResultAmount, detail.position.currency)}`
+    ].join(' ');
+  }
+
+  movementSummaryNotes(detail: AssetDetailViewModel): string {
+    if (detail.movementSummary?.hasAdjustments) {
+      return 'Resultado ajustado por movimientos de inversión.';
+    }
+    if (detail.movementEntries.length) {
+      return 'Movimientos detectados, pero no se pudieron asignar completamente a lotes.';
+    }
+    return 'Sin movimientos de inversión aplicables.';
+  }
+
+  movementSummaryCount(detail: AssetDetailViewModel): number {
+    return detail.movementSummary?.movementsCount ?? detail.movementEntries.length;
+  }
+
+  movementDeltaAmount(detail: AssetDetailViewModel): number | null {
+    if (!detail.movementSummary?.hasAdjustments) {
+      return null;
+    }
+    return detail.movementSummary.adjustedResultAmount - detail.summaryMetrics.resultAmount;
+  }
+
+  movementDeltaPercent(detail: AssetDetailViewModel): number | null {
+    if (!detail.movementSummary?.hasAdjustments) {
+      return null;
+    }
+    const adjusted = detail.movementSummary.adjustedResultPercent;
+    const base = detail.summaryMetrics.resultPercent;
+    if (adjusted === null || base === null) {
+      return null;
+    }
+    return adjusted - base;
+  }
+
+  lotMinimumUsesAdjustedComparableValue(lot: MinimumPerformanceLot): boolean {
+    return Boolean(lot.usesAdjustedComparableValue);
+  }
+
+  lotMinimumAdjustmentTooltip(lot: MinimumPerformanceLot, currency: string): string | null {
+    if (!lot.usesAdjustedComparableValue) {
+      return null;
+    }
+
+    return [
+      'Benchmark ajustado por movimientos de inversión.',
+      'Para comparar contra el mínimo esperado se usa:',
+      'Total actual + rentas cobradas + amortizaciones cobradas.',
+      'Esto evita castigar bonos amortizantes por devoluciones de capital.',
+      `Total actual: ${this.formatMoney(lot.marketCurrentValue ?? lot.currentValue, currency)}`,
+      `Rentas cobradas: ${this.formatMoney(lot.incomeAmount, currency)}`,
+      `Amortizaciones cobradas: ${this.formatMoney(lot.capitalReturnedAmount, currency)}`,
+      `Valor comparable: ${this.formatMoney(lot.comparableValue, currency)}`,
+      `Mínimo esperado: ${this.formatMoney(lot.minimumExpectedValue, currency)}`,
+      `Vs mínimo ajustado: ${this.formatMoney(lot.valueVsMinimumAmount, currency)}`
+    ].join(' ');
+  }
+
+  lotAdjustmentFor(operation: AssetDetailViewModel['operations'][number], detail: AssetDetailViewModel): InvestmentMovementLotAdjustment | null {
+    return detail.movementLots.find((lot) => lot.operationId === operation.id) ?? null;
+  }
+
+  lotResultAmount(operation: AssetDetailViewModel['operations'][number], detail: AssetDetailViewModel): number | null {
+    return this.lotAdjustmentFor(operation, detail)?.adjustedResultAmount ?? this.operationResult(operation);
+  }
+
+  lotResultPercent(operation: AssetDetailViewModel['operations'][number], detail: AssetDetailViewModel): number | null {
+    return this.lotAdjustmentFor(operation, detail)?.adjustedResultPercent ?? this.operationResultPercent(operation);
+  }
+
+  lotResultAdjusted(operation: AssetDetailViewModel['operations'][number], detail: AssetDetailViewModel): boolean {
+    return Boolean(this.lotAdjustmentFor(operation, detail)?.movementsCount);
+  }
+
+  movementRows(detail: AssetDetailViewModel) {
+    return [...detail.movementEntries].sort((a, b) => {
+      const left = this.dateValue(a.date);
+      const right = this.dateValue(b.date);
+      return left > right ? -1 : left < right ? 1 : 0;
+    });
   }
 
   operationResult(operation: AssetDetailViewModel['operations'][number]): number | null {

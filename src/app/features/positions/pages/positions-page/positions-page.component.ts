@@ -8,6 +8,8 @@ import { PortfolioCalculatorService } from '../../../../core/services/portfolio-
 import { MinimumPerformanceBySymbol } from '../../../../core/models/minimum-performance.model';
 import { MinimumPerformanceService } from '../../../../core/services/minimum-performance.service';
 import { PortfolioPosition } from '../../../../core/models/portfolio.models';
+import { InvestmentMovementsPerformanceService } from '../../../../core/services/investment-movements-performance.service';
+import { InvestmentMovementSummary } from '../../../../core/models/investment-movements.model';
 
 @Component({
   standalone: true,
@@ -18,12 +20,14 @@ import { PortfolioPosition } from '../../../../core/models/portfolio.models';
 export class PositionsPageComponent implements OnInit, OnDestroy {
   positions: PortfolioPosition[] = [];
   minimumPerformance: MinimumPerformanceBySymbol[] = [];
+  movementSummaries: InvestmentMovementSummary[] = [];
   private subscription?: Subscription;
 
   constructor(
     public readonly state: PortfolioStateService,
     private readonly calculator: PortfolioCalculatorService,
     private readonly minimumPerformanceService: MinimumPerformanceService,
+    private readonly movementsPerformance: InvestmentMovementsPerformanceService,
     private readonly router: Router
   ) {}
 
@@ -31,6 +35,7 @@ export class PositionsPageComponent implements OnInit, OnDestroy {
     this.subscription = this.state.state$.subscribe((snapshot) => {
       this.positions = snapshot.dataset ? this.calculator.enrichPositions(snapshot.dataset.positions, snapshot.dataset.classifications) : [];
       this.minimumPerformance = snapshot.dataset ? this.minimumPerformanceService.buildMinimumPerformanceBySymbol(snapshot) : [];
+      this.movementSummaries = snapshot.dataset ? this.movementsPerformance.buildSummaryBySymbol(snapshot) : [];
     });
   }
 

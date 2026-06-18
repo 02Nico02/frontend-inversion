@@ -11,8 +11,20 @@
         <p class="lead">{{ asset.headerSummary }}</p>
       </div>
       <div class="hero-metrics">
-        <div><span>Resultado $</span><strong [class.positive]="asset.summaryMetrics.resultAmount >= 0" [class.negative]="asset.summaryMetrics.resultAmount < 0">{{ formatMoney(asset.summaryMetrics.resultAmount, asset.position.currency) }}</strong></div>
-        <div><span>Resultado %</span><strong [class.positive]="(asset.summaryMetrics.resultPercent ?? 0) >= 0" [class.negative]="(asset.summaryMetrics.resultPercent ?? 0) < 0">{{ formatPercent(asset.summaryMetrics.resultPercent) }}</strong></div>
+        <div>
+          <span>Resultado $</span>
+          <strong class="metric-value" [class.positive]="summaryResultAmount(asset) >= 0" [class.negative]="summaryResultAmount(asset) < 0">
+            <span class="metric-value__text">{{ formatMoney(summaryResultAmount(asset), asset.position.currency) }}</span>
+            <span *ngIf="hasMovementAdjustments(asset)" class="adjusted-info" [attr.title]="movementTooltip(asset) || undefined" aria-label="Resultado ajustado por movimientos de inversión">i</span>
+          </strong>
+        </div>
+        <div>
+          <span>Resultado %</span>
+          <strong class="metric-value" [class.positive]="(summaryResultPercent(asset) ?? 0) >= 0" [class.negative]="(summaryResultPercent(asset) ?? 0) < 0">
+            <span class="metric-value__text">{{ formatPercent(summaryResultPercent(asset)) }}</span>
+            <span *ngIf="hasMovementAdjustments(asset)" class="adjusted-info" [attr.title]="movementTooltip(asset) || undefined" aria-label="Resultado ajustado por movimientos de inversión">i</span>
+          </strong>
+        </div>
         <div><span>Precio actual</span><strong>{{ formatMoney(asset.summaryMetrics.currentPrice, asset.position.currency) }}</strong></div>
         <div><span>Peso en moneda</span><strong>{{ formatPercent(asset.summaryMetrics.weightPercent) }}</strong></div>
       </div>
@@ -34,8 +46,20 @@
         <div class="kv-grid">
           <div><span>Total actual</span><strong>{{ formatMoney(asset.summaryMetrics.totalCurrentValue, asset.position.currency) }}</strong></div>
           <div><span>Total invertido</span><strong>{{ formatMoney(asset.summaryMetrics.totalInvested, asset.position.currency) }}</strong></div>
-          <div><span>Resultado $</span><strong>{{ formatMoney(asset.summaryMetrics.resultAmount, asset.position.currency) }}</strong></div>
-          <div><span>Resultado %</span><strong>{{ formatPercent(asset.summaryMetrics.resultPercent) }}</strong></div>
+          <div>
+            <span>Resultado $</span>
+            <strong class="metric-value">
+              <span class="metric-value__text">{{ formatMoney(summaryResultAmount(asset), asset.position.currency) }}</span>
+              <span *ngIf="hasMovementAdjustments(asset)" class="adjusted-info" [attr.title]="movementTooltip(asset) || undefined" aria-label="Resultado ajustado por movimientos de inversión">i</span>
+            </strong>
+          </div>
+          <div>
+            <span>Resultado %</span>
+            <strong class="metric-value">
+              <span class="metric-value__text">{{ formatPercent(summaryResultPercent(asset)) }}</span>
+              <span *ngIf="hasMovementAdjustments(asset)" class="adjusted-info" [attr.title]="movementTooltip(asset) || undefined" aria-label="Resultado ajustado por movimientos de inversión">i</span>
+            </strong>
+          </div>
           <div><span>Cantidad</span><strong>{{ formatNumber(asset.summaryMetrics.quantity) }}</strong></div>
           <div><span>Precio promedio</span><strong>{{ formatMoney(asset.summaryMetrics.averagePrice, asset.position.currency) }}</strong></div>
           <div><span>Precio actual</span><strong>{{ formatMoney(asset.summaryMetrics.currentPrice, asset.position.currency) }}</strong></div>
@@ -79,10 +103,23 @@
             <div><span>Invertido</span><strong>{{ formatMoney(minimum.investedAmount, asset.position.currency) }}</strong></div>
             <div><span>Valor actual</span><strong>{{ formatMoney(minimum.currentValue, asset.position.currency) }}</strong></div>
             <div><span>Minimo esperado</span><strong>{{ formatMoney(minimum.minimumExpectedValue, asset.position.currency) }}</strong></div>
-            <div><span>Vs minimo</span><strong [class.positive]="(minimum.valueVsMinimumAmount ?? 0) >= 0" [class.negative]="(minimum.valueVsMinimumAmount ?? 0) < 0">{{ formatMoney(minimum.valueVsMinimumAmount, asset.position.currency) }}</strong></div>
-            <div><span>% vs minimo</span><strong [class.positive]="(minimum.valueVsMinimumPercent ?? 0) >= 0" [class.negative]="(minimum.valueVsMinimumPercent ?? 0) < 0">{{ formatPercent(minimum.valueVsMinimumPercent) }}</strong></div>
+            <div>
+              <span>Vs minimo</span>
+              <strong class="metric-value" [class.positive]="(minimum.valueVsMinimumAmount ?? 0) >= 0" [class.negative]="(minimum.valueVsMinimumAmount ?? 0) < 0">
+                <span class="metric-value__text">{{ formatMoney(minimum.valueVsMinimumAmount, asset.position.currency) }}</span>
+                <span *ngIf="minimumUsesAdjustedComparableValue(asset)" class="adjusted-info" [attr.title]="minimumAdjustmentTooltip(asset) || undefined" aria-label="Benchmark ajustado por movimientos de inversión">i</span>
+              </strong>
+            </div>
+            <div>
+              <span>% vs minimo</span>
+              <strong class="metric-value" [class.positive]="(minimum.valueVsMinimumPercent ?? 0) >= 0" [class.negative]="(minimum.valueVsMinimumPercent ?? 0) < 0">
+                <span class="metric-value__text">{{ formatPercent(minimum.valueVsMinimumPercent) }}</span>
+                <span *ngIf="minimumUsesAdjustedComparableValue(asset)" class="adjusted-info" [attr.title]="minimumAdjustmentTooltip(asset) || undefined" aria-label="Benchmark ajustado por movimientos de inversión">i</span>
+              </strong>
+            </div>
             <div><span>Notas</span><strong>{{ minimum.notes.length ? minimum.notes.join(' · ') : 'Sin notas' }}</strong></div>
           </div>
+          <p class="hint" *ngIf="minimumUsesAdjustedComparableValue(asset)">El benchmark mínimo se compara contra el valor actual más rentas y amortizaciones cobradas.</p>
           <p class="hint" *ngIf="minimum.status === 'not-applicable'">No comparable para esta moneda.</p>
           <p class="hint" *ngIf="minimum.status === 'missing-calendar'">No hay datos suficientes de calendario para calcular el minimo esperado.</p>
         </ng-container>
@@ -91,6 +128,60 @@
         </ng-template>
       </article>
     </div>
+
+    <article class="movement-card" *ngIf="asset.movementEntries.length">
+      <div class="movement-head">
+        <div>
+          <p class="eyebrow">Ajuste por movimientos</p>
+          <h3>{{ movementSummaryNotes(asset) }}</h3>
+        </div>
+        <div class="movement-head__meta" *ngIf="asset.movementSummary as movementSummary">
+          <span class="movement-pill">Movimientos: {{ movementSummaryCount(asset) }}</span>
+          <span class="movement-pill">Ajuste neto: {{ formatMoney(movementDeltaAmount(asset), asset.position.currency) }}</span>
+        </div>
+      </div>
+
+      <div class="movement-grid" *ngIf="asset.movementSummary; else movementNoSummary">
+        <div><span>Resultado base</span><strong>{{ formatMoney(asset.summaryMetrics.resultAmount, asset.position.currency) }}</strong></div>
+        <div><span>Rentas cobradas</span><strong>{{ formatMoney(asset.movementSummary.incomeAmount, asset.position.currency) }}</strong></div>
+        <div><span>Amortizaciones cobradas</span><strong>{{ formatMoney(asset.movementSummary.capitalReturnedAmount, asset.position.currency) }}</strong></div>
+        <div><span>Ajuste neto</span><strong>{{ formatMoney(movementDeltaAmount(asset), asset.position.currency) }}</strong></div>
+        <div><span>Resultado ajustado</span><strong>{{ formatMoney(asset.movementSummary.adjustedResultAmount, asset.position.currency) }}</strong></div>
+        <div><span>Resultado ajustado %</span><strong>{{ formatPercent(asset.movementSummary.adjustedResultPercent) }}</strong></div>
+      </div>
+      <ng-template #movementNoSummary>
+        <p class="hint">Movimientos detectados, pero no se pudieron asignar completamente a lotes.</p>
+      </ng-template>
+
+      <p class="movement-note" *ngIf="asset.movementSummary?.hasAdjustments">
+        Se distribuyen sobre los lotes disponibles según fecha, cantidad y moneda. El ajuste se suma al resultado base de la posición.
+      </p>
+
+      <div class="mini-table movement-table" *ngIf="movementRows(asset).length">
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Tipo</th>
+              <th class="num">Monto</th>
+              <th>Afecta rendimiento</th>
+              <th>Afecta capital</th>
+              <th>Observación</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let movement of movementRows(asset)">
+              <td>{{ movement.date ? (movement.date | date:'dd-MM-yyyy') : 'N/D' }}</td>
+              <td>{{ movement.type || 'Sin tipo' }}</td>
+              <td class="num">{{ formatMoney(movement.amount, movement.currency) }}</td>
+              <td>{{ movement.affectsPerformance ? 'Sí' : 'No' }}</td>
+              <td>{{ movement.affectsInvestedCapital ? movement.capitalEffect : 'No' }}</td>
+              <td>{{ movement.note || 'Sin observación' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
 
     <div class="mini-table" *ngIf="minimumPerformanceLots.length">
       <table>
@@ -112,7 +203,12 @@
             <td class="num">{{ formatMoney(lot.currentValue, lot.currency) }}</td>
             <td class="num">{{ formatMoney(lot.minimumExpectedValue, lot.currency) }}</td>
             <td class="num">{{ formatPercent(lot.minimumExpectedReturnPercent) }}</td>
-            <td class="num" [class.positive]="(lot.valueVsMinimumAmount ?? 0) >= 0" [class.negative]="(lot.valueVsMinimumAmount ?? 0) < 0">{{ formatMoney(lot.valueVsMinimumAmount, lot.currency) }}</td>
+            <td class="num" [class.positive]="(lot.valueVsMinimumAmount ?? 0) >= 0" [class.negative]="(lot.valueVsMinimumAmount ?? 0) < 0">
+              <span class="result-cell">
+                <span>{{ formatMoney(lot.valueVsMinimumAmount, lot.currency) }}</span>
+                <span *ngIf="lotMinimumUsesAdjustedComparableValue(lot)" class="adjusted-info" [attr.title]="lotMinimumAdjustmentTooltip(lot, lot.currency) || undefined" aria-label="Benchmark ajustado por movimientos de inversión">i</span>
+              </span>
+            </td>
             <td>{{ minimumStatusLabel(lot.status) }}</td>
           </tr>
         </tbody>
@@ -155,8 +251,8 @@
       <span>Cantidad total: {{ formatNumber(totalQuantity(asset)) }}</span>
       <span>Total invertido: {{ formatMoney(totalInvested(asset), asset.position.currency) }}</span>
       <span>Valor actual: {{ formatMoney(totalCurrent(asset), asset.position.currency) }}</span>
-      <span>Resultado: {{ formatMoney(asset.operationMetrics.resultAmount, asset.position.currency) }}</span>
-      <span>Rendimiento: {{ weightedReturn(asset) }}</span>
+      <span>Resultado: {{ formatMoney(summaryResultAmount(asset), asset.position.currency) }}</span>
+      <span>Rendimiento: {{ formatPercent(summaryResultPercent(asset)) }}</span>
       <span>Precio promedio ponderado: {{ formatMoney(weightedAveragePrice(asset), asset.position.currency) }}</span>
     </div>
 
@@ -184,8 +280,18 @@
             <td class="num">{{ formatMoney(operation.total, operation.currency) }}</td>
             <td class="num">{{ formatMoney(operation.currentPrice, operation.currency) }}</td>
             <td class="num">{{ formatMoney(operation.currentValue, operation.currency) }}</td>
-            <td class="num">{{ formatMoney(operationResult(operation), asset.position.currency) }}</td>
-            <td class="num">{{ formatPercent(operationResultPercent(operation)) }}</td>
+            <td class="num">
+              <span class="result-cell">
+                <span>{{ formatMoney(lotResultAmount(operation, asset), asset.position.currency) }}</span>
+                <span *ngIf="lotResultAdjusted(operation, asset)" class="adjusted-info" [attr.title]="movementTooltip(asset) || undefined" aria-label="Resultado ajustado por movimientos de inversión">i</span>
+              </span>
+            </td>
+            <td class="num">
+              <span class="result-cell">
+                <span>{{ formatPercent(lotResultPercent(operation, asset)) }}</span>
+                <span *ngIf="lotResultAdjusted(operation, asset)" class="adjusted-info" [attr.title]="movementTooltip(asset) || undefined" aria-label="Resultado ajustado por movimientos de inversión">i</span>
+              </span>
+            </td>
             <td class="num">{{ formatPercent(lotWeight(operation, asset)) }}</td>
             <td *ngIf="showAdvancedColumns">
               <details>

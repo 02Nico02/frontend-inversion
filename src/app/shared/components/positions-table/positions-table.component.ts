@@ -5,6 +5,7 @@ import { CombinedAlert } from '../../../core/services/alert-mapper.service';
 import { CurrencyMapperService } from '../../../core/services/currency-mapper.service';
 import { PortfolioPosition } from '../../../core/models/portfolio.models';
 import { MinimumPerformanceBySymbol } from '../../../core/models/minimum-performance.model';
+import { InvestmentMovementSummary } from '../../../core/models/investment-movements.model';
 import { FilterChipComponent } from '../filter-chip/filter-chip.component';
 import { SearchableSelectComponent, SearchableSelectOption } from '../searchable-select/searchable-select.component';
 import { PositionsFilterStateService } from '../../../features/positions/services/positions-filter-state.service';
@@ -103,6 +104,7 @@ export class PositionsTableComponent implements OnInit, OnChanges {
   @Input() positions: PortfolioPosition[] = [];
   @Input() alerts: CombinedAlert[] = [];
   @Input() minimumPerformance: MinimumPerformanceBySymbol[] = [];
+  @Input() movementSummaries: InvestmentMovementSummary[] = [];
   @Output() detailRequested = new EventEmitter<string>();
 
   filters = {
@@ -125,6 +127,7 @@ export class PositionsTableComponent implements OnInit, OnChanges {
   showColumnMenu = false;
   visibleColumns: ColumnKey[] = [];
   private minimumPerformanceMap = new Map<string, MinimumPerformanceBySymbol>();
+  private movementSummaryMap = new Map<string, InvestmentMovementSummary>();
 
   constructor(
     private readonly currencyMapper: CurrencyMapperService,
@@ -160,6 +163,11 @@ export class PositionsTableComponent implements OnInit, OnChanges {
         this.minimumPerformance.map((item) => [this.minimumPerformanceKey(item.symbol, item.currency), item])
       );
     }
+    if (changes['movementSummaries']) {
+      this.movementSummaryMap = new Map(
+        this.movementSummaries.map((item) => [this.movementSummaryKey(item.symbol, item.currency), item])
+      );
+    }
   }
 
   get filteredPositions(): PortfolioPosition[] {
@@ -173,7 +181,7 @@ export class PositionsTableComponent implements OnInit, OnChanges {
         const currency = this.currencyMapper.normalizeCurrency(position.currency);
         const hasClassification = Boolean(position.classification);
         const hasAlerts = this.hasAlert(position.symbol);
-        const resultPositive = (position.resultAmount ?? 0) >= 0;
+        const resultPositive = (this.displayResultAmount(position) ?? 0) >= 0;
 
         return (
           (!this.filters.symbol || symbol.includes(this.filters.symbol.toLowerCase())) &&
@@ -345,6 +353,57 @@ export class PositionsTableComponent implements OnInit, OnChanges {
     return this.minimumPerformanceMap.get(this.minimumPerformanceKey(position.symbol, position.currency)) ?? null;
   }
 
+  minimumUsesAdjustedComparableValue(position: PortfolioPosition): boolean {
+    return Boolean(this.minimumPerformanceFor(position)?.usesAdjustedComparableValue);
+  }
+
+  movementSummaryFor(position: PortfolioPosition): InvestmentMovementSummary | null {
+    return this.movementSummaryMap.get(this.movementSummaryKey(position.symbol, position.currency)) ?? null;
+  }
+
+  adjustedResultAmountFor(position: PortfolioPosition): number {
+    return this.movementSummaryFor(position)?.adjustedResultAmount ?? position.resultAmount;
+  }
+
+  adjustedResultPercentFor(position: PortfolioPosition): number | null {
+    return this.movementSummaryFor(position)?.adjustedResultPercent ?? position.resultPercent;
+  }
+
+  resultAdjustmentTooltip(position: PortfolioPosition): string | null {
+    const summary = this.movementSummaryFor(position);
+    if (!summary || !summary.hasAdjustments) {
+      return null;
+    }
+
+    return [
+      'Resultado ajustado por movimientos de inversión.',
+      `Rentas cobradas: ${this.formatMoney(summary.incomeAmount, position.currency)}`,
+      `Amortizaciones cobradas: ${this.formatMoney(summary.capitalReturnedAmount, position.currency)}`,
+      `Resultado sin ajuste: ${this.formatMoney(position.resultAmount, position.currency)}`,
+      `Resultado ajustado: ${this.formatMoney(summary.adjustedResultAmount, position.currency)}`
+    ].join(' ');
+  }
+
+  minimumAdjustmentTooltip(position: PortfolioPosition): string | null {
+    const minimum = this.minimumPerformanceFor(position);
+    if (!minimum || !minimum.usesAdjustedComparableValue) {
+      return null;
+    }
+
+    return [
+      'Benchmark ajustado por movimientos de inversión.',
+      'Para comparar contra el mínimo esperado se usa:',
+      'Total actual + rentas cobradas + amortizaciones cobradas.',
+      'Esto evita castigar bonos amortizantes por devoluciones de capital.',
+      `Total actual: ${this.formatMoney(minimum.marketCurrentValue ?? minimum.currentValue, position.currency)}`,
+      `Rentas cobradas: ${this.formatMoney(minimum.incomeAmount, position.currency)}`,
+      `Amortizaciones cobradas: ${this.formatMoney(minimum.capitalReturnedAmount, position.currency)}`,
+      `Valor comparable: ${this.formatMoney(minimum.comparableValue, position.currency)}`,
+      `Mínimo esperado: ${this.formatMoney(minimum.minimumExpectedValue, position.currency)}`,
+      `Vs mínimo ajustado: ${this.formatMoney(minimum.valueVsMinimumAmount, position.currency)}`
+    ].join(' ');
+  }
+
   minimumStatusLabel(status: MinimumPerformanceBySymbol['status'] | null | undefined): string {
     switch (status) {
       case 'beats-minimum':
@@ -416,6 +475,10 @@ export class PositionsTableComponent implements OnInit, OnChanges {
   }
 
   private minimumPerformanceKey(symbol: string, currency: string): string {
+    return `${symbol.trim().toUpperCase()}__${this.currencyMapper.normalizeCurrency(currency)}`;
+  }
+
+  private movementSummaryKey(symbol: string, currency: string): string {
     return `${symbol.trim().toUpperCase()}__${this.currencyMapper.normalizeCurrency(currency)}`;
   }
 
@@ -542,9 +605,9 @@ export class PositionsTableComponent implements OnInit, OnChanges {
       case 'symbol':
         return position.symbol;
       case 'resultAmount':
-        return position.resultAmount;
+        return this.adjustedResultAmountFor(position);
       case 'resultPercent':
-        return position.resultPercent ?? -Infinity;
+        return this.adjustedResultPercentFor(position) ?? -Infinity;
       case 'portfolioWeight':
         return position.portfolioWeight ?? -Infinity;
       case 'currentValue':
@@ -576,5 +639,9 @@ export class PositionsTableComponent implements OnInit, OnChanges {
       default:
         return 'Total actual';
     }
+  }
+
+  private displayResultAmount(position: PortfolioPosition): number {
+    return this.adjustedResultAmountFor(position);
   }
 }
