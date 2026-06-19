@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { PortfolioCalculatorService } from '../../../core/services/portfolio-calculator.service';
 import { PortfolioHealthService } from '../../../core/services/portfolio-health.service';
 import { InvestmentMovementsPerformanceService } from '../../../core/services/investment-movements-performance.service';
+import { EffectivePortfolioPosition, PositionEffectiveMetricsService } from '../../../core/services/position-effective-metrics.service';
 import { PortfolioAppState } from '../../../core/services/portfolio-state.service';
 import { PrivacyModeService } from '../../../core/services/privacy-mode.service';
 import { parseExcelDate } from '../../../core/utils/value-parsing.utils';
@@ -351,6 +352,7 @@ export class GptPortfolioExportService {
     private readonly calculator: PortfolioCalculatorService,
     private readonly healthService: PortfolioHealthService,
     private readonly movementsPerformance: InvestmentMovementsPerformanceService,
+    private readonly effectiveMetrics: PositionEffectiveMetricsService,
     private readonly opportunities: DecisionOpportunitiesService,
     private readonly privacyMode: PrivacyModeService,
     private readonly movementDateRangeService: MovementDateRangeService
@@ -400,6 +402,7 @@ export class GptPortfolioExportService {
     const movementSummaryBySymbol = new Map(
       movementSummaries.map((summary) => [`${summary.symbol.toUpperCase()}__${summary.currency.toUpperCase()}`, summary] as const)
     );
+    const effectivePositionMap = this.effectiveMetrics.buildEffectivePositionMap(snapshot);
     const totalPortfolioValue = enrichedPositions.reduce((sum, position) => sum + (position.currentValue ?? 0), 0);
     const healthReport = snapshot.dataset && snapshot.workbook ? this.healthService.buildReport(snapshot.dataset, snapshot.workbook.validation) : null;
     const latestBalance = this.computeLatestBalance(snapshot.dataset?.dailyBalances ?? []);
@@ -437,7 +440,7 @@ export class GptPortfolioExportService {
       instructions: this.instructions(),
       summary,
       opportunities,
-      positions: this.buildPositions(enrichedPositions, options, alertIndex),
+      positions: this.buildPositions(enrichedPositions, options, alertIndex, effectivePositionMap),
       operationsBySymbol,
       alerts,
       recentMovements,
@@ -612,7 +615,8 @@ export class GptPortfolioExportService {
   private buildPositions(
     positions: PortfolioPosition[],
     options: GptPortfolioExportOptions,
-    alertIndex: Map<string, { count: number; nearestDistance: number | null; nearestStatus: string; nearestNote: string | null; hasSuspiciousScale: boolean }>
+    alertIndex: Map<string, { count: number; nearestDistance: number | null; nearestStatus: string; nearestNote: string | null; hasSuspiciousScale: boolean }>,
+    effectivePositionMap: Map<string, EffectivePortfolioPosition>
   ): ExportPositionRow[] {
     const ordered = [...positions].sort((a, b) => {
       const currencyOrder = this.normalizeCurrency(a.currency).localeCompare(this.normalizeCurrency(b.currency));
@@ -622,11 +626,11 @@ export class GptPortfolioExportService {
 
     return ordered.map((position) => {
       const alert = alertIndex.get(position.symbol.toUpperCase()) ?? null;
-      const status = this.positionStatus(position, alert);
+      const effective = effectivePositionMap.get(this.positionEffectiveKey(position.symbol, position.currency)) ?? null;
+      const status = this.positionStatus(position, alert, effective);
       const alertLabel = alert && alert.count > 0
-        ? `${alert.count} alertas · ${alert.nearestNote ? `próxima: ${alert.nearestNote}` : 'sin nota'} · ${alert.nearestStatus}`
+        ? `${alert.count} alertas Â· ${alert.nearestNote ? `próxima: ${alert.nearestNote}` : 'sin nota'} Â· ${alert.nearestStatus}`
         : 'Sin alertas';
-
       return {
         especie: position.symbol,
         moneda: this.normalizeCurrency(position.currency),
@@ -639,8 +643,8 @@ export class GptPortfolioExportService {
         precioActual: this.maskOrFormatMoney(position.currentPrice, position.currency, options),
         totalInvertido: this.maskOrFormatMoney(position.totalInvested, position.currency, options),
         totalActual: this.maskOrFormatMoney(position.currentValue, position.currency, options),
-        resultadoMonto: this.maskOrFormatMoney(position.resultAmount, position.currency, options),
-        resultadoPercent: this.maskOrFormatPercent(position.resultPercent, options),
+        resultadoMonto: this.maskOrFormatMoney(effective?.effectiveResultAmount ?? position.resultAmount, position.currency, options),
+        resultadoPercent: this.maskOrFormatPercent(effective?.effectiveResultPercent ?? position.resultPercent, options),
         pesoPercent: this.maskOrFormatPercent(position.portfolioWeight, options),
         alertas: alertLabel,
         estadoSemaforo: status.status,
@@ -651,7 +655,8 @@ export class GptPortfolioExportService {
 
   private positionStatus(
     position: PortfolioPosition,
-    alert: { count: number; nearestDistance: number | null; nearestStatus: string; nearestNote: string | null; hasSuspiciousScale: boolean } | null
+    alert: { count: number; nearestDistance: number | null; nearestStatus: string; nearestNote: string | null; hasSuspiciousScale: boolean } | null,
+    effective: EffectivePortfolioPosition | null
   ): { status: string; reason: string } {
     if (position.currentPrice === null || position.currentPrice === undefined || !position.classification) {
       return { status: 'Sin datos', reason: 'Falta historico, clasificacion o precio actual' };
@@ -659,18 +664,27 @@ export class GptPortfolioExportService {
     if (alert?.hasSuspiciousScale) {
       return { status: 'Revisar alto', reason: 'Posible error de escala en alerta asociada' };
     }
-    if ((position.resultPercent ?? 0) < -10) {
-      return { status: 'Revisar alto', reason: this.positionReviewReason(position, alert) };
+
+    const resultPercent = effective?.effectiveResultPercent ?? position.resultPercent ?? 0;
+    const resultAdjusted = effective?.resultWasAdjustedByMovements ?? false;
+    const resultLabel = this.formatPercent(resultPercent);
+
+    if (resultAdjusted && resultPercent > 0) {
+      return { status: 'OK', reason: `Resultado ajustado ${resultLabel}` };
     }
-    if ((alert?.nearestDistance !== null && Math.abs(alert?.nearestDistance ?? 0) <= 5) || (position.resultPercent ?? 0) < 0 || (position.portfolioWeight ?? 0) >= 5) {
-      return { status: 'Revisar', reason: this.positionReviewReason(position, alert) };
+    if (resultPercent < -10) {
+      return { status: 'Revisar alto', reason: this.positionReviewReason(position, alert, effective) };
     }
-    return { status: 'OK', reason: `Resultado ${this.formatPercent(position.resultPercent)}` };
+    if ((alert?.nearestDistance !== null && Math.abs(alert?.nearestDistance ?? 0) <= 5) || resultPercent < 0 || (position.portfolioWeight ?? 0) >= 5) {
+      return { status: 'Revisar', reason: this.positionReviewReason(position, alert, effective) };
+    }
+    return { status: 'OK', reason: `Resultado ${resultLabel}${resultAdjusted ? ' ajustado' : ''}` };
   }
 
   private positionReviewReason(
     position: PortfolioPosition,
-    alert: { count?: number; nearestDistance: number | null; nearestNote: string | null } | null
+    alert: { count?: number; nearestDistance: number | null; nearestNote: string | null } | null,
+    effective: EffectivePortfolioPosition | null = null
   ): string {
     if (this.isFciOrLiquidityPosition(position)) {
       return 'FCI / liquidez. No usar señales tecnicas de precio.';
@@ -678,19 +692,28 @@ export class GptPortfolioExportService {
     if (this.isCryptoPosition(position)) {
       return 'Cripto con volatilidad alta; revisar exposicion y riesgo.';
     }
+    if (effective?.resultWasAdjustedByMovements) {
+      const adjusted = this.formatPercent(effective.effectiveResultPercent ?? effective.nominalResultPercent ?? 0);
+      return `${position.symbol} tiene resultado ajustado por movimientos de inversión: ${adjusted}. Revisar solo si querés auditar la posición.`;
+    }
     if (alert?.nearestNote) {
       return `Alerta cercana: ${alert.nearestNote}`;
     }
     if (!alert?.count) {
       return 'Sin alertas manuales asociadas';
     }
-    if ((position.resultPercent ?? 0) < 0) {
-      return `Resultado ${this.formatPercent(position.resultPercent)}`;
+    const resultPercent = effective?.effectiveResultPercent ?? position.resultPercent ?? 0;
+    if (resultPercent < 0) {
+      return `Resultado ${this.formatPercent(resultPercent)}`;
     }
     if ((position.portfolioWeight ?? 0) >= 5) {
       return `Peso relevante ${this.formatPercent(position.portfolioWeight)}`;
     }
     return 'Revisar seguimiento de la posicion';
+  }
+
+  private positionEffectiveKey(symbol: string, currency: string): string {
+    return `${String(symbol ?? '').toUpperCase()}__${this.normalizeCurrency(currency)}`;
   }
 
   private buildAlerts(
