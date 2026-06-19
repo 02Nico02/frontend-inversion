@@ -1,20 +1,23 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Subscription } from 'rxjs';
+import { FileDownloadService } from '../../../../core/services/file-download.service';
 import { PortfolioAppState, PortfolioStateService } from '../../../../core/services/portfolio-state.service';
 import { PrivacyModeService } from '../../../../core/services/privacy-mode.service';
-import { DecisionInsightsService, DecisionViewModel } from '../../services/decision-insights.service';
-import { ExportFormat, ExportCurrencyScope, ExportMode, ExportSimulationCurrency, GptPortfolioExportOptions, GptPortfolioExportService, WeeklyManualContext } from '../../services/gpt-portfolio-export.service';
-import { FileDownloadService } from '../../../../core/services/file-download.service';
-import { DecisionDashboardService, SimulationRateMode } from '../../services/decision-dashboard.service';
-import { MovementDateRange, MovementDateRangeService, MovementRangePreset } from '../../services/movement-date-range.service';
-import { DecisionSummaryPanelComponent } from '../../components/decision-summary-panel/decision-summary-panel.component';
-import { DecisionLiquidityPanelComponent } from '../../components/decision-liquidity-panel/decision-liquidity-panel.component';
-import { DecisionMovementsPanelComponent } from '../../components/decision-movements-panel/decision-movements-panel.component';
-import { DecisionSimulatorPanelComponent } from '../../components/decision-simulator-panel/decision-simulator-panel.component';
-import { DecisionPerformancePanelComponent } from '../../components/decision-performance-panel/decision-performance-panel.component';
+import { DecisionActivatedAlertsComponent } from '../../components/decision-activated-alerts/decision-activated-alerts.component';
 import { DecisionExportPanelComponent } from '../../components/decision-export-panel/decision-export-panel.component';
+import { DecisionLiquidityPanelComponent } from '../../components/decision-liquidity-panel/decision-liquidity-panel.component';
+import { DecisionMinimumBenchmarkReviewComponent } from '../../components/decision-minimum-benchmark-review/decision-minimum-benchmark-review.component';
+import { DecisionMovementsPanelComponent } from '../../components/decision-movements-panel/decision-movements-panel.component';
+import { DecisionPerformancePanelComponent } from '../../components/decision-performance-panel/decision-performance-panel.component';
 import { DecisionSignalsSummaryComponent } from '../../components/decision-signals-summary/decision-signals-summary.component';
+import { DecisionSimulatorPanelComponent } from '../../components/decision-simulator-panel/decision-simulator-panel.component';
+import { DecisionSummaryPanelComponent } from '../../components/decision-summary-panel/decision-summary-panel.component';
+import { DecisionDashboardService, SimulationRateMode } from '../../services/decision-dashboard.service';
+import { DecisionInsightsService } from '../../services/decision-insights.service';
+import { DecisionOpportunitiesService } from '../../services/decision-opportunities.service';
+import { ExportCurrencyScope, ExportFormat, ExportMode, ExportSimulationCurrency, GptPortfolioExportOptions, GptPortfolioExportService, WeeklyManualContext } from '../../services/gpt-portfolio-export.service';
+import { MovementDateRange, MovementDateRangeService, MovementRangePreset } from '../../services/movement-date-range.service';
 
 @Component({
   standalone: true,
@@ -23,6 +26,8 @@ import { DecisionSignalsSummaryComponent } from '../../components/decision-signa
     DecisionSummaryPanelComponent,
     DecisionLiquidityPanelComponent,
     DecisionMovementsPanelComponent,
+    DecisionMinimumBenchmarkReviewComponent,
+    DecisionActivatedAlertsComponent,
     DecisionSimulatorPanelComponent,
     DecisionPerformancePanelComponent,
     DecisionExportPanelComponent,
@@ -31,7 +36,7 @@ import { DecisionSignalsSummaryComponent } from '../../components/decision-signa
   templateUrl: './decisions-page.component.html',
   styleUrls: ['./decisions-page.component.scss']
 })
-export class DecisionsPageComponent {
+export class DecisionsPageComponent implements OnInit, OnDestroy {
   readonly weeklyContextStorageKey = 'frontend-inversion.weekly-export-context';
   readonly movementDateRangeStorageKey = 'frontend-inversion.movement-date-range';
   readonly movementPresets: Array<{ preset: MovementRangePreset; label: string }> = [
@@ -41,6 +46,7 @@ export class DecisionsPageComponent {
     { preset: 'currentMonth', label: 'Mes actual' },
     { preset: 'custom', label: 'Personalizado' }
   ];
+
   vm: any = null;
   currencyScope: ExportCurrencyScope = 'ALL';
   simulationCurrency: ExportSimulationCurrency = 'ARS';
@@ -58,6 +64,7 @@ export class DecisionsPageComponent {
   maskSensitiveExports = false;
   movementDateRange: MovementDateRange = { from: null, to: null, preset: '7d' };
   weeklyContext: WeeklyManualContext = this.loadWeeklyContext();
+
   private readonly subscription = new Subscription();
   private lastSnapshotKey = '';
 
@@ -66,6 +73,7 @@ export class DecisionsPageComponent {
     public readonly privacyMode: PrivacyModeService,
     private readonly insights: DecisionInsightsService,
     private readonly dashboard: DecisionDashboardService,
+    private readonly opportunities: DecisionOpportunitiesService,
     private readonly movementDateRangeService: MovementDateRangeService,
     private readonly exporter: GptPortfolioExportService,
     private readonly downloader: FileDownloadService
@@ -88,6 +96,7 @@ export class DecisionsPageComponent {
   refreshVm(): void {
     const snapshot = this.state.snapshot;
     this.ensureMovementRange(snapshot);
+
     const base = this.insights.build(snapshot, this.currencyScope, this.simulationCurrency, this.monthlyContribution, this.months, this.annualReturnPercent);
     const extras = this.dashboard.build(
       snapshot,
@@ -100,10 +109,12 @@ export class DecisionsPageComponent {
       this.simulationRateMode,
       this.annualReturnPercent
     );
+    const opportunities = this.opportunities.build(snapshot);
 
     this.vm = {
       ...base,
-      ...extras
+      ...extras,
+      ...opportunities
     };
   }
 
@@ -118,7 +129,7 @@ export class DecisionsPageComponent {
   exportContext(snapshot: PortfolioAppState): void {
     const options = this.exportOptions();
     if (this.privacyMode.enabled && !this.maskSensitiveExports) {
-      const confirmed = window.confirm('El modo privacidad esta activo. El archivo exportado puede contener datos sensibles reales. Deseas continuar?');
+      const confirmed = window.confirm('El modo privacidad está activo. El archivo exportado puede contener datos sensibles reales. ¿Deseas continuar?');
       if (!confirmed) {
         return;
       }

@@ -1,0 +1,48 @@
+<section class="panel" *ngIf="activatedAlerts as vm">
+  <div class="section-head">
+    <div>
+      <p class="eyebrow">Decisiones</p>
+      <h3>Alertas activadas</h3>
+    </div>
+  </div>
+
+  <div class="summary-box" *ngIf="vm.items.length; else emptyState">
+    <strong>Hay {{ vm.total }} alertas activadas en posiciones no-signal.</strong>
+    <p>Se muestran solo las más relevantes para no duplicar la página de Alertas.</p>
+  </div>
+
+  <ng-template #emptyState>
+    <div class="summary-box summary-box--empty">
+      <strong>No hay alertas manuales ni calculadas activadas en este momento.</strong>
+    </div>
+  </ng-template>
+
+  <div class="table-wrap" *ngIf="vm.items.length">
+    <table class="table compact">
+      <thead>
+        <tr>
+          <th>Especie</th>
+          <th>Tipo</th>
+          <th>Condición</th>
+          <th class="num">Actual</th>
+          <th class="num">Objetivo</th>
+          <th>Nota</th>
+          <th>Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let item of vm.items; trackBy: trackByItem">
+          <td><strong>{{ item.symbol }}</strong></td>
+          <td>{{ groupLabel(item.group) }}</td>
+          <td>{{ item.condition }}</td>
+          <td class="num">{{ formatMoney(item.currentPrice, 'ARS') }}</td>
+          <td class="num">{{ formatMoney(item.targetPrice, 'ARS') }}</td>
+          <td>{{ item.note || 'Sin nota' }}</td>
+          <td>
+            <a class="secondary-link" [routerLink]="['/posiciones', item.symbol]">Ver detalle</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>

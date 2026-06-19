@@ -1,0 +1,46 @@
+<section class="panel" *ngIf="review as vm">
+  <div class="section-head">
+    <div>
+      <p class="eyebrow">Decisiones</p>
+      <h3>Revisión por benchmark mínimo</h3>
+    </div>
+  </div>
+
+  <div class="summary-box" *ngIf="vm.items.length; else emptyState">
+    <strong>
+      {{ vm.totalBelowMinimum }} posiciones ARS están por debajo del benchmark mínimo.
+    </strong>
+    <p>Déficit total: {{ totalDeficitLabel(vm.totalDeficitAmount) }}</p>
+  </div>
+
+  <ng-template #emptyState>
+    <div class="summary-box summary-box--empty">
+      <strong>No hay posiciones ARS claramente por debajo del benchmark mínimo.</strong>
+    </div>
+  </ng-template>
+
+  <div class="table-wrap" *ngIf="vm.items.length">
+    <table class="table compact">
+      <thead>
+        <tr>
+          <th>Especie</th>
+          <th class="num">% vs mínimo</th>
+          <th class="num">Vs mínimo $</th>
+          <th>Motivo</th>
+          <th>Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let item of vm.items; trackBy: trackByItem">
+          <td><strong>{{ item.symbol }}</strong></td>
+          <td class="num negative">{{ formatPercent(item.valueVsMinimumPercent) }}</td>
+          <td class="num negative">{{ formatMoney(item.valueVsMinimumAmount, item.currency) }}</td>
+          <td>{{ item.reason }}</td>
+          <td>
+            <a class="secondary-link" [routerLink]="['/posiciones', item.symbol]">Ver detalle</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>

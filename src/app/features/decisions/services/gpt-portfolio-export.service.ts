@@ -1,10 +1,12 @@
 import { Injectable } from '@angular/core';
 import { PortfolioCalculatorService } from '../../../core/services/portfolio-calculator.service';
 import { PortfolioHealthService } from '../../../core/services/portfolio-health.service';
+import { InvestmentMovementsPerformanceService } from '../../../core/services/investment-movements-performance.service';
 import { PortfolioAppState } from '../../../core/services/portfolio-state.service';
 import { PrivacyModeService } from '../../../core/services/privacy-mode.service';
 import { parseExcelDate } from '../../../core/utils/value-parsing.utils';
 import { MovementDateRange, MovementDateRangeService } from './movement-date-range.service';
+import { DecisionOpportunitiesService, DecisionOpportunitiesViewModel } from './decision-opportunities.service';
 import {
   AnnualInvestmentSummary,
   DailyBalance,
@@ -64,6 +66,8 @@ interface ExportPositionDigest {
   region: string;
   currentValue: string;
   resultPercent: string;
+  resultBasis?: string | null;
+  note?: string | null;
 }
 
 interface LatestBalanceDigest {
@@ -187,6 +191,36 @@ interface ExportDataReviewItem {
   sugerencia: string;
 }
 
+interface ExportMovementAdjustmentRow {
+  especie: string;
+  moneda: string;
+  rentasCobradas: string;
+  amortizacionesCobradas: string;
+  resultadoSinAjuste: string;
+  resultadoAjustado: string;
+  resultadoAjustadoPercent: string;
+  nota: string;
+}
+
+interface ExportBenchmarkMinimum {
+  summary: {
+    balanceVsMinimumArs: string | null;
+    balanceVsMinimumPercentArs: string | null;
+    currentComparableArs: string | null;
+    minimumExpectedArs: string | null;
+    comparableLotsCount: number;
+    status: string;
+    description: string;
+  } | null;
+  positionsBelowMinimum: Array<{
+    especie: string;
+    moneda: string;
+    vsMinimo: string;
+    percentVsMinimo: string;
+    motivo: string;
+  }>;
+}
+
 interface ExportRecentMovementCurrencySummary {
   currency: 'ALL' | 'ARS' | 'USD';
   purchasesGross: string;
@@ -254,6 +288,7 @@ interface GptPortfolioExport {
     latestBalance: LatestBalanceDigest;
     warning: string;
   };
+  opportunities: DecisionOpportunitiesViewModel;
   positions: ExportPositionRow[];
   operationsBySymbol: Record<string, TableRow[]>;
   alerts: {
@@ -299,6 +334,8 @@ interface GptPortfolioExport {
     montoAhorroUSD: string | null;
     warning: string | null;
   } | null;
+  benchmarkMinimum: ExportBenchmarkMinimum;
+  movementAdjustments: ExportMovementAdjustmentRow[];
   simulation: ExportSimulation | null;
 }
 
@@ -313,6 +350,8 @@ export class GptPortfolioExportService {
   constructor(
     private readonly calculator: PortfolioCalculatorService,
     private readonly healthService: PortfolioHealthService,
+    private readonly movementsPerformance: InvestmentMovementsPerformanceService,
+    private readonly opportunities: DecisionOpportunitiesService,
     private readonly privacyMode: PrivacyModeService,
     private readonly movementDateRangeService: MovementDateRangeService
   ) {}
@@ -346,6 +385,8 @@ export class GptPortfolioExportService {
       `- Preset movimientos: ${data.recentMovements.rangePresetLabel}`,
       `- Valor actual ARS: ${data.summary.ars.totalCurrentValue}`,
       `- Valor actual USD: ${data.summary.usd.totalCurrentValue}`,
+      `- Balance vs minimo ARS: ${data.benchmarkMinimum.summary?.balanceVsMinimumArs ?? 'N/D'}`,
+      `- Alertas activadas: ${this.activatedAlertSymbols(data).join(', ') || 'N/D'}`,
       `- Semaforo: ${data.decisionInsights.semaforo}`,
       `- Peor posicion: ${data.decisionInsights.peorPosicion?.symbol ?? 'N/D'}`,
       `- Mejor posicion: ${data.decisionInsights.mejorPosicion?.symbol ?? 'N/D'}`
@@ -355,10 +396,14 @@ export class GptPortfolioExportService {
   private buildData(snapshot: PortfolioAppState, viewModel: DecisionViewModel, options: GptPortfolioExportOptions): GptPortfolioExport {
     const positions = snapshot.dataset?.positions ?? [];
     const enrichedPositions = snapshot.dataset ? this.calculator.enrichPositions(positions, snapshot.dataset.classifications) : [];
+    const movementSummaries = snapshot.dataset ? this.movementsPerformance.buildSummaryBySymbol(snapshot) : [];
+    const movementSummaryBySymbol = new Map(
+      movementSummaries.map((summary) => [`${summary.symbol.toUpperCase()}__${summary.currency.toUpperCase()}`, summary] as const)
+    );
     const totalPortfolioValue = enrichedPositions.reduce((sum, position) => sum + (position.currentValue ?? 0), 0);
     const healthReport = snapshot.dataset && snapshot.workbook ? this.healthService.buildReport(snapshot.dataset, snapshot.workbook.validation) : null;
     const latestBalance = this.computeLatestBalance(snapshot.dataset?.dailyBalances ?? []);
-    const summary = this.buildSummary(enrichedPositions, latestBalance);
+    const summary = this.buildSummary(enrichedPositions, latestBalance, movementSummaryBySymbol);
     const alertIndex = this.buildAlertIndex(snapshot, enrichedPositions);
     const alerts = this.buildAlerts(snapshot, enrichedPositions, alertIndex);
     const concentration = this.buildConcentration(enrichedPositions, options.currencyScope);
@@ -367,8 +412,11 @@ export class GptPortfolioExportService {
     const annualSummary = this.buildAnnualSummary(snapshot.dataset?.annualSummary ?? []);
     const strategicSplit = this.buildStrategicSplit(snapshot.dataset?.strategicSplit ?? [], totalPortfolioValue);
     const simulation = this.buildSimulation(viewModel, options);
-    const decisionInsights = this.buildDecisionInsights(viewModel, enrichedPositions, concentration, alerts);
-    const dataReview = this.buildDataReview(viewModel, healthReport?.findings ?? [], alerts, strategicSplit, monthlySummary, simulation, snapshot);
+    const opportunities = this.opportunities.build(snapshot);
+    const benchmarkMinimum = this.buildBenchmarkMinimum(opportunities);
+    const movementAdjustments = this.buildMovementAdjustments(movementSummaries);
+    const decisionInsights = this.buildDecisionInsights(viewModel, enrichedPositions, concentration, alerts, movementSummaryBySymbol);
+    const dataReview = this.buildDataReview(viewModel, healthReport?.findings ?? [], alerts, strategicSplit, monthlySummary, simulation, snapshot, options);
     const operationsBySymbol = this.buildOperationsBySymbol(snapshot.dataset?.operations ?? [], enrichedPositions, options);
     const recentMovements = this.buildRecentMovements(snapshot, options);
 
@@ -388,6 +436,7 @@ export class GptPortfolioExportService {
       },
       instructions: this.instructions(),
       summary,
+      opportunities,
       positions: this.buildPositions(enrichedPositions, options, alertIndex),
       operationsBySymbol,
       alerts,
@@ -399,21 +448,31 @@ export class GptPortfolioExportService {
       monthlySummary,
       annualSummary,
       strategicSplit,
+      benchmarkMinimum,
+      movementAdjustments,
       simulation
     };
   }
 
-  private buildSummary(positions: PortfolioPosition[], latestBalance: LatestBalanceDigest): GptPortfolioExport['summary'] {
+  private buildSummary(
+    positions: PortfolioPosition[],
+    latestBalance: LatestBalanceDigest,
+    movementSummaryBySymbol: Map<string, { adjustedResultPercent: number | null; hasAdjustments: boolean; adjustedResultAmount: number | null }>
+  ): GptPortfolioExport['summary'] {
     return {
-      general: this.summaryForScope(positions, 'ALL'),
-      ars: this.summaryForScope(positions, 'ARS'),
-      usd: this.summaryForScope(positions, 'USD'),
+      general: this.summaryForScope(positions, 'ALL', movementSummaryBySymbol),
+      ars: this.summaryForScope(positions, 'ARS', movementSummaryBySymbol),
+      usd: this.summaryForScope(positions, 'USD', movementSummaryBySymbol),
       latestBalance,
       warning: 'Este total mezcla ARS y USD sin convertir. Usar solo como referencia visual.'
     };
   }
 
-  private summaryForScope(positions: PortfolioPosition[], scope: ExportCurrencyScope): ExportSummaryScope {
+  private summaryForScope(
+    positions: PortfolioPosition[],
+    scope: ExportCurrencyScope,
+    movementSummaryBySymbol: Map<string, { adjustedResultPercent: number | null; hasAdjustments: boolean; adjustedResultAmount: number | null }>
+  ): ExportSummaryScope {
     const filtered = scope === 'ALL'
       ? positions
       : positions.filter((position) => this.normalizeCurrency(position.currency) === scope);
@@ -423,9 +482,10 @@ export class GptPortfolioExportService {
     const totalResult = totalCurrentValue - totalInvested;
     const totalResultPercent = totalInvested > 0 ? (totalResult / totalInvested) * 100 : null;
     const speciesCount = new Set(filtered.map((position) => position.symbol)).size;
-    const bestPosition = [...filtered].sort((a, b) => (b.resultPercent ?? -Infinity) - (a.resultPercent ?? -Infinity))[0] ?? null;
-    const worstPosition = [...filtered].sort((a, b) => (a.resultPercent ?? Infinity) - (b.resultPercent ?? Infinity))[0] ?? null;
     const formattedCurrency = scope === 'ALL' ? 'ARS' : scope;
+    const resultScore = (position: PortfolioPosition) => this.exportResultPercent(position, movementSummaryBySymbol);
+    const bestPosition = [...filtered].sort((a, b) => resultScore(b) - resultScore(a))[0] ?? null;
+    const worstPosition = [...filtered].sort((a, b) => resultScore(a) - resultScore(b))[0] ?? null;
 
     return {
       currency: scope === 'ALL' ? null : scope,
@@ -435,12 +495,18 @@ export class GptPortfolioExportService {
       totalResultPercent: filtered.length ? this.formatPercent(totalResultPercent) : 'N/D',
       speciesCount,
       positionsCount: filtered.length,
-      bestPosition: bestPosition ? this.digestPosition(bestPosition) : null,
-      worstPosition: worstPosition ? this.digestPosition(worstPosition) : null
+      bestPosition: bestPosition ? this.digestPosition(bestPosition, movementSummaryBySymbol) : null,
+      worstPosition: worstPosition ? this.digestPosition(worstPosition, movementSummaryBySymbol) : null
     };
   }
 
-  private digestPosition(position: PortfolioPosition): ExportPositionDigest {
+  private digestPosition(
+    position: PortfolioPosition,
+    movementSummaryBySymbol: Map<string, { adjustedResultPercent: number | null; hasAdjustments: boolean; adjustedResultAmount: number | null }> = new Map()
+  ): ExportPositionDigest {
+    const movementSummary = movementSummaryBySymbol.get(`${position.symbol.toUpperCase()}__${this.normalizeCurrency(position.currency)}`) ?? null;
+    const adjustedResultPercent = movementSummary?.adjustedResultPercent;
+    const hasAdjustments = Boolean(movementSummary?.hasAdjustments);
     return {
       symbol: position.symbol,
       currency: this.normalizeCurrency(position.currency),
@@ -448,8 +514,21 @@ export class GptPortfolioExportService {
       sector: position.sector ?? 'N/D',
       region: position.region ?? 'N/D',
       currentValue: this.formatMoney(position.currentValue, position.currency),
-      resultPercent: this.formatPercent(position.resultPercent)
+      resultPercent: this.formatPercent(adjustedResultPercent ?? position.resultPercent),
+      resultBasis: hasAdjustments ? 'adjusted' : 'nominal',
+      note: hasAdjustments ? 'Resultado ajustado por movimientos de inversión' : null
     };
+  }
+
+  private exportResultPercent(
+    position: PortfolioPosition,
+    movementSummaryBySymbol: Map<string, { adjustedResultPercent: number | null; hasAdjustments: boolean; adjustedResultAmount: number | null }> = new Map()
+  ): number {
+    const movementSummary = movementSummaryBySymbol.get(`${position.symbol.toUpperCase()}__${this.normalizeCurrency(position.currency)}`) ?? null;
+    if (movementSummary?.hasAdjustments && movementSummary.adjustedResultPercent !== null) {
+      return movementSummary.adjustedResultPercent;
+    }
+    return position.resultPercent ?? 0;
   }
 
   private computeLatestBalance(balances: DailyBalance[]): LatestBalanceDigest {
@@ -937,14 +1016,74 @@ export class GptPortfolioExportService {
     };
   }
 
+  private buildBenchmarkMinimum(opportunities: DecisionOpportunitiesViewModel): ExportBenchmarkMinimum {
+    const review = opportunities.minimumBenchmarkReview;
+    const summary = review.summary
+      ? {
+          balanceVsMinimumArs: review.summary.balanceVsMinimumArs !== null ? this.formatMoney(review.summary.balanceVsMinimumArs, 'ARS') : null,
+          balanceVsMinimumPercentArs: review.summary.balanceVsMinimumPercentArs !== null ? this.formatPercent(review.summary.balanceVsMinimumPercentArs) : null,
+          currentComparableArs: review.summary.currentComparableArs !== null ? this.formatMoney(review.summary.currentComparableArs, 'ARS') : null,
+          minimumExpectedArs: review.summary.minimumExpectedArs !== null ? this.formatMoney(review.summary.minimumExpectedArs, 'ARS') : null,
+          comparableLotsCount: review.summary.comparableLotsCount,
+          status: review.summary.status,
+          description: review.summary.description
+        }
+      : null;
+
+    return {
+      summary,
+      positionsBelowMinimum: review.items.map((item) => ({
+        especie: item.symbol,
+        moneda: item.currency,
+        vsMinimo: this.formatMoney(item.valueVsMinimumAmount, item.currency),
+        percentVsMinimo: this.formatPercent(item.valueVsMinimumPercent),
+        motivo: item.reason
+      }))
+    };
+  }
+
+  private buildMovementAdjustments(
+    movementSummaries: Array<{
+      symbol: string;
+      currency: string;
+      incomeAmount: number;
+      capitalReturnedAmount: number;
+      marketResultAmount: number;
+      marketResultPercent: number | null;
+      adjustedResultAmount: number;
+      adjustedResultPercent: number | null;
+      hasAdjustments: boolean;
+      notes: string[];
+    }>
+  ): ExportMovementAdjustmentRow[] {
+    return [...movementSummaries]
+      .filter((item) => item.hasAdjustments)
+      .sort((a, b) => Math.abs((b.adjustedResultAmount ?? 0) - (b.marketResultAmount ?? 0)) - Math.abs((a.adjustedResultAmount ?? 0) - (a.marketResultAmount ?? 0)))
+      .slice(0, 5)
+      .map((item) => ({
+        especie: item.symbol,
+        moneda: this.normalizeCurrency(item.currency),
+        rentasCobradas: this.formatMoney(item.incomeAmount, item.currency),
+        amortizacionesCobradas: this.formatMoney(item.capitalReturnedAmount, item.currency),
+        resultadoSinAjuste: this.formatMoney(item.marketResultAmount, item.currency),
+        resultadoAjustado: this.formatMoney(item.adjustedResultAmount, item.currency),
+        resultadoAjustadoPercent: this.formatPercent(item.adjustedResultPercent),
+        nota: item.notes.includes('Movimientos detectados, pero no se pudieron aplicar al benchmark mínimo.')
+          ? 'Movimientos detectados'
+          : 'Resultado ajustado por movimientos'
+      }));
+  }
+
   private buildDecisionInsights(
     viewModel: DecisionViewModel,
     positions: PortfolioPosition[],
     concentration: ExportConcentration,
-    alerts: GptPortfolioExport['alerts']
+    alerts: GptPortfolioExport['alerts'],
+    movementSummaryBySymbol: Map<string, { adjustedResultPercent: number | null; hasAdjustments: boolean; adjustedResultAmount: number | null }>
   ): GptPortfolioExport['decisionInsights'] {
-    const orderedByResult = [...positions].sort((a, b) => (a.resultPercent ?? 0) - (b.resultPercent ?? 0));
-    const bestByResult = [...positions].sort((a, b) => (b.resultPercent ?? 0) - (a.resultPercent ?? 0));
+    const comparableResult = (position: PortfolioPosition) => this.exportResultPercent(position, movementSummaryBySymbol);
+    const orderedByResult = [...positions].sort((a, b) => comparableResult(a) - comparableResult(b));
+    const bestByResult = [...positions].sort((a, b) => comparableResult(b) - comparableResult(a));
     const semales = [
       ...alerts.signals5D.slice(0, 5).map((row) => ({ symbol: row.especie, signalType: row.tipoSenal, period: row.periodo })),
       ...alerts.signals30D.slice(0, 5).map((row) => ({ symbol: row.especie, signalType: row.tipoSenal, period: row.periodo }))
@@ -966,8 +1105,8 @@ export class GptPortfolioExportService {
         { label: 'Top 10', currentPercent: concentration.top10Percent, targetPercent: 80, gapPercent: concentration.top10Percent - 80 }
       ],
       senalesActivas: semales,
-      peorPosicion: orderedByResult[0] ? this.digestPosition(orderedByResult[0]) : null,
-      mejorPosicion: bestByResult[0] ? this.digestPosition(bestByResult[0]) : null,
+      peorPosicion: orderedByResult[0] ? this.digestPosition(orderedByResult[0], movementSummaryBySymbol) : null,
+      mejorPosicion: bestByResult[0] ? this.digestPosition(bestByResult[0], movementSummaryBySymbol) : null,
       mayorConcentracion: concentration.largestAssetType?.label ?? 'N/D',
       advertenciasImportantes: [
         ...(concentration.currencyWarning ? [concentration.currencyWarning] : []),
@@ -983,7 +1122,8 @@ export class GptPortfolioExportService {
     strategicSplit: GptPortfolioExport['strategicSplit'],
     monthlySummary: Array<TableRow>,
     simulation: ExportSimulation | null,
-    snapshot: PortfolioAppState
+    snapshot: PortfolioAppState,
+    options: GptPortfolioExportOptions
   ): ExportDataReviewItem[] {
     const items: ExportDataReviewItem[] = findings.map((finding) => ({
       severidad: finding.severity,
@@ -1058,9 +1198,28 @@ export class GptPortfolioExportService {
       });
     }
 
-    return this.uniqueByKey(items, (item) =>
+    const unique = this.uniqueByKey(items, (item) =>
       `${item.severidad.toLowerCase()}|${item.fuente.toLowerCase()}|${item.especie.toLowerCase()}|${item.problema.toLowerCase()}|${item.sugerencia.toLowerCase()}`
     );
+
+    if (options.mode === 'full') {
+      return unique;
+    }
+
+    const severityRank = (value: string): number => {
+      switch (value.toLowerCase()) {
+        case 'critical':
+          return 0;
+        case 'warning':
+          return 1;
+        case 'info':
+          return 2;
+        default:
+          return 3;
+      }
+    };
+
+    return [...unique].sort((a, b) => severityRank(a.severidad) - severityRank(b.severidad)).slice(0, 10);
   }
 
   private buildRecentMovements(snapshot: PortfolioAppState, options: GptPortfolioExportOptions): ExportRecentMovements {
@@ -1280,7 +1439,9 @@ export class GptPortfolioExportService {
     lines.push('');
     lines.push(this.latestBalanceMarkdown(exportData.summary.latestBalance));
     lines.push('');
-    lines.push(this.positionsMarkdown(exportData.positions));
+    lines.push(this.benchmarkMinimumMarkdown(exportData));
+    lines.push('');
+    lines.push(this.positionsMarkdown(exportData, options));
     lines.push('');
     lines.push(this.recentMovementsMarkdown(exportData.recentMovements), '');
 
@@ -1290,8 +1451,12 @@ export class GptPortfolioExportService {
       lines.push('## Compras y lotes individuales', 'Modo resumido: se omiten lotes extensos. Revisa la exportacion completa para el detalle total.', '');
     }
 
-    lines.push(this.manualAlertsMarkdown(exportData.alerts.manual), '');
-    lines.push(this.calculatedAlertsMarkdown(exportData.alerts.calculated), '');
+    if (options.mode === 'full') {
+      lines.push(this.manualAlertsMarkdown(exportData.alerts.manual), '');
+      lines.push(this.calculatedAlertsMarkdown(exportData.alerts.calculated), '');
+    } else {
+      lines.push(this.activatedAlertsMarkdown(exportData), '');
+    }
 
     if (options.includeSignals) {
       lines.push(this.signalsMarkdown('Señales 5D', exportData.alerts.signals5D), '');
@@ -1336,13 +1501,16 @@ export class GptPortfolioExportService {
       `- Valor actual USD: ${exportData.summary.usd.totalCurrentValue}`,
       `- Resultado ARS: ${exportData.summary.ars.totalResult}`,
       `- Resultado USD: ${exportData.summary.usd.totalResult}`,
+      `- Balance vs mínimo ARS: ${exportData.benchmarkMinimum.summary?.balanceVsMinimumArs ?? 'N/D'} / ${exportData.benchmarkMinimum.summary?.balanceVsMinimumPercentArs ?? 'N/D'}`,
+      `- Posiciones bajo benchmark mínimo: ${exportData.benchmarkMinimum.positionsBelowMinimum.length}`,
+      `- Alertas activadas: ${this.activatedAlertSymbols(exportData).slice(0, 5).join(', ') || 'N/D'}`,
       `- Principales posiciones por peso: ${exportData.concentration.ranking.slice(0, 5).map((item) => item.symbol).join(', ') || 'N/D'}`,
       `- Mayor concentracion por tipo de activo: ${exportData.concentration.largestAssetType?.label ?? 'N/D'}`,
       `- Mayor sector: ${exportData.concentration.largestSector?.label ?? 'N/D'}`,
       `- Mayor region: ${exportData.concentration.largestRegion?.label ?? 'N/D'}`,
-      `- Alertas cercanas: ${this.alertSymbolsFromManual(exportData.alerts.manual).join(', ') || 'N/D'}`,
-      `- Peor posicion: ${exportData.decisionInsights.peorPosicion?.symbol ?? 'N/D'}`,
-      `- Mejor posicion: ${exportData.decisionInsights.mejorPosicion?.symbol ?? 'N/D'}`,
+      `- Alertas cercanas: ${this.nearAlertSymbols(exportData).join(', ') || 'N/D'}`,
+      `- Peor posicion${exportData.decisionInsights.peorPosicion?.note ? ' (ajustada)' : ''}: ${exportData.decisionInsights.peorPosicion?.symbol ?? 'N/D'}`,
+      `- Mejor posicion${exportData.decisionInsights.mejorPosicion?.note ? ' (ajustada)' : ''}: ${exportData.decisionInsights.mejorPosicion?.symbol ?? 'N/D'}`,
       `- Señales 30D de caida: ${this.signalSymbols(exportData.alerts.signals30D).join(', ') || 'N/D'}`,
       `- Datos a revisar: ${exportData.dataReview.length ? 'Si' : 'No detectados por el frontend'}`
     ].join('\n');
@@ -1386,11 +1554,19 @@ export class GptPortfolioExportService {
     ].join('\n');
   }
 
-  private positionsMarkdown(rows: ExportPositionRow[]): string {
+  private positionsMarkdown(exportData: GptPortfolioExport, options: GptPortfolioExportOptions): string {
+    const rows = options.mode === 'full'
+      ? exportData.positions
+      : this.summaryPositions(exportData);
+
     if (!rows.length) {
       return '## Posiciones actuales\n\nNo hay posiciones.';
     }
-    return ['## Posiciones actuales', this.tableFromRows(rows, [
+    const intro = options.mode === 'full'
+      ? '## Posiciones actuales'
+      : '## Posiciones actuales\n\nModo resumido: se muestran las posiciones principales y las relevantes por benchmark, alertas o movimientos ajustados.';
+
+    return [intro, this.tableFromRows(rows, [
       { header: 'Especie', key: 'especie' },
       { header: 'Moneda', key: 'moneda' },
       { header: 'Tipo activo', key: 'tipoActivo' },
@@ -1409,6 +1585,139 @@ export class GptPortfolioExportService {
       { header: 'Estado semaforo', key: 'estadoSemaforo' },
       { header: 'Motivo semaforo', key: 'motivoSemaforo' }
     ])].join('\n');
+  }
+
+  private summaryPositions(exportData: GptPortfolioExport): ExportPositionRow[] {
+    const topSymbols = exportData.concentration.ranking.slice(0, 10).map((item) => item.symbol.toUpperCase());
+    const benchmarkSymbols = exportData.opportunities.minimumBenchmarkReview.items.map((item) => item.symbol.toUpperCase());
+    const activatedSymbols = this.activatedAlertSymbols(exportData).map((symbol) => symbol.toUpperCase());
+    const movementSymbols = exportData.movementAdjustments.map((item) => item.especie.toUpperCase());
+    const selectedSymbols = new Set([...topSymbols, ...benchmarkSymbols, ...activatedSymbols, ...movementSymbols]);
+    return this.uniqueByKey(
+      exportData.positions.filter((row) => selectedSymbols.has(row.especie.toUpperCase())),
+      (row) => row.especie.toUpperCase()
+    );
+  }
+
+  private activatedAlertsMarkdown(exportData: GptPortfolioExport): string {
+    const rows = this.activatedAlertRows(exportData);
+    if (!rows.length) {
+      return '## Alertas activadas\n\nSin alertas activadas.';
+    }
+    return ['## Alertas activadas', this.tableFromRows(rows, [
+      { header: 'Especie', key: 'especie' },
+      { header: 'Condición', key: 'condicion' },
+      { header: 'Precio actual', key: 'precioActual' },
+      { header: 'Precio objetivo', key: 'precioObjetivo' },
+      { header: 'Distancia %', key: 'distanciaPercent' },
+      { header: 'Notas', key: 'notas' }
+    ])].join('\n');
+  }
+
+  private benchmarkMinimumMarkdown(exportData: GptPortfolioExport): string {
+    const review = exportData.opportunities.minimumBenchmarkReview;
+    if (!exportData.benchmarkMinimum.summary) {
+      return '## Benchmark mínimo ARS\n\nNo hay datos suficientes para calcular benchmark mínimo.';
+    }
+
+    const summary = exportData.benchmarkMinimum.summary;
+    const lines = [
+      '## Benchmark mínimo ARS',
+      `- Balance vs mínimo ARS: ${summary.balanceVsMinimumArs ?? 'N/D'}`,
+      `- % vs mínimo ARS: ${summary.balanceVsMinimumPercentArs ?? 'N/D'}`,
+      `- Valor comparable ARS: ${summary.currentComparableArs ?? 'N/D'}`,
+      `- Mínimo esperado ARS: ${summary.minimumExpectedArs ?? 'N/D'}`,
+      `- Posiciones ARS comparables: ${summary.comparableLotsCount}`,
+      `- Posiciones debajo del mínimo: ${review.items.length}`
+    ];
+
+    if (exportData.benchmarkMinimum.positionsBelowMinimum.length) {
+      lines.push('', '### Posiciones bajo benchmark mínimo');
+      lines.push(this.tableFromRows(exportData.benchmarkMinimum.positionsBelowMinimum, [
+        { header: 'Especie', key: 'especie' },
+        { header: 'Moneda', key: 'moneda' },
+        { header: 'Vs mínimo', key: 'vsMinimo' },
+        { header: '% vs mínimo', key: 'percentVsMinimo' },
+        { header: 'Motivo', key: 'motivo' }
+      ]));
+    }
+
+    return lines.join('\n');
+  }
+
+  private movementAdjustmentsMarkdown(exportData: GptPortfolioExport): string {
+    if (!exportData.movementAdjustments.length) {
+      return '';
+    }
+    return ['## Movimientos de inversión aplicados', this.tableFromRows(exportData.movementAdjustments, [
+      { header: 'Especie', key: 'especie' },
+      { header: 'Moneda', key: 'moneda' },
+      { header: 'Rentas cobradas', key: 'rentasCobradas' },
+      { header: 'Amortizaciones cobradas', key: 'amortizacionesCobradas' },
+      { header: 'Resultado sin ajuste', key: 'resultadoSinAjuste' },
+      { header: 'Resultado ajustado', key: 'resultadoAjustado' },
+      { header: 'Resultado ajustado %', key: 'resultadoAjustadoPercent' },
+      { header: 'Nota', key: 'nota' }
+    ])].join('\n');
+  }
+
+  private activatedAlertRows(exportData: GptPortfolioExport): Array<{
+    especie: string;
+    condicion: string;
+    precioActual: string;
+    precioObjetivo: string;
+    distanciaPercent: string;
+    notas: string;
+  }> {
+    const rows = [
+      ...exportData.alerts.manual
+        .filter((row) => String(row.estadoCalculado ?? '').toLowerCase() === 'activada')
+        .map((row) => ({
+          especie: row.especie,
+          condicion: row.condicion ?? 'Manual',
+          precioActual: row.precioActual,
+          precioObjetivo: row.precioObjetivo ?? 'N/D',
+          distanciaPercent: row.distanciaPercent,
+          notas: row.notas ?? row.estadoOriginal ?? 'Manual'
+        })),
+      ...exportData.opportunities.activatedAlerts.items.map((item) => ({
+        especie: item.symbol,
+        condicion: item.condition ?? this.groupLabel(item.group),
+        precioActual: this.formatMoney(item.currentPrice, 'ARS'),
+        precioObjetivo: this.formatMoney(item.targetPrice, 'ARS'),
+        distanciaPercent: this.formatPercent(item.distancePercent),
+        notas: item.note ?? item.status
+      }))
+    ];
+
+    return this.uniqueByKey(rows, (row) => row.especie.toUpperCase());
+  }
+
+  private activatedAlertSymbols(exportData: GptPortfolioExport): string[] {
+    return this.uniqueStrings(this.activatedAlertRows(exportData).map((row) => row.especie));
+  }
+
+  private nearAlertSymbols(exportData: GptPortfolioExport): string[] {
+    return this.uniqueStrings(
+      exportData.alerts.manual
+        .filter((row) => String(row.estadoCalculado ?? '').toLowerCase() === 'cerca')
+        .map((row) => row.especie)
+    );
+  }
+
+  private limitRows<T>(rows: T[], limit: number): T[] {
+    return rows.slice(0, limit);
+  }
+
+  private groupLabel(group: string): string {
+    switch (group) {
+      case 'manual':
+        return 'Manual';
+      case 'calculated':
+        return 'Calculada';
+      default:
+        return group;
+    }
   }
 
   private operationsMarkdown(operationsBySymbol: Record<string, TableRow[]>): string {
@@ -1549,11 +1858,17 @@ export class GptPortfolioExportService {
       lines.push(`- Mejor posicion: ${insights.mejorPosicion.symbol}`);
       lines.push(`  - Resultado: ${insights.mejorPosicion.resultPercent}`);
       lines.push(`  - Valor actual: ${insights.mejorPosicion.currentValue}`);
+      if (insights.mejorPosicion.note) {
+        lines.push(`  - Nota: ${insights.mejorPosicion.note}`);
+      }
     }
     if (insights.peorPosicion) {
       lines.push(`- Peor posicion: ${insights.peorPosicion.symbol}`);
       lines.push(`  - Resultado: ${insights.peorPosicion.resultPercent}`);
       lines.push(`  - Valor actual: ${insights.peorPosicion.currentValue}`);
+      if (insights.peorPosicion.note) {
+        lines.push(`  - Nota: ${insights.peorPosicion.note}`);
+      }
     }
     lines.push(`- Mayor concentracion por tipo de activo: ${insights.mayorConcentracion}`);
     return lines.join('\n');
@@ -1754,6 +2069,8 @@ export class GptPortfolioExportService {
 
   private weeklyFocus(exportData: GptPortfolioExport): string[] {
     const focus: string[] = [];
+    const activatedAlerts = this.activatedAlertSymbols(exportData);
+    const benchmarkSummary = exportData.benchmarkMinimum.summary;
     const cashParts = [
       exportData.recentMovements.manualContext.cashArs !== null ? `ARS ${this.formatMoney(exportData.recentMovements.manualContext.cashArs, 'ARS')}` : null,
       exportData.recentMovements.manualContext.cashUsd !== null ? `USD ${this.formatMoney(exportData.recentMovements.manualContext.cashUsd, 'USD')}` : null
@@ -1771,14 +2088,24 @@ export class GptPortfolioExportService {
     const importantReview = this.dataReviewHighlights(exportData.dataReview);
     focus.push(`Datos a revisar: ${importantReview || 'No hay hallazgos destacados.'}`);
 
-    if (exportData.decisionInsights.peorPosicion) {
-      focus.push(`Peor posicion: ${exportData.decisionInsights.peorPosicion.symbol} con ${exportData.decisionInsights.peorPosicion.resultPercent}.`);
+    if (benchmarkSummary?.balanceVsMinimumArs !== null && benchmarkSummary?.balanceVsMinimumPercentArs !== null) {
+      const safeBenchmarkSummary = benchmarkSummary!;
+      focus.push(`Benchmark mínimo ARS: balance ${safeBenchmarkSummary.balanceVsMinimumArs}, ${safeBenchmarkSummary.balanceVsMinimumPercentArs}.`);
     }
 
-    const nearAlerts = this.uniqueStrings(this.alertSymbolsFromManual(exportData.alerts.manual));
-    if (nearAlerts.length) {
-      focus.push(`Alertas cercanas: ${nearAlerts.slice(0, 6).join(', ')}.`);
+    if (exportData.benchmarkMinimum.positionsBelowMinimum.length) {
+      focus.push(`Posiciones bajo benchmark mínimo: ${exportData.benchmarkMinimum.positionsBelowMinimum.slice(0, 5).map((item) => item.especie).join(', ')}.`);
     }
+
+    if (activatedAlerts.length) {
+      focus.push(`Alertas activadas: ${activatedAlerts.slice(0, 5).join(', ')}.`);
+    } else {
+      const nearAlerts = this.uniqueStrings(this.nearAlertSymbols(exportData));
+      if (nearAlerts.length) {
+        focus.push(`Alertas cercanas: ${nearAlerts.slice(0, 6).join(', ')}.`);
+      }
+    }
+
     const caidas30 = this.uniqueStrings(this.signalSymbols(exportData.alerts.signals30D, 'caida'));
     if (caidas30.length) {
       focus.push(`Caidas 30D: ${caidas30.slice(0, 6).join(', ')}.`);

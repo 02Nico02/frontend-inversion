@@ -6,6 +6,8 @@ import { PortfolioHealthService } from '../../../core/services/portfolio-health.
 import { PortfolioAppState } from '../../../core/services/portfolio-state.service';
 import { PortfolioPosition, MarketSignal } from '../../../core/models/portfolio.models';
 import { CombinedAlert } from '../../../core/services/alert-mapper.service';
+import { InvestmentMovementsPerformanceService } from '../../../core/services/investment-movements-performance.service';
+import { InvestmentMovementSummary } from '../../../core/models/investment-movements.model';
 
 export type DecisionSeverity = 'success' | 'warning' | 'critical' | 'info';
 export type DecisionTrafficLight = 'green' | 'yellow' | 'red' | 'gray';
@@ -80,7 +82,8 @@ export class DecisionInsightsService {
   private readonly calculator: PortfolioCalculatorService,
   private readonly concentration: PortfolioConcentrationService,
   private readonly healthService: PortfolioHealthService,
-  private readonly currencyMapper: CurrencyMapperService
+  private readonly currencyMapper: CurrencyMapperService,
+  private readonly movementsPerformance: InvestmentMovementsPerformanceService
   ) {}
 
   build(
@@ -116,7 +119,7 @@ export class DecisionInsightsService {
         active: monthlyContribution >= 0 && months > 0 && Number.isFinite(annualReturnPercent)
       },
       cards: this.cards(summary, currencyScope, concentrationReport, healthReport?.summary ?? null),
-      actions: this.actions(positions, concentrationReport, healthReport?.summary ?? null, snapshot.combinedAlerts ?? []),
+      actions: this.actions(positions, concentrationReport, healthReport?.summary ?? null, snapshot.combinedAlerts ?? [], this.buildMovementSummaryMap(snapshot)),
       objectives: this.objectives(concentrationReport),
       signalSummary: this.signalSummary(snapshot.dataset?.signals ?? []),
       simulation: this.simulation(simulationSummary.totalCurrentValue, simulationCurrency, monthlyContribution, months, annualReturnPercent)
@@ -166,7 +169,8 @@ export class DecisionInsightsService {
     positions: PortfolioPosition[],
     concentrationReport: ReturnType<PortfolioConcentrationService['buildReport']>,
     healthSummary: ReturnType<PortfolioHealthService['buildReport']>['summary'] | null,
-    combinedAlerts: CombinedAlert[]
+    combinedAlerts: CombinedAlert[],
+    movementSummaryMap: Map<string, InvestmentMovementSummary>
   ): DecisionActionItem[] {
     const actions: DecisionActionItem[] = [];
 
@@ -186,20 +190,26 @@ export class DecisionInsightsService {
       });
     }
 
-    const worst = [...positions].sort((a, b) => (a.resultPercent ?? 0) - (b.resultPercent ?? 0))[0] ?? null;
-    if (worst && (worst.resultPercent ?? 0) < -15) {
+    const orderedWorst = [...positions]
+      .map((position) => ({ position, effective: this.effectiveResultFor(position, movementSummaryMap) }))
+      .sort((a, b) => a.effective.percent - b.effective.percent);
+    const worst = orderedWorst[0] ?? null;
+    if (worst && worst.effective.percent < -15) {
       actions.push({
         title: 'Revisar peor posición',
-        note: `${worst.symbol} tiene ${this.currencyMapper.formatPercentage(worst.resultPercent ?? 0)} de resultado. Puede merecer un repaso.`,
+        note: this.effectiveResultNote(worst.position, worst.effective, 'repasar'),
         tone: 'warning'
       });
     }
 
-    const best = [...positions].sort((a, b) => (b.resultPercent ?? 0) - (a.resultPercent ?? 0))[0] ?? null;
-    if (best && (best.resultPercent ?? 0) > 20) {
+    const orderedBest = [...positions]
+      .map((position) => ({ position, effective: this.effectiveResultFor(position, movementSummaryMap) }))
+      .sort((a, b) => b.effective.percent - a.effective.percent);
+    const best = orderedBest[0] ?? null;
+    if (best && best.effective.percent > 20) {
       actions.push({
         title: 'Ganancia fuerte para vigilar',
-        note: `${best.symbol} acumula ${this.currencyMapper.formatPercentage(best.resultPercent ?? 0)}. Ver si sigue alineada al plan.`,
+        note: this.effectiveResultNote(best.position, best.effective, 'vigilar'),
         tone: 'info'
       });
     }
@@ -214,6 +224,43 @@ export class DecisionInsightsService {
     }
 
     return actions.slice(0, 4);
+  }
+
+  private buildMovementSummaryMap(snapshot: PortfolioAppState): Map<string, InvestmentMovementSummary> {
+    const summaries = snapshot.dataset ? this.movementsPerformance.buildSummaryBySymbol(snapshot) : [];
+    return new Map(
+      summaries.map((summary) => [`${summary.symbol.toUpperCase()}__${summary.currency.toUpperCase()}`, summary] as const)
+    );
+  }
+
+  private effectiveResultFor(position: PortfolioPosition, movementSummaryMap: Map<string, InvestmentMovementSummary>): { percent: number; adjusted: boolean } {
+    const summary = movementSummaryMap.get(this.movementKey(position));
+    if (summary?.hasAdjustments && summary.adjustedResultPercent !== null) {
+      return { percent: summary.adjustedResultPercent, adjusted: true };
+    }
+
+    return { percent: position.resultPercent ?? 0, adjusted: false };
+  }
+
+  private effectiveResultNote(
+    position: PortfolioPosition,
+    effective: { percent: number; adjusted: boolean },
+    mode: 'repasar' | 'vigilar'
+  ): string {
+    const percent = this.currencyMapper.formatPercentage(effective.percent);
+    if (effective.adjusted) {
+      return `${position.symbol} tiene resultado ajustado por movimientos de inversión: ${percent}. Revisar si querés auditar la posición, no por pérdida nominal simple.`;
+    }
+
+    if (mode === 'vigilar') {
+      return `${position.symbol} acumula ${percent}. Ver si sigue alineada al plan.`;
+    }
+
+    return `${position.symbol} tiene ${percent} de resultado. Puede merecer un repaso.`;
+  }
+
+  private movementKey(position: PortfolioPosition): string {
+    return `${position.symbol.toUpperCase()}__${String(position.currency ?? 'UNKNOWN').toUpperCase()}`;
   }
 
   private objectives(concentrationReport: ReturnType<PortfolioConcentrationService['buildReport']>): DecisionObjectiveItem[] {

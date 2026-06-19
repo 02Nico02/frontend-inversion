@@ -16,6 +16,16 @@
       (presetSelected)="setMovementPreset($event)">
     </app-decision-movements-panel>
 
+    <app-decision-minimum-benchmark-review
+      [review]="vm.minimumBenchmarkReview"
+      [privacyEnabled]="privacyMode.enabled">
+    </app-decision-minimum-benchmark-review>
+
+    <app-decision-activated-alerts
+      [activatedAlerts]="vm.activatedAlerts"
+      [privacyEnabled]="privacyMode.enabled">
+    </app-decision-activated-alerts>
+
     <app-decision-simulator-panel
       [simulation]="vm.simulation"
       [simulationCurrency]="simulationCurrency"

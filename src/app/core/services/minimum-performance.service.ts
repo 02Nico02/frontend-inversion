@@ -96,7 +96,7 @@ export class MinimumPerformanceService {
   }
 
   buildMinimumPerformanceSummary(snapshot: PortfolioAppState): MinimumPerformanceSummary {
-    const lots = this.buildLots(snapshot, false).filter((lot) => lot.currency === 'ARS');
+    const lots = this.buildLots(snapshot, true).filter((lot) => lot.currency === 'ARS');
     const comparableLots = lots.filter((lot) => lot.status === 'beats-minimum' || lot.status === 'below-minimum');
 
     if (!comparableLots.length) {
@@ -116,7 +116,7 @@ export class MinimumPerformanceService {
       };
     }
 
-    const currentComparableArs = this.sumNumbers(comparableLots.map((lot) => lot.currentValue));
+    const currentComparableArs = this.sumNumbers(comparableLots.map((lot) => lot.comparableValue ?? lot.currentValue));
     const minimumExpectedArs = this.sumNumbers(comparableLots.map((lot) => lot.minimumExpectedValue));
 
     if (currentComparableArs === null || minimumExpectedArs === null || minimumExpectedArs <= 0) {
@@ -150,12 +150,14 @@ export class MinimumPerformanceService {
       balanceVsMinimumPercentArs,
       status,
       description:
-        status === 'positive'
+        (status === 'positive'
           ? 'El portafolio ARS supera el rendimiento mínimo esperado.'
           : status === 'negative'
             ? 'El portafolio ARS está por debajo del rendimiento mínimo esperado.'
-            : 'El portafolio ARS está en línea con el rendimiento mínimo esperado.',
-      notes: this.uniqueNotes(comparableLots.flatMap((lot) => lot.notes))
+            : 'El portafolio ARS está en línea con el rendimiento mínimo esperado.') +
+        (lots.some((lot) => lot.usesAmortizationAdjustedBenchmark || lot.usesAdjustedComparableValue)
+          ? ' Este balance usa el valor comparable ajustado cuando hay rentas o amortizaciones registradas.'
+          : ''),      notes: this.uniqueNotes(comparableLots.flatMap((lot) => lot.notes))
     };
   }
 
