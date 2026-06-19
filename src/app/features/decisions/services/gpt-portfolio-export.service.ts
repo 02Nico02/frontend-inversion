@@ -381,12 +381,6 @@ export class GptPortfolioExportService {
     return [
       'Contexto semanal de portafolio',
       `- Fecha: ${data.metadata.generatedAt}`,
-      `- Archivo: ${data.metadata.sourceFile ?? 'N/D'}`,
-      `- Estado: ${data.metadata.workbookStatus}`,
-      `- Rango movimientos: ${data.recentMovements.rangeLabel}`,
-      `- Preset movimientos: ${data.recentMovements.rangePresetLabel}`,
-      `- Valor actual ARS: ${data.summary.ars.totalCurrentValue}`,
-      `- Valor actual USD: ${data.summary.usd.totalCurrentValue}`,
       `- Balance vs minimo ARS: ${data.benchmarkMinimum.summary?.balanceVsMinimumArs ?? 'N/D'}`,
       `- Alertas activadas: ${this.activatedAlertSymbols(data).join(', ') || 'N/D'}`,
       `- Semaforo: ${data.decisionInsights.semaforo}`,
@@ -437,7 +431,7 @@ export class GptPortfolioExportService {
         simulationCurrency: options.simulationCurrency,
         exportMode: options.mode
       },
-      instructions: this.instructions(),
+      instructions: [],
       summary,
       opportunities,
       positions: this.buildPositions(enrichedPositions, options, alertIndex, effectivePositionMap),
@@ -1441,17 +1435,7 @@ export class GptPortfolioExportService {
     const lines: string[] = [];
     lines.push('# Contexto semanal de portafolio', '');
     lines.push(`Fecha de generacion: ${exportData.metadata.generatedAt}`);
-    lines.push(`Archivo fuente: ${exportData.metadata.sourceFile ?? 'N/D'}`);
-    lines.push(`Estado del workbook: ${exportData.metadata.workbookStatus}`);
-    lines.push(`Tablas detectadas: ${exportData.metadata.tablesDetected.join(', ') || 'N/D'}`);
-    lines.push(`Advertencias: ${exportData.metadata.warnings.length ? exportData.metadata.warnings.join(' | ') : 'Ninguna'}`);
-    lines.push(`Errores: ${exportData.metadata.errors.length ? exportData.metadata.errors.join(' | ') : 'Ninguno'}`);
     lines.push('');
-    lines.push('Este archivo fue generado automaticamente desde el frontend local.');
-    lines.push('El Excel sigue siendo la fuente de verdad.');
-    lines.push('No hay conversion automatica entre ARS y USD salvo que se indique explicitamente.');
-    lines.push('');
-    lines.push('## Instrucciones para el analisis', ...this.instructions().map((line) => `- ${line}`), '');
     lines.push(this.executiveSummaryMarkdown(exportData));
     lines.push('');
     lines.push(this.generalSummaryMarkdown(exportData.summary.general));
@@ -1510,9 +1494,6 @@ export class GptPortfolioExportService {
     for (const line of this.weeklyFocus(exportData)) {
       lines.push(`- ${line}`);
     }
-
-    lines.push('', '## Preguntas sugeridas para analizar');
-    this.questions().forEach((question, index) => lines.push(`${index + 1}. ${question}`));
     return lines.join('\n');
   }
 
@@ -1578,18 +1559,12 @@ export class GptPortfolioExportService {
   }
 
   private positionsMarkdown(exportData: GptPortfolioExport, options: GptPortfolioExportOptions): string {
-    const rows = options.mode === 'full'
-      ? exportData.positions
-      : this.summaryPositions(exportData);
+    const rows = exportData.positions;
 
     if (!rows.length) {
       return '## Posiciones actuales\n\nNo hay posiciones.';
     }
-    const intro = options.mode === 'full'
-      ? '## Posiciones actuales'
-      : '## Posiciones actuales\n\nModo resumido: se muestran las posiciones principales y las relevantes por benchmark, alertas o movimientos ajustados.';
-
-    return [intro, this.tableFromRows(rows, [
+    return ['## Posiciones actuales', this.tableFromRows(rows, [
       { header: 'Especie', key: 'especie' },
       { header: 'Moneda', key: 'moneda' },
       { header: 'Tipo activo', key: 'tipoActivo' },
@@ -1603,23 +1578,8 @@ export class GptPortfolioExportService {
       { header: 'Total actual', key: 'totalActual' },
       { header: 'Resultado $', key: 'resultadoMonto' },
       { header: 'Resultado %', key: 'resultadoPercent' },
-      { header: 'Peso %', key: 'pesoPercent' },
-      { header: 'Alertas', key: 'alertas' },
-      { header: 'Estado semaforo', key: 'estadoSemaforo' },
-      { header: 'Motivo semaforo', key: 'motivoSemaforo' }
+      { header: 'Peso %', key: 'pesoPercent' }
     ])].join('\n');
-  }
-
-  private summaryPositions(exportData: GptPortfolioExport): ExportPositionRow[] {
-    const topSymbols = exportData.concentration.ranking.slice(0, 10).map((item) => item.symbol.toUpperCase());
-    const benchmarkSymbols = exportData.opportunities.minimumBenchmarkReview.items.map((item) => item.symbol.toUpperCase());
-    const activatedSymbols = this.activatedAlertSymbols(exportData).map((symbol) => symbol.toUpperCase());
-    const movementSymbols = exportData.movementAdjustments.map((item) => item.especie.toUpperCase());
-    const selectedSymbols = new Set([...topSymbols, ...benchmarkSymbols, ...activatedSymbols, ...movementSymbols]);
-    return this.uniqueByKey(
-      exportData.positions.filter((row) => selectedSymbols.has(row.especie.toUpperCase())),
-      (row) => row.especie.toUpperCase()
-    );
   }
 
   private activatedAlertsMarkdown(exportData: GptPortfolioExport): string {
@@ -2103,10 +2063,16 @@ export class GptPortfolioExportService {
       .join(' | ');
     focus.push(`Liquidez operativa reciente: ${cashParts.length ? `${cashParts.join(' | ')}; ` : ''}${liquidity || 'N/D'}.`);
 
-    const movementsSummary = exportData.recentMovements.newPositions.length || exportData.recentMovements.closedPositions.length
-      ? `Nuevas posiciones ${exportData.recentMovements.newPositions.slice(0, 3).map((item) => item.symbol).join(', ') || 'N/D'}; posibles cierres ${exportData.recentMovements.closedPositions.slice(0, 3).map((item) => item.symbol).join(', ') || 'N/D'}.`
-      : 'Sin cambios relevantes detectados en las posiciones recientes.';
-    focus.push(`Movimientos recientes: ${movementsSummary}`);
+    const newPositions = exportData.recentMovements.newPositions.slice(0, 3).map((item) => item.symbol).filter(Boolean);
+    const closedPositions = exportData.recentMovements.closedPositions.slice(0, 3).map((item) => item.symbol).filter(Boolean);
+    const movementParts: string[] = [];
+    if (newPositions.length) {
+      movementParts.push(`nuevas posiciones ${newPositions.join(', ')}`);
+    }
+    if (closedPositions.length) {
+      movementParts.push(`posibles cierres ${closedPositions.join(', ')}`);
+    }
+    focus.push(`Movimientos recientes: ${movementParts.length ? movementParts.join('; ') : 'sin cambios relevantes detectados.'}`);
 
     const importantReview = this.dataReviewHighlights(exportData.dataReview);
     focus.push(`Datos a revisar: ${importantReview || 'No hay hallazgos destacados.'}`);
@@ -2224,18 +2190,6 @@ export class GptPortfolioExportService {
     return assetType.includes('CRYPTO') || positionType.includes('CRYPTO') || sector.includes('CRYPTO');
   }
 
-  private questions(): string[] {
-    return [
-      '¿Que compras o ventas recientes cambiaron mas el perfil del portafolio?',
-      '¿El flujo operativo detectado parece consistente con la liquidez disponible?',
-      '¿Cuales son las posiciones que explican la mayor parte de la concentracion?',
-      '¿Hay alertas cercanas o activadas que ameriten seguimiento?',
-      '¿Que señales tecnicas parecen utiles y cuales conviene ignorar?',
-      '¿El historial mensual muestra meses atipicos o inconsistencias?',
-      '¿La simulacion actual sigue alineada con el plan de inversion?'
-    ];
-  }
-
   private concentrationState(current: number, reference: number): string {
     if (current <= reference) return 'OK';
     if (current <= reference + 10) return 'Revisar';
@@ -2303,16 +2257,7 @@ export class GptPortfolioExportService {
   }
 
   private instructions(): string[] {
-    return [
-      'No asumir precios actuales externos si no se solicitan.',
-      'No recomendar vender como primera opcion.',
-      'Priorizar rebalanceo mediante nuevas compras.',
-      'Separar analisis por moneda: ARS y USD.',
-      'Marcar cuando una conclusion dependa de datos incompletos.',
-      'Distinguir entre inversion de largo plazo/jubilacion y ahorro/mediano plazo.',
-      'Usar las alertas manuales como referencia importante.',
-      'No dar recomendaciones absolutas; proponer escenarios, prioridades y puntos a revisar.'
-    ];
+    return [];
   }
 
   private normalizeCurrency(currency: string | null | undefined): 'ARS' | 'USD' {
