@@ -11,20 +11,21 @@ import { StrategyPageComponent } from './features/strategy/pages/strategy-page/s
 import { DataReviewPageComponent } from './features/data-review/pages/data-review-page/data-review-page.component';
 import { ImportPageComponent } from './features/import/pages/import-page/import-page.component';
 import { HelpPageComponent } from './features/settings/pages/help-page/help-page.component';
+import { workbookLoadedGuard } from './core/guards/workbook-loaded.guard';
 
 export const appRoutes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'resumen' },
-  { path: 'resumen', component: SummaryPageComponent },
-  { path: 'distribucion', component: DistributionPageComponent },
-  { path: 'posiciones/:symbol', component: PositionDetailPageComponent },
-  { path: 'posiciones', component: PositionsPageComponent },
-  { path: 'historico', component: HistoricalPageComponent },
-  { path: 'alertas', component: AlertsPageComponent },
-  { path: 'concentracion', component: ConcentrationPageComponent },
-  { path: 'decisiones', component: DecisionsPageComponent },
-  { path: 'estrategia', component: StrategyPageComponent },
-  { path: 'datos-a-revisar', component: DataReviewPageComponent },
+  { path: 'resumen', component: SummaryPageComponent, canActivate: [workbookLoadedGuard] },
+  { path: 'distribucion', component: DistributionPageComponent, canActivate: [workbookLoadedGuard] },
+  { path: 'posiciones/:symbol', component: PositionDetailPageComponent, canActivate: [workbookLoadedGuard] },
+  { path: 'posiciones', component: PositionsPageComponent, canActivate: [workbookLoadedGuard] },
+  { path: 'historico', component: HistoricalPageComponent, canActivate: [workbookLoadedGuard] },
+  { path: 'alertas', component: AlertsPageComponent, canActivate: [workbookLoadedGuard] },
+  { path: 'concentracion', component: ConcentrationPageComponent, canActivate: [workbookLoadedGuard] },
+  { path: 'decisiones', component: DecisionsPageComponent, canActivate: [workbookLoadedGuard] },
+  { path: 'estrategia', component: StrategyPageComponent, canActivate: [workbookLoadedGuard] },
+  { path: 'datos-a-revisar', component: DataReviewPageComponent, canActivate: [workbookLoadedGuard] },
   { path: 'importacion', component: ImportPageComponent },
-  { path: 'configuracion', component: HelpPageComponent },
-  { path: '**', redirectTo: 'resumen' }
+  { path: 'configuracion', component: HelpPageComponent, canActivate: [workbookLoadedGuard] },
+  { path: '**', redirectTo: 'importacion' }
 ];
