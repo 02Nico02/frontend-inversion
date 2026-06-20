@@ -88,46 +88,90 @@
     </section>
 
     <section class="panel milestones-panel">
-      <div class="title-row">
+      <div class="milestones-header">
         <div>
           <p class="eyebrow">Hitos del portafolio</p>
           <h3>Momentos importantes detectados</h3>
           <p class="lead">Resumen compacto de cruces, máximos, caídas y mejores meses detectados a partir del historial disponible.</p>
         </div>
-        <button type="button" class="toggle-button" *ngIf="hasMoreMilestones(snapshot)" (click)="toggleMilestones()">
+
+        <div class="milestones-stats">
+          <div class="milestone-stat">
+            <span>Hitos detectados</span>
+            <strong>{{ totalDetectedMilestones(snapshot) }}</strong>
+          </div>
+          <div class="milestone-stat">
+            <span>Categorías</span>
+            <strong>{{ detectedCategoryCount(snapshot) }}</strong>
+          </div>
+          <div class="milestone-stat">
+            <span>Pendientes</span>
+            <strong>{{ totalUnavailableMilestones(snapshot) }}</strong>
+          </div>
+          <div class="milestone-stat" *ngIf="latestMilestone(snapshot) as latest">
+            <span>Último hito</span>
+            <strong>{{ latest.title }}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="milestones-empty" *ngIf="!totalDetectedMilestones(snapshot)">
+        <h4>No hay hitos suficientes</h4>
+        <p>Importá más historial para detectar cruces, máximos y cambios relevantes.</p>
+      </div>
+
+      <ng-container *ngIf="visibleMilestoneGroups(snapshot) as groups">
+        <section class="milestone-group" *ngFor="let group of groups">
+          <div class="group-header">
+            <div>
+              <p class="group-label">{{ group.label }}</p>
+              <h4>{{ group.items.length }} hito{{ group.items.length === 1 ? '' : 's' }}</h4>
+            </div>
+          </div>
+
+          <div class="milestone-grid">
+            <article class="milestone-card" *ngFor="let milestone of group.items">
+              <div class="milestone-head">
+                <span class="chip" [class.positive]="milestone.severity === 'positive'" [class.negative]="milestone.severity === 'negative'">
+                  {{ milestoneSeverityLabel(milestone.severity) }}
+                </span>
+              </div>
+              <h4>{{ milestone.title }}</h4>
+              <div class="milestone-meta">
+                <span>{{ milestoneDate(milestone.date) }}</span>
+                <strong>{{ milestoneValue(milestone) }}</strong>
+              </div>
+              <p>{{ milestone.description }}</p>
+              <small>Fuente: {{ milestone.source }}</small>
+              <small *ngIf="milestone.percent !== null && milestone.percent !== undefined">
+                Referencia porcentual: {{ milestonePercent(milestone) }}
+              </small>
+            </article>
+          </div>
+        </section>
+      </ng-container>
+
+      <div class="milestones-footer" *ngIf="hasMoreMilestones(snapshot)">
+        <button type="button" class="toggle-button" (click)="toggleMilestones()">
           {{ showAllMilestones ? 'Ver menos' : 'Ver más' }}
         </button>
       </div>
 
-      <ng-container *ngIf="visibleMilestones(snapshot) as milestones">
-        <div class="milestone-grid" *ngIf="milestones.length > 0; else noMilestones">
-          <article class="milestone-card" *ngFor="let milestone of milestones">
-            <div class="milestone-head">
-              <span class="chip">{{ milestoneCategoryLabel(milestone.category) }}</span>
-              <span class="chip" [class.positive]="milestone.severity === 'positive'" [class.negative]="milestone.severity === 'negative'">
-                {{ milestoneSeverityLabel(milestone.severity) }}
-              </span>
-            </div>
-            <h4>{{ milestone.title }}</h4>
-            <div class="milestone-meta">
-              <span>{{ milestoneDate(milestone.date) }}</span>
-              <strong>{{ milestoneValue(milestone) }}</strong>
-            </div>
-            <p>{{ milestone.description }}</p>
-            <small>Fuente: {{ milestone.source }}</small>
-            <small *ngIf="milestone.percent !== null && milestone.percent !== undefined">
-              Referencia porcentual: {{ milestonePercent(milestone) }}
-            </small>
-          </article>
-        </div>
-      </ng-container>
+      <div class="unavailable-panel" *ngIf="hasUnavailableMilestones(snapshot)">
+        <p class="benchmark-note">
+          Algunos hitos no se muestran porque no hay datos suficientes o todavía no fueron alcanzados.
+        </p>
+        <button type="button" class="toggle-link" (click)="showUnavailableMilestones = !showUnavailableMilestones">
+          {{ showUnavailableMilestones ? 'Ocultar hitos no disponibles' : 'Ver hitos no disponibles' }}
+        </button>
 
-      <ng-template #noMilestones>
-        <article class="empty-hits">
-          <h4>No hay hitos suficientes</h4>
-          <p>Importá más historial para detectar cruces, máximos y cambios relevantes.</p>
-        </article>
-      </ng-template>
+        <ul class="unavailable-list" *ngIf="showUnavailableMilestones">
+          <li *ngFor="let item of unavailableMilestones(snapshot)">
+            <strong>{{ item.title }}:</strong>
+            <span>{{ item.description }}</span>
+          </li>
+        </ul>
+      </div>
 
       <p class="benchmark-note" *ngIf="hasIncompleteMilestones(snapshot)">
         Algunos hitos no se calcularon por falta de historial suficiente.

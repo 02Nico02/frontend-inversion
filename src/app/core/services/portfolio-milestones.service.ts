@@ -1,6 +1,12 @@
-﻿import { Injectable } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { PortfolioAppState } from './portfolio-state.service';
-import { PortfolioMilestone, PortfolioMilestoneCategory, PortfolioMilestoneSeverity } from '../models/portfolio-milestones.model';
+import {
+  PortfolioMilestone,
+  PortfolioMilestoneBuildResult,
+  PortfolioMilestoneCategory,
+  PortfolioMilestoneSeverity,
+  PortfolioUnavailableMilestone
+} from '../models/portfolio-milestones.model';
 import { parseExcelDate } from '../utils/value-parsing.utils';
 import { MonthlyInvestmentSummary } from '../models/portfolio.models';
 
@@ -20,21 +26,41 @@ interface MonthlyPoint extends MonthlyInvestmentSummary {
 }
 
 const THRESHOLDS = [1_000_000, 5_000_000, 10_000_000];
+const CATEGORY_ORDER: PortfolioMilestoneCategory[] = [
+  'portfolio-value',
+  'daily-balance',
+  'monthly-performance',
+  'real-performance',
+  'contribution',
+  'benchmark-minimum'
+];
 
 @Injectable({ providedIn: 'root' })
 export class PortfolioMilestonesService {
-  buildMilestones(snapshot: PortfolioAppState): PortfolioMilestone[] {
+  buildMilestoneReport(snapshot: PortfolioAppState): PortfolioMilestoneBuildResult {
     const balances = this.buildDailyBalances(snapshot);
     const monthly = this.buildMonthlyPoints(snapshot);
-    const candidates: MilestoneCandidate[] = [];
+    const detected: MilestoneCandidate[] = [];
+    const unavailable: PortfolioUnavailableMilestone[] = [];
 
-    candidates.push(...this.buildValueMilestones(monthly));
-    candidates.push(...this.buildDailyChangeMilestones(balances));
-    candidates.push(...this.buildMonthlyNominalMilestones(monthly));
-    candidates.push(...this.buildMonthlyRealMilestones(monthly));
+    const valueResult = this.buildValueMilestones(monthly);
+    detected.push(...valueResult.detected);
+    unavailable.push(...valueResult.unavailable);
 
-    return candidates
+    const dailyResult = this.buildDailyChangeMilestones(balances);
+    detected.push(...dailyResult.detected);
+    unavailable.push(...dailyResult.unavailable);
+
+    detected.push(...this.buildMonthlyNominalMilestones(monthly));
+    detected.push(...this.buildMonthlyRealMilestones(monthly));
+    unavailable.push(...this.buildBenchmarkMinimumMilestones(snapshot));
+
+    const orderedDetected = detected
       .sort((left, right) => {
+        const categoryDelta = CATEGORY_ORDER.indexOf(left.milestone.category) - CATEGORY_ORDER.indexOf(right.milestone.category);
+        if (categoryDelta !== 0) {
+          return categoryDelta;
+        }
         if (left.priority !== right.priority) {
           return left.priority - right.priority;
         }
@@ -46,6 +72,23 @@ export class PortfolioMilestonesService {
         return left.milestone.title.localeCompare(right.milestone.title, 'es');
       })
       .map((item) => item.milestone);
+
+    const orderedUnavailable = unavailable.sort((left, right) => {
+      const categoryDelta = CATEGORY_ORDER.indexOf(left.category) - CATEGORY_ORDER.indexOf(right.category);
+      if (categoryDelta !== 0) {
+        return categoryDelta;
+      }
+      return left.title.localeCompare(right.title, 'es');
+    });
+
+    return {
+      detected: orderedDetected,
+      unavailable: orderedUnavailable
+    };
+  }
+
+  buildMilestones(snapshot: PortfolioAppState): PortfolioMilestone[] {
+    return this.buildMilestoneReport(snapshot).detected;
   }
 
   getLatestMilestone(milestones: PortfolioMilestone[]): PortfolioMilestone | null {
@@ -53,7 +96,7 @@ export class PortfolioMilestonesService {
   }
 
   getHighlightedMilestones(milestones: PortfolioMilestone[]): PortfolioMilestone[] {
-    return milestones.slice(0, 8);
+    return milestones.slice(0, 6);
   }
 
   hasIncompleteData(snapshot: PortfolioAppState): boolean {
@@ -62,22 +105,56 @@ export class PortfolioMilestonesService {
     return balances < 2 || monthly === 0;
   }
 
-  private buildValueMilestones(monthly: MonthlyPoint[]): MilestoneCandidate[] {
-    const candidates: MilestoneCandidate[] = [];
+  getCategoryOrder(): PortfolioMilestoneCategory[] {
+    return [...CATEGORY_ORDER];
+  }
+
+  getCategoryLabel(category: PortfolioMilestoneCategory): string {
+    switch (category) {
+      case 'portfolio-value':
+        return 'Valor del portafolio';
+      case 'daily-balance':
+        return 'Balance diario';
+      case 'monthly-performance':
+        return 'Rendimiento mensual';
+      case 'real-performance':
+        return 'Rendimiento real';
+      case 'contribution':
+        return 'Aportes';
+      case 'benchmark-minimum':
+        return 'Benchmark mínimo';
+      default:
+        return 'Hito';
+    }
+  }
+
+  private buildValueMilestones(monthly: MonthlyPoint[]): { detected: MilestoneCandidate[]; unavailable: PortfolioUnavailableMilestone[] } {
+    const detected: MilestoneCandidate[] = [];
+    const unavailable: PortfolioUnavailableMilestone[] = [];
     const values = monthly.filter((item) => item.endValue !== null && item.endValue !== undefined);
 
     for (const threshold of THRESHOLDS) {
       const hit = values.find((item) => (item.endValue ?? 0) >= threshold);
       if (!hit) {
+        unavailable.push({
+          id: `first-month-above-${threshold}`,
+          title: `Primer mes arriba de ${this.formatThreshold(threshold)}`,
+          category: 'portfolio-value',
+          reason: values.length ? 'not-reached' : 'missing-data',
+          description: values.length
+            ? `Todavía no se detectó un valor mensual del portafolio por encima de ${this.formatThreshold(threshold)}.`
+            : 'No hay historial mensual suficiente para calcular este hito.',
+          requiredSource: 'HistorialMensualReconstruido'
+        });
         continue;
       }
 
-      candidates.push({
+      detected.push({
         priority: 1 + THRESHOLDS.indexOf(threshold),
         milestone: {
           id: `value-threshold-${threshold}`,
-          title: `Primer día arriba de ${this.formatThreshold(threshold)}`,
-          description: `El balance diario superó por primera vez los ${this.formatThreshold(threshold)}.`,
+          title: `Primer mes arriba de ${this.formatThreshold(threshold)}`,
+          description: `El valor mensual superó por primera vez los ${this.formatThreshold(threshold)}.`,
           category: 'portfolio-value',
           severity: 'positive',
           date: hit.date,
@@ -97,12 +174,13 @@ export class PortfolioMilestonesService {
       }
       return best;
     }, null);
+
     if (max) {
-      candidates.push({
+      detected.push({
         priority: 1,
         milestone: {
-          id: 'max-historical-value',
-          title: 'Máximo histórico del portafolio',
+          id: 'max-monthly-value',
+          title: 'Máximo valor mensual del portafolio',
           description: 'Mayor valor mensual registrado en el historial reconstruido.',
           category: 'portfolio-value',
           severity: 'positive',
@@ -115,12 +193,21 @@ export class PortfolioMilestonesService {
       });
     }
 
-    return candidates;
+    return { detected, unavailable };
   }
 
-  private buildDailyChangeMilestones(balances: DailyBalancePoint[]): MilestoneCandidate[] {
+  private buildDailyChangeMilestones(balances: DailyBalancePoint[]): { detected: MilestoneCandidate[]; unavailable: PortfolioUnavailableMilestone[] } {
+    const unavailable: PortfolioUnavailableMilestone[] = [];
     if (!balances.length) {
-      return [];
+      unavailable.push({
+        id: 'daily-portfolio-ath',
+        title: 'Máximo histórico diario del portafolio',
+        category: 'portfolio-value',
+        reason: 'missing-data',
+        description: 'No se detectó una serie diaria de valor total del portafolio. Tabla14 representa balance diario, no valor acumulado.',
+        requiredSource: 'Serie diaria de valor total'
+      });
+      return { detected: [], unavailable };
     }
 
     const bestIncrease = balances.reduce<DailyBalancePoint | null>((best, current) => {
@@ -136,13 +223,13 @@ export class PortfolioMilestonesService {
       return worst;
     }, null);
 
-    const result: MilestoneCandidate[] = [];
+    const detected: MilestoneCandidate[] = [];
     if (bestIncrease && bestIncrease.value > 0) {
-      result.push({
+      detected.push({
         priority: 3,
         milestone: {
           id: 'largest-daily-increase',
-          title: 'Mayor suba diaria',
+          title: 'Mayor ganancia diaria',
           description: `Mayor variación diaria positiva registrada: ${this.formatSignedMoney(bestIncrease.value)}.`,
           category: 'daily-balance',
           severity: 'positive',
@@ -156,11 +243,11 @@ export class PortfolioMilestonesService {
     }
 
     if (worstDecrease && worstDecrease.value < 0) {
-      result.push({
+      detected.push({
         priority: 3,
         milestone: {
           id: 'largest-daily-drop',
-          title: 'Mayor caída diaria',
+          title: 'Mayor pérdida diaria',
           description: `Mayor variación diaria negativa registrada: ${this.formatSignedMoney(worstDecrease.value)}.`,
           category: 'daily-balance',
           severity: 'negative',
@@ -173,7 +260,7 @@ export class PortfolioMilestonesService {
       });
     }
 
-    return result;
+    return { detected, unavailable };
   }
 
   private buildMonthlyNominalMilestones(monthly: MonthlyPoint[]): MilestoneCandidate[] {
@@ -254,6 +341,23 @@ export class PortfolioMilestonesService {
     }
 
     return result;
+  }
+
+  private buildBenchmarkMinimumMilestones(snapshot: PortfolioAppState): PortfolioUnavailableMilestone[] {
+    const hasBenchmark = (snapshot.dataset?.calendarBenchmarks?.length ?? 0) > 0;
+    if (hasBenchmark) {
+      return [];
+    }
+    return [
+      {
+        id: 'first-month-above-minimum-benchmark',
+        title: 'Primer mes que supera benchmark mínimo',
+        category: 'benchmark-minimum',
+        reason: 'not-supported-yet',
+        description: 'No hay una serie histórica confiable de benchmark mínimo mensual para calcular este hito.',
+        requiredSource: 'Benchmark mínimo histórico'
+      }
+    ];
   }
 
   private findMaximumContribution(monthly: MonthlyPoint[]): MilestoneCandidate | null {

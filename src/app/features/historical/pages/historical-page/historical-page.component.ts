@@ -9,7 +9,12 @@ import { ChartDataService } from '../../../../core/services/chart-data.service';
 import { CurrencyMapperService } from '../../../../core/services/currency-mapper.service';
 import { PortfolioAppState } from '../../../../core/services/portfolio-state.service';
 import { PortfolioMilestonesService } from '../../../../core/services/portfolio-milestones.service';
-import { PortfolioMilestone } from '../../../../core/models/portfolio-milestones.model';
+import {
+  PortfolioMilestone,
+  PortfolioMilestoneBuildResult,
+  PortfolioMilestoneCategory,
+  PortfolioUnavailableMilestone
+} from '../../../../core/models/portfolio-milestones.model';
 import { PrivacyModeService } from '../../../../core/services/privacy-mode.service';
 import { parseExcelDate } from '../../../../core/utils/value-parsing.utils';
 
@@ -35,8 +40,9 @@ export class HistoricalPageComponent {
   private cachedBalanceSeriesKey = '';
   private cachedBalanceSeries: ReturnType<ChartDataService['balanceSeries']> = [];
   private cachedMilestonesKey = '';
-  private cachedMilestones: PortfolioMilestone[] = [];
+  private cachedMilestoneReport: PortfolioMilestoneBuildResult = { detected: [], unavailable: [] };
   showAllMilestones = false;
+  showUnavailableMilestones = false;
 
   constructor(
     public readonly state: PortfolioStateService,
@@ -111,7 +117,7 @@ export class HistoricalPageComponent {
     return this.cachedBalanceSeries;
   }
 
-  historicalMilestones(snapshot: PortfolioAppState): PortfolioMilestone[] {
+  historicalMilestoneReport(snapshot: PortfolioAppState): PortfolioMilestoneBuildResult {
     const cacheKey = [
       snapshot.importedAt ?? '',
       snapshot.fileName ?? '',
@@ -119,20 +125,20 @@ export class HistoricalPageComponent {
       snapshot.dataset?.monthlySummary.length ?? 0
     ].join('|');
     if (cacheKey === this.cachedMilestonesKey) {
-      return this.cachedMilestones;
+      return this.cachedMilestoneReport;
     }
-    this.cachedMilestones = this.milestonesService.buildMilestones(snapshot);
+    this.cachedMilestoneReport = this.milestonesService.buildMilestoneReport(snapshot);
     this.cachedMilestonesKey = cacheKey;
-    return this.cachedMilestones;
+    return this.cachedMilestoneReport;
+  }
+
+  historicalMilestones(snapshot: PortfolioAppState): PortfolioMilestone[] {
+    return this.historicalMilestoneReport(snapshot).detected;
   }
 
   visibleMilestones(snapshot: PortfolioAppState): PortfolioMilestone[] {
     const milestones = this.historicalMilestones(snapshot);
     return this.showAllMilestones ? milestones : this.milestonesService.getHighlightedMilestones(milestones);
-  }
-
-  latestMilestone(snapshot: PortfolioAppState): PortfolioMilestone | null {
-    return this.milestonesService.getLatestMilestone(this.historicalMilestones(snapshot));
   }
 
   toggleMilestones(): void {
@@ -145,6 +151,44 @@ export class HistoricalPageComponent {
 
   hasIncompleteMilestones(snapshot: PortfolioAppState): boolean {
     return this.milestonesService.hasIncompleteData(snapshot) && this.historicalMilestones(snapshot).length > 0;
+  }
+
+  latestMilestone(snapshot: PortfolioAppState): PortfolioMilestone | null {
+    return this.milestonesService.getLatestMilestone(this.historicalMilestones(snapshot));
+  }
+
+  unavailableMilestones(snapshot: PortfolioAppState): PortfolioUnavailableMilestone[] {
+    return this.historicalMilestoneReport(snapshot).unavailable;
+  }
+
+  hasUnavailableMilestones(snapshot: PortfolioAppState): boolean {
+    return this.unavailableMilestones(snapshot).length > 0;
+  }
+
+  visibleMilestoneGroups(snapshot: PortfolioAppState): Array<{ category: PortfolioMilestoneCategory; label: string; items: PortfolioMilestone[] }> {
+    const visible = this.visibleMilestones(snapshot);
+    const categoryOrder = this.milestonesService.getCategoryOrder();
+    return categoryOrder
+      .map((category) => ({
+        category,
+        label: this.milestonesService.getCategoryLabel(category),
+        items: visible.filter((milestone) => milestone.category === category)
+      }))
+      .filter((group) => group.items.length > 0);
+  }
+
+  detectedCategoryCount(snapshot: PortfolioAppState): number {
+    return this.historicalMilestones(snapshot).reduce((count, milestone, index, arr) => {
+      return arr.findIndex((item) => item.category === milestone.category) === index ? count + 1 : count;
+    }, 0);
+  }
+
+  totalDetectedMilestones(snapshot: PortfolioAppState): number {
+    return this.historicalMilestones(snapshot).length;
+  }
+
+  totalUnavailableMilestones(snapshot: PortfolioAppState): number {
+    return this.unavailableMilestones(snapshot).length;
   }
 
   milestoneDate(value: string | Date | null): string {
@@ -185,22 +229,7 @@ export class HistoricalPageComponent {
   }
 
   milestoneCategoryLabel(category: PortfolioMilestone['category']): string {
-    switch (category) {
-      case 'portfolio-value':
-        return 'Valor total';
-      case 'daily-balance':
-        return 'Balance diario';
-      case 'monthly-performance':
-        return 'Mensual nominal';
-      case 'real-performance':
-        return 'Mensual real';
-      case 'benchmark-minimum':
-        return 'Benchmark';
-      case 'contribution':
-        return 'Aportes';
-      default:
-        return 'Hito';
-    }
+    return this.milestonesService.getCategoryLabel(category);
   }
 
   milestoneSeverityLabel(severity: PortfolioMilestone['severity']): string {
