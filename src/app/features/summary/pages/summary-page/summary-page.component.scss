@@ -78,6 +78,165 @@
       color: var(--muted);
       font-size: 0.92rem;
     }
+
+    .upcoming-panel {
+      gap: 0.95rem;
+    }
+    .upcoming-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+    .contribution-field {
+      display: grid;
+      gap: 0.3rem;
+      min-width: 220px;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+    .contribution-field input {
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      padding: 0.65rem 0.8rem;
+    }
+    .upcoming-summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+    .summary-chip {
+      display: grid;
+      gap: 0.1rem;
+      min-width: 190px;
+      padding: 0.8rem 0.9rem;
+      border-radius: 14px;
+      border: 1px solid var(--panel-border);
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .summary-chip span {
+      color: var(--muted);
+      font-size: 0.76rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .summary-chip strong {
+      font-size: 0.96rem;
+    }
+    .goals-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 0.85rem;
+    }
+    .goal-card {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.025));
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 18px;
+      padding: 0.95rem;
+      display: grid;
+      gap: 0.55rem;
+      align-content: start;
+    }
+    .goal-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .goal-chip {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 0.18rem 0.55rem;
+      background: rgba(148, 163, 184, 0.12);
+      color: #cbd5e1;
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      font-size: 0.72rem;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    .goal-chip.pending {
+      background: rgba(16, 185, 129, 0.12);
+      color: #86efac;
+      border-color: rgba(16, 185, 129, 0.24);
+    }
+    .goal-chip.reached {
+      background: rgba(77, 210, 200, 0.12);
+      color: #b7fff8;
+      border-color: rgba(77, 210, 200, 0.24);
+    }
+    .goal-chip.missing {
+      background: rgba(148, 163, 184, 0.12);
+      color: #cbd5e1;
+      border-color: rgba(148, 163, 184, 0.24);
+    }
+    .goal-category {
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+    .goal-card h4 {
+      margin: 0;
+      font-size: 1.02rem;
+    }
+    .goal-description,
+    .goal-card small {
+      margin: 0;
+      color: var(--muted);
+    }
+    .goal-metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.55rem;
+    }
+    .goal-metrics.unavailable {
+      grid-template-columns: 1fr;
+    }
+    .goal-metric {
+      display: grid;
+      gap: 0.15rem;
+      padding: 0.65rem 0.75rem;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+    }
+    .goal-metric span {
+      color: var(--muted);
+      font-size: 0.76rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .goal-metric strong {
+      font-size: 0.95rem;
+    }
+    .goal-breakdown {
+      display: grid;
+      gap: 0.5rem;
+    }
+    .breakdown-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem 0.7rem;
+      padding: 0.7rem 0.8rem;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.025);
+      border: 1px dashed rgba(148, 163, 184, 0.18);
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+    .breakdown-row strong {
+      color: var(--text);
+      margin-right: 0.2rem;
+    }
+    .goals-empty {
+      border: 1px dashed var(--panel-border);
+      border-radius: 16px;
+      padding: 1rem;
+      color: var(--muted);
+    }
     .link {
       color: var(--brand);
       text-decoration: none;

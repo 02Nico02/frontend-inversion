@@ -54,6 +54,128 @@
       </p>
     </article>
 
+    <section class="panel upcoming-panel">
+      <div class="upcoming-header">
+        <div>
+          <p class="eyebrow">Próximos hitos</p>
+          <h3>Objetivos cercanos</h3>
+          <p class="lead">Objetivos cercanos calculados a partir del valor actual y la estrategia del portafolio.</p>
+        </div>
+
+        <label class="contribution-field">
+          <span>Aporte mensual estimado</span>
+          <input
+            type="number"
+            min="0"
+            step="1000"
+            inputmode="numeric"
+            [ngModel]="upcomingContributionArs"
+            (ngModelChange)="persistUpcomingContribution($event)"
+            placeholder="300000"
+          />
+        </label>
+      </div>
+
+      <div class="upcoming-summary" *ngIf="upcomingGoals(snapshot) as goals">
+        <div class="summary-chip">
+          <span>Objetivos disponibles</span>
+          <strong>{{ goals.length }}</strong>
+        </div>
+        <div class="summary-chip">
+          <span>Aporte mensual</span>
+          <strong>{{ privacyMode.enabled ? 'Oculto' : (upcomingContributionArs !== null ? (upcomingContributionArs | currency:'ARS':'symbol-narrow':'1.0-0') : 'N/D') }}</strong>
+        </div>
+      </div>
+
+      <div class="goals-empty" *ngIf="!upcomingGoals(snapshot).length">
+        <p>No hay objetivos próximos para mostrar con los datos actuales.</p>
+      </div>
+
+      <div class="goals-grid" *ngIf="upcomingGoals(snapshot).length">
+        <article class="goal-card" *ngFor="let goal of upcomingGoals(snapshot)">
+          <div class="goal-head">
+            <span class="goal-chip" [class.reached]="goal.status === 'reached'" [class.pending]="goal.status === 'pending'" [class.missing]="goal.status === 'not-available'">
+              {{ goalStatusLabel(goal.status) }}
+            </span>
+            <span class="goal-category">{{ goalCategoryLabel(goal.category) }}</span>
+          </div>
+
+          <h4>{{ goal.title }}</h4>
+          <p class="goal-description">{{ goal.description }}</p>
+
+          <div class="goal-metrics" *ngIf="goal.status !== 'not-available' && goal.category !== 'strategy-balance'; else strategyGoal">
+            <div class="goal-metric">
+              <span>Actual</span>
+              <strong>{{ goalAmount(goal.currentValue, goal.currency) }}</strong>
+            </div>
+            <div class="goal-metric">
+              <span>Objetivo</span>
+              <strong>{{ goalAmount(goal.targetValue, goal.currency) }}</strong>
+            </div>
+            <div class="goal-metric">
+              <span>Faltante</span>
+              <strong>{{ goalAmount(goal.remainingAmount, goal.currency) }}</strong>
+            </div>
+            <div class="goal-metric">
+              <span>% faltante</span>
+              <strong>{{ goalPercent(goal.remainingPercent) }}</strong>
+            </div>
+            <div class="goal-metric">
+              <span>Con aporte mensual</span>
+              <strong>{{ goalMonths(goal.estimatedMonths) }}</strong>
+            </div>
+          </div>
+
+          <ng-template #strategyGoal>
+            <div class="goal-metrics" *ngIf="goal.category === 'strategy-balance'; else unavailableGoal">
+              <div class="goal-metric">
+                <span>Actual</span>
+                <strong>{{ strategyActualLabel(goal) }}</strong>
+              </div>
+              <div class="goal-metric">
+                <span>Objetivo</span>
+                <strong>{{ strategyTargetLabel() }}</strong>
+              </div>
+              <div class="goal-metric">
+                <span>Faltante</span>
+                <strong>{{ strategyPrimaryBreakdown(goal) ? goalAmount(strategyPrimaryBreakdown(goal)?.remainingAmount ?? null, strategyPrimaryBreakdown(goal)?.currency ?? null) : 'N/D' }}</strong>
+              </div>
+              <div class="goal-metric">
+                <span>% faltante</span>
+                <strong>{{ goalPercent(goal.remainingPercent) }}</strong>
+              </div>
+              <div class="goal-metric">
+                <span>Con aporte mensual</span>
+                <strong>{{ strategyPrimaryBreakdown(goal) ? goalMonths(strategyPrimaryBreakdown(goal)?.estimatedMonths ?? null) : 'N/D' }}</strong>
+              </div>
+            </div>
+          </ng-template>
+
+          <ng-template #unavailableGoal>
+            <div class="goal-metrics unavailable">
+              <div class="goal-metric">
+                <span>Estado</span>
+                <strong>No disponible</strong>
+              </div>
+            </div>
+          </ng-template>
+
+          <div class="goal-breakdown" *ngIf="goal.breakdown?.length">
+            <div class="breakdown-row" *ngFor="let item of goal.breakdown">
+              <strong>{{ goalCurrencyLabel(item.currency) }}</strong>
+              <span>Jubilación: {{ goalPercent(item.currentPercent) }}</span>
+              <span>Ahorro: {{ strategySavingsPercent(item) }}</span>
+              <span>Desvío: {{ goalPercent(item.gapPercent) }}</span>
+              <span>Falta: {{ goalAmount(item.remainingAmount, item.currency) }}</span>
+              <span *ngIf="item.estimatedMonths !== null">Aporte mensual: {{ goalMonths(item.estimatedMonths) }}</span>
+            </div>
+          </div>
+
+          <small>Fuente: {{ goal.source }}</small>
+        </article>
+      </div>
+    </section>
+
     <div class="mini-grid">
       <article class="panel">
         <p class="eyebrow">Salud de datos</p>
