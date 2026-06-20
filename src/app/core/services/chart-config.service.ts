@@ -15,6 +15,14 @@ interface LineChartConfig {
   showAverage?: boolean;
 }
 
+interface WaterfallChartConfig {
+  title: string;
+  subtitle?: string;
+  points: SeriesPoint[];
+  currency?: string;
+  valueKind?: ValueKind;
+}
+
 interface BarChartConfig {
   title: string;
   subtitle?: string;
@@ -30,6 +38,14 @@ interface LineDatum {
   date?: string | null;
   changeAmount?: number | null;
   changePercent?: number | null;
+}
+
+interface WaterfallDatum {
+  label: string;
+  delta: number;
+  base: number;
+  cumulative: number;
+  date?: string | null;
 }
 
 interface BarDatum {
@@ -213,6 +229,168 @@ export class ChartConfigService {
                 data: [{ yAxis: average }]
               }
             : undefined
+        }
+      ]
+    };
+  }
+
+  waterfallChart(config: WaterfallChartConfig): EChartsCoreOption {
+    const points = this.normalizeLinePoints(config.points);
+    const currency = config.currency ?? 'UNKNOWN';
+    const valueKind = config.valueKind ?? 'money';
+    const data = this.buildWaterfallData(points);
+    const showZoom = data.length > 20;
+
+    return {
+      backgroundColor: 'transparent',
+      color: this.colors,
+      animationDuration: 300,
+      grid: {
+        left: 56,
+        right: 28,
+        top: 56,
+        bottom: showZoom ? 72 : 44
+      },
+      tooltip: this.buildWaterfallTooltip(currency, valueKind),
+      axisPointer: {
+        type: 'cross',
+        snap: true,
+        lineStyle: {
+          color: 'rgba(229, 238, 252, 0.45)',
+          width: 1,
+          type: 'dashed'
+        },
+        crossStyle: {
+          color: 'rgba(229, 238, 252, 0.45)',
+          width: 1,
+          type: 'dashed'
+        },
+        label: {
+          backgroundColor: 'rgba(8, 12, 24, 0.96)',
+          color: '#e5eefc'
+        }
+      },
+      toolbox: {
+        right: 10,
+        top: 10,
+        feature: {
+          restore: {},
+          saveAsImage: {
+            pixelRatio: 2
+          }
+        }
+      },
+      xAxis: {
+        type: 'category',
+        boundaryGap: true,
+        data: data.map((point) => point.label),
+        axisLine: {
+          lineStyle: {
+            color: 'rgba(148, 163, 184, 0.35)'
+          }
+        },
+        axisTick: {
+          show: false
+        },
+        axisLabel: {
+          color: '#9db0d1',
+          hideOverlap: true
+        }
+      },
+      yAxis: {
+        type: 'value',
+        splitNumber: 4,
+        axisPointer: {
+          show: true,
+          type: 'line',
+          snap: true,
+          lineStyle: {
+            color: 'rgba(229, 238, 252, 0.45)',
+            width: 1,
+            type: 'dashed'
+          }
+        },
+        axisLabel: {
+          color: '#9db0d1',
+          formatter: (value: number) => this.formatAxisValue(value, valueKind, currency)
+        },
+        splitLine: {
+          lineStyle: {
+            color: 'rgba(255, 255, 255, 0.08)'
+          }
+        },
+        axisLine: {
+          lineStyle: {
+            color: 'rgba(148, 163, 184, 0.25)'
+          }
+        }
+      },
+      dataZoom: showZoom
+        ? [
+            {
+              type: 'inside',
+              xAxisIndex: 0,
+              filterMode: 'filter',
+              zoomOnMouseWheel: true,
+              moveOnMouseWheel: true,
+              moveOnMouseMove: false,
+              throttle: 30
+            },
+            {
+              type: 'slider',
+              xAxisIndex: 0,
+              height: 22,
+              bottom: 18,
+              filterMode: 'filter',
+              brushSelect: false,
+              borderColor: 'rgba(148, 163, 184, 0.2)',
+              backgroundColor: 'rgba(255, 255, 255, 0.04)',
+              fillerColor: 'rgba(77, 210, 200, 0.22)',
+              handleStyle: {
+                color: '#4dd2c8',
+                borderColor: '#4dd2c8'
+              },
+              textStyle: {
+                color: '#9db0d1'
+              }
+            }
+          ]
+        : undefined,
+      series: [
+        {
+          type: 'custom',
+          coordinateSystem: 'cartesian2d',
+          data: data.map((item) => [item.label, item.base, item.cumulative, item.delta, item.date ?? null]),
+          renderItem: (params: any, api: any) => {
+            const category = api.value(0);
+            const start = api.coord([category, api.value(1)]);
+            const end = api.coord([category, api.value(2)]);
+            const width = Math.max(6, api.size([1, 0])[0] * 0.58);
+            const x = start[0] - width / 2;
+            const y = Math.min(start[1], end[1]);
+            const height = Math.max(2, Math.abs(start[1] - end[1]));
+            const delta = Number(api.value(3) ?? 0);
+            const fill = delta >= 0 ? '#4dd2c8' : '#f97316';
+            return {
+              type: 'rect',
+              shape: {
+                x,
+                y,
+                width,
+                height
+              },
+              style: api.style({
+                fill,
+                stroke: fill
+              })
+            };
+          },
+          itemStyle: {
+            opacity: 0.96
+          },
+          emphasis: {
+            focus: 'self'
+          }
         }
       ]
     };
@@ -411,6 +589,45 @@ export class ChartConfigService {
     };
   }
 
+  private buildWaterfallTooltip(currency: string, valueKind: ValueKind) {
+    return {
+      trigger: 'item',
+      triggerOn: 'mousemove|click',
+      confine: true,
+      backgroundColor: 'rgba(8, 12, 24, 0.96)',
+      borderColor: 'rgba(148, 163, 184, 0.18)',
+      textStyle: {
+        color: '#e5eefc'
+      },
+      formatter: (params: unknown) => {
+        const item = params as {
+          name?: string;
+          data?: [string, number, number, number, string | null];
+          seriesName?: string;
+        };
+        const payload = Array.isArray(item.data) ? item.data : null;
+        const label = item.name ?? payload?.[0] ?? '';
+        const start = payload ? Number(payload[1] ?? 0) : null;
+        const end = payload ? Number(payload[2] ?? 0) : null;
+        const delta = payload ? Number(payload[3] ?? 0) : null;
+        const lines: string[] = [];
+        if (label) {
+          lines.push(`<strong>${label}</strong>`);
+        }
+        if (typeof start === 'number' && Number.isFinite(start)) {
+          lines.push(`Inicio del día: ${this.formatAxisValue(start, valueKind, currency)}`);
+        }
+        if (typeof end === 'number' && Number.isFinite(end)) {
+          lines.push(`Fin del día: ${this.formatAxisValue(end, valueKind, currency)}`);
+        }
+        if (typeof delta === 'number' && Number.isFinite(delta)) {
+          lines.push(`Variación diaria: ${this.formatAxisValue(delta, valueKind, currency)}`);
+        }
+        return lines.join('<br/>');
+      }
+    };
+  }
+
   private normalizeLinePoints(points: SeriesPoint[]): LineDatum[] {
     return [...points]
       .filter((point) => point.value !== null && point.value !== undefined)
@@ -422,6 +639,22 @@ export class ChartConfigService {
         changePercent: point.changePercent ?? null
       }))
       .filter((point) => !!point.label);
+  }
+
+  private buildWaterfallData(points: LineDatum[]): WaterfallDatum[] {
+    let cumulative = 0;
+    return points.map((point) => {
+      const delta = Number(point.value ?? 0);
+      const base = cumulative;
+      cumulative += delta;
+      return {
+        label: point.label,
+        delta,
+        base,
+        cumulative,
+        date: point.date ?? null
+      };
+    });
   }
 
   private normalizeBars(points: ChartPoint[], topN: number, includeOther: boolean): BarDatum[] {

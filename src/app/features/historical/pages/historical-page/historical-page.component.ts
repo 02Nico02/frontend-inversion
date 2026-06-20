@@ -8,6 +8,9 @@ import { PortfolioCalculatorService } from '../../../../core/services/portfolio-
 import { ChartDataService } from '../../../../core/services/chart-data.service';
 import { CurrencyMapperService } from '../../../../core/services/currency-mapper.service';
 import { PortfolioAppState } from '../../../../core/services/portfolio-state.service';
+import { PortfolioMilestonesService } from '../../../../core/services/portfolio-milestones.service';
+import { PortfolioMilestone } from '../../../../core/models/portfolio-milestones.model';
+import { PrivacyModeService } from '../../../../core/services/privacy-mode.service';
 import { parseExcelDate } from '../../../../core/utils/value-parsing.utils';
 
 type DatePeriod = 'ALL' | '1M' | '3M' | '6M' | 'YTD' | '1Y' | 'CUSTOM';
@@ -23,7 +26,7 @@ export class HistoricalPageComponent {
   pricePeriod: DatePeriod = 'ALL';
   priceRangeStart = '';
   priceRangeEnd = '';
-  balancePeriod: DatePeriod = 'ALL';
+  balancePeriod: DatePeriod = 'YTD';
   balanceRangeStart = '';
   balanceRangeEnd = '';
 
@@ -31,12 +34,17 @@ export class HistoricalPageComponent {
   private cachedPriceSeries: ReturnType<ChartDataService['priceSeries']> = [];
   private cachedBalanceSeriesKey = '';
   private cachedBalanceSeries: ReturnType<ChartDataService['balanceSeries']> = [];
+  private cachedMilestonesKey = '';
+  private cachedMilestones: PortfolioMilestone[] = [];
+  showAllMilestones = false;
 
   constructor(
     public readonly state: PortfolioStateService,
     private readonly calculator: PortfolioCalculatorService,
     private readonly chartData: ChartDataService,
-    private readonly currencyMapper: CurrencyMapperService
+    private readonly currencyMapper: CurrencyMapperService,
+    private readonly milestonesService: PortfolioMilestonesService,
+    public readonly privacyMode: PrivacyModeService
   ) {}
 
   historicalSpeciesOptions(snapshot: PortfolioAppState): HistoricalSymbolOption[] {
@@ -101,6 +109,113 @@ export class HistoricalPageComponent {
     this.cachedBalanceSeries = this.chartData.balanceSeries(this.filterHistoricalByPeriod(raw, this.balancePeriod, this.balanceRangeStart, this.balanceRangeEnd));
     this.cachedBalanceSeriesKey = cacheKey;
     return this.cachedBalanceSeries;
+  }
+
+  historicalMilestones(snapshot: PortfolioAppState): PortfolioMilestone[] {
+    const cacheKey = [
+      snapshot.importedAt ?? '',
+      snapshot.fileName ?? '',
+      snapshot.dataset?.dailyBalances.length ?? 0,
+      snapshot.dataset?.monthlySummary.length ?? 0
+    ].join('|');
+    if (cacheKey === this.cachedMilestonesKey) {
+      return this.cachedMilestones;
+    }
+    this.cachedMilestones = this.milestonesService.buildMilestones(snapshot);
+    this.cachedMilestonesKey = cacheKey;
+    return this.cachedMilestones;
+  }
+
+  visibleMilestones(snapshot: PortfolioAppState): PortfolioMilestone[] {
+    const milestones = this.historicalMilestones(snapshot);
+    return this.showAllMilestones ? milestones : this.milestonesService.getHighlightedMilestones(milestones);
+  }
+
+  latestMilestone(snapshot: PortfolioAppState): PortfolioMilestone | null {
+    return this.milestonesService.getLatestMilestone(this.historicalMilestones(snapshot));
+  }
+
+  toggleMilestones(): void {
+    this.showAllMilestones = !this.showAllMilestones;
+  }
+
+  hasMoreMilestones(snapshot: PortfolioAppState): boolean {
+    return this.historicalMilestones(snapshot).length > this.milestonesService.getHighlightedMilestones(this.historicalMilestones(snapshot)).length;
+  }
+
+  hasIncompleteMilestones(snapshot: PortfolioAppState): boolean {
+    return this.milestonesService.hasIncompleteData(snapshot) && this.historicalMilestones(snapshot).length > 0;
+  }
+
+  milestoneDate(value: string | Date | null): string {
+    if (!value) {
+      return 'N/D';
+    }
+    const date = value instanceof Date ? value : parseExcelDate(value);
+    if (!date) {
+      return 'N/D';
+    }
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const year = date.getUTCFullYear();
+    return `${day}-${month}-${year}`;
+  }
+
+  milestoneValue(milestone: PortfolioMilestone): string {
+    if (this.privacyMode.enabled) {
+      return 'Oculto';
+    }
+    if (milestone.value !== null && milestone.currency) {
+      return this.currencyMapper.formatCurrency(milestone.value, milestone.currency);
+    }
+    if (milestone.value !== null) {
+      return this.currencyMapper.formatNumber(milestone.value);
+    }
+    if (milestone.percent !== null) {
+      return this.currencyMapper.formatPercentage(milestone.percent);
+    }
+    return 'N/D';
+  }
+
+  milestonePercent(milestone: PortfolioMilestone): string {
+    if (milestone.percent === null || milestone.percent === undefined) {
+      return 'N/D';
+    }
+    return this.currencyMapper.formatPercentage(milestone.percent);
+  }
+
+  milestoneCategoryLabel(category: PortfolioMilestone['category']): string {
+    switch (category) {
+      case 'portfolio-value':
+        return 'Valor total';
+      case 'daily-balance':
+        return 'Balance diario';
+      case 'monthly-performance':
+        return 'Mensual nominal';
+      case 'real-performance':
+        return 'Mensual real';
+      case 'benchmark-minimum':
+        return 'Benchmark';
+      case 'contribution':
+        return 'Aportes';
+      default:
+        return 'Hito';
+    }
+  }
+
+  milestoneSeverityLabel(severity: PortfolioMilestone['severity']): string {
+    switch (severity) {
+      case 'positive':
+        return 'Positivo';
+      case 'negative':
+        return 'Negativo';
+      case 'neutral':
+        return 'Neutro';
+      case 'warning':
+        return 'Aviso';
+      default:
+        return 'Hito';
+    }
   }
 
   historicalPriceStats(snapshot: PortfolioAppState) {

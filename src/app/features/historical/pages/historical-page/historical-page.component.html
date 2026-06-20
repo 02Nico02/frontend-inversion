@@ -1,81 +1,144 @@
 <section class="page" *ngIf="state.snapshot as snapshot">
-      <header class="page-header">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Histórico</p>
+      <h2>Precio histórico y evolución diaria</h2>
+      <p class="lead">Elegí una especie para revisar su serie y comparar contra la evolución diaria del workbook.</p>
+    </div>
+  </header>
+
+  <ng-container *ngIf="snapshot.dataset; else emptyState">
+    <section class="panel">
+      <div class="toolbar">
+        <app-historical-symbol-combobox
+          [options]="historicalSpeciesOptions(snapshot)"
+          [(selectedSymbol)]="selectedHistoricalSymbol"
+        ></app-historical-symbol-combobox>
+        <label class="period">
+          <span>Período</span>
+          <select [(ngModel)]="pricePeriod">
+            <option value="ALL">Todo</option>
+            <option value="1M">1M</option>
+            <option value="3M">3M</option>
+            <option value="6M">6M</option>
+            <option value="YTD">YTD</option>
+            <option value="1Y">1A</option>
+            <option value="CUSTOM">Personalizado</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="date-range" *ngIf="pricePeriod === 'CUSTOM'">
+        <label><span>Desde</span><input type="date" [(ngModel)]="priceRangeStart" /></label>
+        <label><span>Hasta</span><input type="date" [(ngModel)]="priceRangeEnd" /></label>
+      </div>
+
+      <app-simple-chart
+        title="Precio histórico"
+        [subtitle]="selectedHistoricalLabel(snapshot)"
+        mode="line"
+        [points]="historicalPriceSeries(snapshot)"
+        [currency]="selectedHistoricalCurrency(snapshot)"
+        valueKind="money">
+      </app-simple-chart>
+
+      <div class="stats-row" *ngIf="historicalPriceStats(snapshot) as stats">
+        <span>Desde: {{ stats.startDate || 'N/D' }}</span>
+        <span>Hasta: {{ stats.endDate || 'N/D' }}</span>
+        <span>Inicial: {{ formatNumber(stats.initial) }}</span>
+        <span>Final: {{ formatNumber(stats.final) }}</span>
+        <span>Var: {{ formatNumber(stats.variationAmount) }}</span>
+        <span>Var %: {{ percent(stats.variationPercent) }}</span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="title-row">
         <div>
-          <p class="eyebrow">Histórico</p>
-          <h2>Precio histórico y evolución diaria</h2>
-          <p class="lead">Elegí una especie para revisar su serie y comparar contra la evolución diaria del workbook.</p>
+          <p class="eyebrow">Evolución diaria</p>
+          <h3>Serie de evolución</h3>
         </div>
-      </header>
+        <label class="period">
+          <span>Período</span>
+          <select [(ngModel)]="balancePeriod">
+            <option value="ALL">Todo</option>
+            <option value="1M">1M</option>
+            <option value="3M">3M</option>
+            <option value="6M">6M</option>
+            <option value="YTD">YTD</option>
+            <option value="1Y">1A</option>
+            <option value="CUSTOM">Personalizado</option>
+          </select>
+        </label>
+      </div>
 
-      <ng-container *ngIf="snapshot.dataset; else emptyState">
-        <section class="panel">
-          <div class="toolbar">
-            <app-historical-symbol-combobox
-              [options]="historicalSpeciesOptions(snapshot)"
-              [(selectedSymbol)]="selectedHistoricalSymbol"
-            ></app-historical-symbol-combobox>
-            <label class="period">
-              <span>Período</span>
-              <select [(ngModel)]="pricePeriod">
-                <option value="ALL">Todo</option>
-                <option value="1M">1M</option>
-                <option value="3M">3M</option>
-                <option value="6M">6M</option>
-                <option value="YTD">YTD</option>
-                <option value="1Y">1A</option>
-                <option value="CUSTOM">Personalizado</option>
-              </select>
-            </label>
-          </div>
+      <div class="date-range" *ngIf="balancePeriod === 'CUSTOM'">
+        <label><span>Desde</span><input type="date" [(ngModel)]="balanceRangeStart" /></label>
+        <label><span>Hasta</span><input type="date" [(ngModel)]="balanceRangeEnd" /></label>
+      </div>
 
-          <div class="date-range" *ngIf="pricePeriod === 'CUSTOM'">
-            <label><span>Desde</span><input type="date" [(ngModel)]="priceRangeStart" /></label>
-            <label><span>Hasta</span><input type="date" [(ngModel)]="priceRangeEnd" /></label>
-          </div>
+      <app-simple-chart
+        title="Evolución diaria"
+        subtitle="Serie histórica"
+        mode="waterfall"
+        [points]="balanceSeries(snapshot)"
+        currency="UNKNOWN"
+        valueKind="money">
+      </app-simple-chart>
+    </section>
 
-          <app-simple-chart title="Precio histórico" [subtitle]="selectedHistoricalLabel(snapshot)" mode="line" [points]="historicalPriceSeries(snapshot)" [currency]="selectedHistoricalCurrency(snapshot)" valueKind="money"></app-simple-chart>
+    <section class="panel milestones-panel">
+      <div class="title-row">
+        <div>
+          <p class="eyebrow">Hitos del portafolio</p>
+          <h3>Momentos importantes detectados</h3>
+          <p class="lead">Resumen compacto de cruces, máximos, caídas y mejores meses detectados a partir del historial disponible.</p>
+        </div>
+        <button type="button" class="toggle-button" *ngIf="hasMoreMilestones(snapshot)" (click)="toggleMilestones()">
+          {{ showAllMilestones ? 'Ver menos' : 'Ver más' }}
+        </button>
+      </div>
 
-          <div class="stats-row" *ngIf="historicalPriceStats(snapshot) as stats">
-            <span>Desde: {{ stats.startDate || 'N/D' }}</span>
-            <span>Hasta: {{ stats.endDate || 'N/D' }}</span>
-            <span>Inicial: {{ formatNumber(stats.initial) }}</span>
-            <span>Final: {{ formatNumber(stats.final) }}</span>
-            <span>Var: {{ formatNumber(stats.variationAmount) }}</span>
-            <span>Var %: {{ percent(stats.variationPercent) }}</span>
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="title-row">
-            <div>
-              <p class="eyebrow">Evolución diaria</p>
-              <h3>Serie de evolución</h3>
+      <ng-container *ngIf="visibleMilestones(snapshot) as milestones">
+        <div class="milestone-grid" *ngIf="milestones.length > 0; else noMilestones">
+          <article class="milestone-card" *ngFor="let milestone of milestones">
+            <div class="milestone-head">
+              <span class="chip">{{ milestoneCategoryLabel(milestone.category) }}</span>
+              <span class="chip" [class.positive]="milestone.severity === 'positive'" [class.negative]="milestone.severity === 'negative'">
+                {{ milestoneSeverityLabel(milestone.severity) }}
+              </span>
             </div>
-            <label class="period">
-              <span>Período</span>
-              <select [(ngModel)]="balancePeriod">
-                <option value="ALL">Todo</option>
-                <option value="1M">1M</option>
-                <option value="3M">3M</option>
-                <option value="6M">6M</option>
-                <option value="YTD">YTD</option>
-                <option value="1Y">1A</option>
-                <option value="CUSTOM">Personalizado</option>
-              </select>
-            </label>
-          </div>
-          <div class="date-range" *ngIf="balancePeriod === 'CUSTOM'">
-            <label><span>Desde</span><input type="date" [(ngModel)]="balanceRangeStart" /></label>
-            <label><span>Hasta</span><input type="date" [(ngModel)]="balanceRangeEnd" /></label>
-          </div>
-          <app-simple-chart title="Evolución diaria" subtitle="Serie histórica" mode="line" [points]="balanceSeries(snapshot)" currency="UNKNOWN" valueKind="money"></app-simple-chart>
-        </section>
+            <h4>{{ milestone.title }}</h4>
+            <div class="milestone-meta">
+              <span>{{ milestoneDate(milestone.date) }}</span>
+              <strong>{{ milestoneValue(milestone) }}</strong>
+            </div>
+            <p>{{ milestone.description }}</p>
+            <small>Fuente: {{ milestone.source }}</small>
+            <small *ngIf="milestone.percent !== null && milestone.percent !== undefined">
+              Referencia porcentual: {{ milestonePercent(milestone) }}
+            </small>
+          </article>
+        </div>
       </ng-container>
 
-      <ng-template #emptyState>
-        <article class="panel empty">
-          <h3>No hay datos cargados</h3>
-          <p>Importá el Excel para ver el histórico.</p>
+      <ng-template #noMilestones>
+        <article class="empty-hits">
+          <h4>No hay hitos suficientes</h4>
+          <p>Importá más historial para detectar cruces, máximos y cambios relevantes.</p>
         </article>
       </ng-template>
+
+      <p class="benchmark-note" *ngIf="hasIncompleteMilestones(snapshot)">
+        Algunos hitos no se calcularon por falta de historial suficiente.
+      </p>
     </section>
+  </ng-container>
+
+  <ng-template #emptyState>
+    <article class="panel empty">
+      <h3>No hay datos cargados</h3>
+      <p>Importá el Excel para ver el histórico.</p>
+    </article>
+  </ng-template>
+</section>

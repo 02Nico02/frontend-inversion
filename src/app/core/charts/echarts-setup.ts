@@ -11,7 +11,7 @@ import {
   ToolboxComponent,
   TooltipComponent
 } from 'echarts/components';
-import { BarChart, LineChart } from 'echarts/charts';
+import { BarChart, CustomChart, LineChart } from 'echarts/charts';
 import { CanvasRenderer } from 'echarts/renderers';
 import { LabelLayout, UniversalTransition } from 'echarts/features';
 
@@ -25,6 +25,7 @@ echarts.use([
   GraphicComponent,
   LegendComponent,
   LineChart,
+  CustomChart,
   MarkLineComponent,
   MarkPointComponent,
   TitleComponent,

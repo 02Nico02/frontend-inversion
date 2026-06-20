@@ -16,7 +16,7 @@ import { ChartConfigService } from '../../../core/services/chart-config.service'
 export class SimpleChartComponent {
   private _title = '';
   private _subtitle = '';
-  private _mode: 'bars' | 'line' = 'bars';
+  private _mode: 'bars' | 'line' | 'waterfall' = 'bars';
   private _points: Array<ChartPoint | SeriesPoint> = [];
   private _currency = 'UNKNOWN';
   private _valueKind: 'number' | 'money' | 'percent' = 'number';
@@ -48,11 +48,11 @@ export class SimpleChartComponent {
   }
 
   @Input()
-  set mode(value: 'bars' | 'line') {
+  set mode(value: 'bars' | 'line' | 'waterfall') {
     this._mode = value ?? 'bars';
     this.rebuildOptions();
   }
-  get mode(): 'bars' | 'line' {
+  get mode(): 'bars' | 'line' | 'waterfall' {
     return this._mode;
   }
 
@@ -134,22 +134,36 @@ export class SimpleChartComponent {
   }
 
   private rebuildOptions(): void {
-    this.chartOptions = this._mode === 'bars'
-      ? this.chartConfig.barChart({
-          title: this._title,
-          subtitle: this._subtitle,
-          points: this._points as ChartPoint[],
-          currency: this._currency,
-          topN: this._topN,
-          includeOther: this._includeOther
-        })
-      : this.chartConfig.lineChart({
-          title: this._title,
-          subtitle: this._subtitle,
-          points: this._points as SeriesPoint[],
-          currency: this._currency,
-          valueKind: this._valueKind,
-          showAverage: this._showAverage
-        });
+    if (this._mode === 'bars') {
+      this.chartOptions = this.chartConfig.barChart({
+        title: this._title,
+        subtitle: this._subtitle,
+        points: this._points as ChartPoint[],
+        currency: this._currency,
+        topN: this._topN,
+        includeOther: this._includeOther
+      });
+      return;
+    }
+
+    if (this._mode === 'waterfall') {
+      this.chartOptions = this.chartConfig.waterfallChart({
+        title: this._title,
+        subtitle: this._subtitle,
+        points: this._points as SeriesPoint[],
+        currency: this._currency,
+        valueKind: this._valueKind
+      });
+      return;
+    }
+
+    this.chartOptions = this.chartConfig.lineChart({
+      title: this._title,
+      subtitle: this._subtitle,
+      points: this._points as SeriesPoint[],
+      currency: this._currency,
+      valueKind: this._valueKind,
+      showAverage: this._showAverage
+    });
   }
 }
