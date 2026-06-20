@@ -26,6 +26,14 @@ interface MonthlyPoint extends MonthlyInvestmentSummary {
 }
 
 const THRESHOLDS = [1_000_000, 5_000_000, 10_000_000];
+const HIGHLIGHTED_MILESTONE_IDS = [
+  'max-monthly-value',
+  'value-threshold-1000000',
+  'value-threshold-5000000',
+  'largest-daily-increase',
+  'largest-daily-drop',
+  'largest-monthly-result'
+];
 const CATEGORY_ORDER: PortfolioMilestoneCategory[] = [
   'portfolio-value',
   'daily-balance',
@@ -53,7 +61,7 @@ export class PortfolioMilestonesService {
 
     detected.push(...this.buildMonthlyNominalMilestones(monthly));
     detected.push(...this.buildMonthlyRealMilestones(monthly));
-    unavailable.push(...this.buildBenchmarkMinimumMilestones(snapshot));
+    unavailable.push(...this.buildBenchmarkMinimumMilestones());
 
     const orderedDetected = detected
       .sort((left, right) => {
@@ -92,11 +100,32 @@ export class PortfolioMilestonesService {
   }
 
   getLatestMilestone(milestones: PortfolioMilestone[]): PortfolioMilestone | null {
-    return milestones.length ? milestones[0] : null;
+    return [...milestones]
+      .filter((item) => this.dateValue(item.date) > 0)
+      .sort((left, right) => this.dateValue(right.date) - this.dateValue(left.date))[0] ?? null;
   }
 
   getHighlightedMilestones(milestones: PortfolioMilestone[]): PortfolioMilestone[] {
-    return milestones.slice(0, 6);
+    const byId = new Map(milestones.map((item) => [item.id, item] as const));
+    const highlighted: PortfolioMilestone[] = [];
+
+    for (const id of HIGHLIGHTED_MILESTONE_IDS) {
+      const milestone = byId.get(id);
+      if (milestone && !highlighted.some((item) => item.id === milestone.id)) {
+        highlighted.push(milestone);
+      }
+    }
+
+    for (const milestone of milestones) {
+      if (highlighted.length >= 6) {
+        break;
+      }
+      if (!highlighted.some((item) => item.id === milestone.id)) {
+        highlighted.push(milestone);
+      }
+    }
+
+    return highlighted.slice(0, 6);
   }
 
   hasIncompleteData(snapshot: PortfolioAppState): boolean {
@@ -294,16 +323,16 @@ export class PortfolioMilestonesService {
     }, null);
 
     if (bestNominal) {
-      result.push(this.monthlyPercentMilestone(bestNominal, 'best-nominal-month', 'Mejor mes nominal', 'Mayor Variación % mensual.', 'positive', 'monthly-performance', 4, bestNominal.variationPercent));
+      result.push(this.monthlyPercentMilestone(bestNominal, 'best-nominal-month', 'Mejor mes nominal', 'Mayor variación % mensual.', 'positive', 'monthly-performance', 4, bestNominal.variationPercent));
     }
     if (worstNominal) {
-      result.push(this.monthlyPercentMilestone(worstNominal, 'worst-nominal-month', 'Peor mes nominal', 'Menor Variación % mensual.', 'negative', 'monthly-performance', 4, worstNominal.variationPercent));
+      result.push(this.monthlyPercentMilestone(worstNominal, 'worst-nominal-month', 'Peor mes nominal', 'Menor variación % mensual.', 'negative', 'monthly-performance', 4, worstNominal.variationPercent));
     }
     if (maxContribution) {
       result.push(maxContribution);
     }
     if (maxResult) {
-      result.push(this.monthlyMoneyMilestone(maxResult, 'largest-monthly-result', 'Mes con mayor resultado por rendimiento', 'Mayor Resultado mensual registrado.', 'positive', 'monthly-performance', 4, maxResult.result));
+      result.push(this.monthlyMoneyMilestone(maxResult, 'largest-monthly-result', 'Mes con mayor resultado por rendimiento', 'Mayor resultado mensual registrado.', 'positive', 'monthly-performance', 4, maxResult.result));
     }
 
     return result;
@@ -331,23 +360,19 @@ export class PortfolioMilestonesService {
     const firstPositive = validReal.find((item) => (item.realReturnPercent ?? 0) > 0) ?? null;
 
     if (bestReal) {
-      result.push(this.monthlyPercentMilestone(bestReal, 'best-real-month', 'Mejor mes real', 'Mayor Rendimiento real % mensual.', 'positive', 'real-performance', 5, bestReal.realReturnPercent));
+      result.push(this.monthlyPercentMilestone(bestReal, 'best-real-month', 'Mejor mes real', 'Mayor rendimiento real % mensual.', 'positive', 'real-performance', 5, bestReal.realReturnPercent));
     }
     if (worstReal) {
-      result.push(this.monthlyPercentMilestone(worstReal, 'worst-real-month', 'Peor mes real', 'Menor Rendimiento real % mensual.', 'negative', 'real-performance', 5, worstReal.realReturnPercent));
+      result.push(this.monthlyPercentMilestone(worstReal, 'worst-real-month', 'Peor mes real', 'Menor rendimiento real % mensual.', 'negative', 'real-performance', 5, worstReal.realReturnPercent));
     }
     if (firstPositive) {
-      result.push(this.monthlyPercentMilestone(firstPositive, 'first-positive-real-month', 'Primer mes positivo real', 'Primer mes con Rendimiento real % mayor a cero.', 'positive', 'real-performance', 5, firstPositive.realReturnPercent));
+      result.push(this.monthlyPercentMilestone(firstPositive, 'first-positive-real-month', 'Primer mes positivo real', 'Primer mes con rendimiento real % mayor a cero.', 'positive', 'real-performance', 5, firstPositive.realReturnPercent));
     }
 
     return result;
   }
 
-  private buildBenchmarkMinimumMilestones(snapshot: PortfolioAppState): PortfolioUnavailableMilestone[] {
-    const hasBenchmark = (snapshot.dataset?.calendarBenchmarks?.length ?? 0) > 0;
-    if (hasBenchmark) {
-      return [];
-    }
+  private buildBenchmarkMinimumMilestones(): PortfolioUnavailableMilestone[] {
     return [
       {
         id: 'first-month-above-minimum-benchmark',
@@ -380,10 +405,9 @@ export class PortfolioMilestonesService {
       return null;
     }
 
-    const contributionValue = best.value;
     const description = best.net
-      ? 'Mayor aporte neto del mes calculado como Compras menos Ventas.'
-      : 'Mayor aporte bruto del mes según Compras.';
+      ? 'Mayor aporte neto del mes calculado como compras menos ventas.'
+      : 'Mayor aporte bruto del mes según compras.';
 
     return {
       priority: 4,
@@ -394,7 +418,7 @@ export class PortfolioMilestonesService {
         category: 'contribution',
         severity: 'neutral',
         date: best.item.date ?? null,
-        value: contributionValue,
+        value: best.value,
         percent: null,
         currency: 'ARS',
         source: 'HistorialMensualReconstruido'

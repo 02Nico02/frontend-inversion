@@ -232,6 +232,19 @@ export class HistoricalPageComponent {
     return this.milestonesService.getCategoryLabel(category);
   }
 
+  unavailableMilestoneReasonLabel(reason: PortfolioUnavailableMilestone['reason']): string {
+    switch (reason) {
+      case 'not-reached':
+        return 'Todavía no alcanzado';
+      case 'missing-data':
+        return 'Sin datos suficientes';
+      case 'not-supported-yet':
+        return 'No soportado todavía';
+      default:
+        return 'No disponible';
+    }
+  }
+
   milestoneSeverityLabel(severity: PortfolioMilestone['severity']): string {
     switch (severity) {
       case 'positive':

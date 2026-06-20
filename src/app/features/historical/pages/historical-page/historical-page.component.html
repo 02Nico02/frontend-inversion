@@ -92,7 +92,7 @@
         <div>
           <p class="eyebrow">Hitos del portafolio</p>
           <h3>Momentos importantes detectados</h3>
-          <p class="lead">Resumen compacto de cruces, máximos, caídas y mejores meses detectados a partir del historial disponible.</p>
+          <p class="lead">Resumen compacto de cruces de valor, balances diarios y mejores/peores meses detectados a partir del historial disponible.</p>
         </div>
 
         <div class="milestones-stats">
@@ -105,7 +105,7 @@
             <strong>{{ detectedCategoryCount(snapshot) }}</strong>
           </div>
           <div class="milestone-stat">
-            <span>Pendientes</span>
+            <span>No disponibles</span>
             <strong>{{ totalUnavailableMilestones(snapshot) }}</strong>
           </div>
           <div class="milestone-stat" *ngIf="latestMilestone(snapshot) as latest">
@@ -167,8 +167,10 @@
 
         <ul class="unavailable-list" *ngIf="showUnavailableMilestones">
           <li *ngFor="let item of unavailableMilestones(snapshot)">
-            <strong>{{ item.title }}:</strong>
+            <strong>{{ item.title }}</strong>
+            <span class="reason">{{ unavailableMilestoneReasonLabel(item.reason) }}</span>
             <span>{{ item.description }}</span>
+            <small *ngIf="item.requiredSource">Fuente requerida: {{ item.requiredSource }}</small>
           </li>
         </ul>
       </div>

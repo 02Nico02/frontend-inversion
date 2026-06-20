@@ -248,8 +248,18 @@
   gap: 0.45rem;
 }
 
+.unavailable-list li {
+  display: grid;
+  gap: 0.12rem;
+}
+
 .unavailable-list li strong {
   color: var(--text);
+}
+
+.reason {
+  color: #93c5fd;
+  font-size: 0.82rem;
 }
 
 .milestones-empty {
