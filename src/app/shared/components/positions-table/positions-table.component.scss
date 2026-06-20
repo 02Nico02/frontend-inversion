@@ -131,8 +131,10 @@
     }
     .table-wrap {
       overflow: auto;
+      max-height: calc(100vh - 20rem);
       border-radius: var(--radius-sm);
       border: 1px solid var(--panel-border);
+      overscroll-behavior: contain;
     }
     table {
       width: 100%;
@@ -146,13 +148,18 @@
       white-space: nowrap;
     }
     td { text-align: left; }
-    th {
+    thead th {
       position: sticky;
       top: 0;
       background: #121b35;
       color: var(--muted);
       font-weight: 600;
-      z-index: 2;
+      z-index: 4;
+      box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+    }
+    thead th.sticky-col {
+      left: 0;
+      z-index: 5;
     }
     .sticky-col {
       position: sticky;
@@ -187,6 +194,7 @@
     tbody tr:hover td {
       background: rgba(255, 255, 255, 0.03);
     }
+    tbody tr:hover th,
     tbody tr:hover .sticky-col {
       background: #182041;
     }
