@@ -12,14 +12,14 @@
       </div>
       <div class="hero-metrics">
         <div>
-          <span>Resultado $</span>
+          <span>{{ hasMovementAdjustments(asset) ? 'Resultado ajustado' : 'Resultado efectivo' }}</span>
           <strong class="metric-value" [class.positive]="summaryResultAmount(asset) >= 0" [class.negative]="summaryResultAmount(asset) < 0">
             <span class="metric-value__text">{{ formatMoney(summaryResultAmount(asset), asset.position.currency) }}</span>
             <span *ngIf="hasMovementAdjustments(asset)" class="adjusted-info" [attr.title]="movementTooltip(asset) || undefined" aria-label="Resultado ajustado por movimientos de inversión">i</span>
           </strong>
         </div>
         <div>
-          <span>Resultado %</span>
+          <span>{{ hasMovementAdjustments(asset) ? 'Resultado ajustado %' : 'Resultado efectivo %' }}</span>
           <strong class="metric-value" [class.positive]="(summaryResultPercent(asset) ?? 0) >= 0" [class.negative]="(summaryResultPercent(asset) ?? 0) < 0">
             <span class="metric-value__text">{{ formatPercent(summaryResultPercent(asset)) }}</span>
             <span *ngIf="hasMovementAdjustments(asset)" class="adjusted-info" [attr.title]="movementTooltip(asset) || undefined" aria-label="Resultado ajustado por movimientos de inversión">i</span>
@@ -47,14 +47,14 @@
           <div><span>Total actual</span><strong>{{ formatMoney(asset.summaryMetrics.totalCurrentValue, asset.position.currency) }}</strong></div>
           <div><span>Total invertido</span><strong>{{ formatMoney(asset.summaryMetrics.totalInvested, asset.position.currency) }}</strong></div>
           <div>
-            <span>Resultado $</span>
+            <span>{{ hasMovementAdjustments(asset) ? 'Resultado ajustado' : 'Resultado efectivo' }}</span>
             <strong class="metric-value">
               <span class="metric-value__text">{{ formatMoney(summaryResultAmount(asset), asset.position.currency) }}</span>
               <span *ngIf="hasMovementAdjustments(asset)" class="adjusted-info" [attr.title]="movementTooltip(asset) || undefined" aria-label="Resultado ajustado por movimientos de inversión">i</span>
             </strong>
           </div>
           <div>
-            <span>Resultado %</span>
+            <span>{{ hasMovementAdjustments(asset) ? 'Resultado ajustado %' : 'Resultado efectivo %' }}</span>
             <strong class="metric-value">
               <span class="metric-value__text">{{ formatPercent(summaryResultPercent(asset)) }}</span>
               <span *ngIf="hasMovementAdjustments(asset)" class="adjusted-info" [attr.title]="movementTooltip(asset) || undefined" aria-label="Resultado ajustado por movimientos de inversión">i</span>
@@ -95,23 +95,23 @@
       </article>
 
       <article class="metric-card">
-        <h3>Rendimiento minimo esperado</h3>
+        <h3>Rendimiento mínimo esperado</h3>
         <ng-container *ngIf="minimumPerformance as minimum; else minimumEmpty">
           <div class="kv-grid">
             <div><span>Estado</span><strong>{{ minimumStatusLabel(minimum.status) }}</strong></div>
             <div><span>Lotes</span><strong>{{ minimum.lotsCount }}</strong></div>
             <div><span>Invertido</span><strong>{{ formatMoney(minimum.investedAmount, asset.position.currency) }}</strong></div>
             <div><span>Valor actual</span><strong>{{ formatMoney(minimum.currentValue, asset.position.currency) }}</strong></div>
-            <div><span>Minimo esperado</span><strong>{{ formatMoney(minimum.minimumExpectedValue, asset.position.currency) }}</strong></div>
+            <div><span>Mínimo esperado</span><strong>{{ formatMoney(minimum.minimumExpectedValue, asset.position.currency) }}</strong></div>
             <div>
-              <span>Vs minimo</span>
+              <span>Vs mínimo</span>
               <strong class="metric-value" [class.positive]="(minimum.valueVsMinimumAmount ?? 0) >= 0" [class.negative]="(minimum.valueVsMinimumAmount ?? 0) < 0">
                 <span class="metric-value__text">{{ formatMoney(minimum.valueVsMinimumAmount, asset.position.currency) }}</span>
                 <span *ngIf="minimumUsesAdjustedComparableValue(asset)" class="adjusted-info" [attr.title]="minimumAdjustmentTooltip(asset) || undefined" aria-label="Benchmark ajustado por movimientos de inversión">i</span>
               </strong>
             </div>
             <div>
-              <span>% vs minimo</span>
+              <span>% vs mínimo</span>
               <strong class="metric-value" [class.positive]="(minimum.valueVsMinimumPercent ?? 0) >= 0" [class.negative]="(minimum.valueVsMinimumPercent ?? 0) < 0">
                 <span class="metric-value__text">{{ formatPercent(minimum.valueVsMinimumPercent) }}</span>
                 <span *ngIf="minimumUsesAdjustedComparableValue(asset)" class="adjusted-info" [attr.title]="minimumAdjustmentTooltip(asset) || undefined" aria-label="Benchmark ajustado por movimientos de inversión">i</span>
@@ -121,10 +121,10 @@
           </div>
           <p class="hint" *ngIf="minimumUsesAdjustedComparableValue(asset)">El benchmark mínimo se compara contra el valor actual más rentas y amortizaciones cobradas.</p>
           <p class="hint" *ngIf="minimum.status === 'not-applicable'">No comparable para esta moneda.</p>
-          <p class="hint" *ngIf="minimum.status === 'missing-calendar'">No hay datos suficientes de calendario para calcular el minimo esperado.</p>
+          <p class="hint" *ngIf="minimum.status === 'missing-calendar'">No hay datos suficientes de calendario para calcular el mínimo esperado.</p>
         </ng-container>
         <ng-template #minimumEmpty>
-          <p class="hint">No hay datos suficientes de calendario para calcular el minimo esperado.</p>
+          <p class="hint">No hay datos suficientes de calendario para calcular el mínimo esperado.</p>
         </ng-template>
       </article>
     </div>
@@ -190,9 +190,9 @@
             <th>Fecha compra</th>
             <th class="num">Monto invertido</th>
             <th class="num">Valor actual</th>
-            <th class="num">Minimo esperado</th>
+            <th class="num">Mínimo esperado</th>
             <th class="num">% minimo</th>
-            <th class="num">Vs minimo</th>
+            <th class="num">Vs mínimo</th>
             <th>Estado</th>
           </tr>
         </thead>
@@ -266,8 +266,8 @@
             <th class="num">Total invertido</th>
             <th class="num">Precio actual</th>
             <th class="num">Valor actual</th>
-            <th class="num">Resultado $</th>
-            <th class="num">Resultado %</th>
+            <th class="num">Resultado efectivo $</th>
+            <th class="num">Resultado efectivo %</th>
             <th class="num">Peso lote %</th>
             <th *ngIf="showAdvancedColumns">Avanzado</th>
           </tr>

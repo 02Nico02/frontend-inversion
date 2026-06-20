@@ -216,7 +216,7 @@ export class DecisionInsightsService {
     const pendingSignals = combinedAlerts.filter((item) => item.group === 'signal').length;
     if (pendingSignals > 0) {
       actions.push({
-        title: 'Señales activas disponibles',
+        title: 'Señales activas',
         note: `Hay ${pendingSignals} señales cargadas para usar como referencia táctica.`,
         tone: 'success'
       });

@@ -96,6 +96,10 @@ interface ExportPositionRow {
   precioActual: string;
   totalInvertido: string;
   totalActual: string;
+  resultadoNominalMonto: string;
+  resultadoNominalPercent: string;
+  resultadoEfectivoMonto: string;
+  resultadoEfectivoPercent: string;
   resultadoMonto: string;
   resultadoPercent: string;
   pesoPercent: string;
@@ -623,7 +627,7 @@ export class GptPortfolioExportService {
       const effective = effectivePositionMap.get(this.positionEffectiveKey(position.symbol, position.currency)) ?? null;
       const status = this.positionStatus(position, alert, effective);
       const alertLabel = alert && alert.count > 0
-        ? `${alert.count} alertas Â· ${alert.nearestNote ? `próxima: ${alert.nearestNote}` : 'sin nota'} Â· ${alert.nearestStatus}`
+        ? `${alert.count} alertas · ${alert.nearestNote ? `próxima: ${alert.nearestNote}` : 'sin nota'} · ${alert.nearestStatus}`
         : 'Sin alertas';
       return {
         especie: position.symbol,
@@ -637,6 +641,10 @@ export class GptPortfolioExportService {
         precioActual: this.maskOrFormatMoney(position.currentPrice, position.currency, options),
         totalInvertido: this.maskOrFormatMoney(position.totalInvested, position.currency, options),
         totalActual: this.maskOrFormatMoney(position.currentValue, position.currency, options),
+        resultadoNominalMonto: this.maskOrFormatMoney(position.resultAmount, position.currency, options),
+        resultadoNominalPercent: this.maskOrFormatPercent(position.resultPercent, options),
+        resultadoEfectivoMonto: this.maskOrFormatMoney(effective?.effectiveResultAmount ?? position.resultAmount, position.currency, options),
+        resultadoEfectivoPercent: this.maskOrFormatPercent(effective?.effectiveResultPercent ?? position.resultPercent, options),
         resultadoMonto: this.maskOrFormatMoney(effective?.effectiveResultAmount ?? position.resultAmount, position.currency, options),
         resultadoPercent: this.maskOrFormatPercent(effective?.effectiveResultPercent ?? position.resultPercent, options),
         pesoPercent: this.maskOrFormatPercent(position.portfolioWeight, options),
@@ -1436,6 +1444,7 @@ export class GptPortfolioExportService {
     lines.push('# Contexto semanal de portafolio', '');
     lines.push(`Fecha de generacion: ${exportData.metadata.generatedAt}`);
     lines.push('');
+    lines.push(this.glossaryMarkdown(), '');
     lines.push(this.executiveSummaryMarkdown(exportData));
     lines.push('');
     lines.push(this.generalSummaryMarkdown(exportData.summary.general));
@@ -1520,6 +1529,19 @@ export class GptPortfolioExportService {
     ].join('\n');
   }
 
+  private glossaryMarkdown(): string {
+    return [
+      '## Glosario de metricas',
+      '- Valor actual: valor de mercado actual de la posicion. No incluye rentas ni amortizaciones cobradas.',
+      '- Resultado nominal: Valor actual - Total invertido.',
+      '- Resultado efectivo: resultado usado para analisis cuando hay movimientos de inversion. En posiciones con rentas/amortizaciones, incluye Valor actual + rentas + amortizaciones - Total invertido. En posiciones sin movimientos coincide con el resultado nominal.',
+      '- Minimo esperado: valor minimo que deberia alcanzar la inversion para empatar el benchmark minimo de TablaCalendario.',
+      '- Vs minimo: diferencia entre el valor comparable y el minimo esperado.',
+      '- % vs minimo: diferencia porcentual contra el minimo esperado. No es lo mismo que Resultado %.',
+      '- Valor comparable: valor usado para comparar contra el minimo esperado. En posiciones normales es el Valor actual. En posiciones con movimientos es Valor actual + rentas + amortizaciones.'
+    ].join('\n');
+  }
+
   private generalSummaryMarkdown(summary: ExportSummaryScope): string {
     return [
       '## Resumen general sin conversion',
@@ -1564,22 +1586,43 @@ export class GptPortfolioExportService {
     if (!rows.length) {
       return '## Posiciones actuales\n\nNo hay posiciones.';
     }
-    return ['## Posiciones actuales', this.tableFromRows(rows, [
-      { header: 'Especie', key: 'especie' },
-      { header: 'Moneda', key: 'moneda' },
-      { header: 'Tipo activo', key: 'tipoActivo' },
-      { header: 'Sector', key: 'sector' },
-      { header: 'Subsector', key: 'subsector' },
-      { header: 'Region', key: 'region' },
-      { header: 'Cantidad', key: 'cantidad' },
-      { header: 'Precio promedio', key: 'precioPromedio' },
-      { header: 'Precio actual', key: 'precioActual' },
-      { header: 'Total invertido', key: 'totalInvertido' },
-      { header: 'Total actual', key: 'totalActual' },
-      { header: 'Resultado $', key: 'resultadoMonto' },
-      { header: 'Resultado %', key: 'resultadoPercent' },
-      { header: 'Peso %', key: 'pesoPercent' }
-    ])].join('\n');
+    const columns = options.mode === 'full'
+      ? [
+          { header: 'Especie', key: 'especie' },
+          { header: 'Moneda', key: 'moneda' },
+          { header: 'Tipo activo', key: 'tipoActivo' },
+          { header: 'Sector', key: 'sector' },
+          { header: 'Subsector', key: 'subsector' },
+          { header: 'Region', key: 'region' },
+          { header: 'Cantidad', key: 'cantidad' },
+          { header: 'Precio promedio', key: 'precioPromedio' },
+          { header: 'Precio actual', key: 'precioActual' },
+          { header: 'Total invertido', key: 'totalInvertido' },
+          { header: 'Total actual', key: 'totalActual' },
+          { header: 'Resultado nominal $', key: 'resultadoNominalMonto' },
+          { header: 'Resultado nominal %', key: 'resultadoNominalPercent' },
+          { header: 'Resultado efectivo $', key: 'resultadoEfectivoMonto' },
+          { header: 'Resultado efectivo %', key: 'resultadoEfectivoPercent' },
+          { header: 'Peso %', key: 'pesoPercent' }
+        ]
+      : [
+          { header: 'Especie', key: 'especie' },
+          { header: 'Moneda', key: 'moneda' },
+          { header: 'Tipo activo', key: 'tipoActivo' },
+          { header: 'Sector', key: 'sector' },
+          { header: 'Subsector', key: 'subsector' },
+          { header: 'Region', key: 'region' },
+          { header: 'Cantidad', key: 'cantidad' },
+          { header: 'Precio promedio', key: 'precioPromedio' },
+          { header: 'Precio actual', key: 'precioActual' },
+          { header: 'Total invertido', key: 'totalInvertido' },
+          { header: 'Total actual', key: 'totalActual' },
+          { header: 'Resultado efectivo $', key: 'resultadoEfectivoMonto' },
+          { header: 'Resultado efectivo %', key: 'resultadoEfectivoPercent' },
+          { header: 'Peso %', key: 'pesoPercent' }
+        ];
+
+    return ['## Posiciones actuales', this.tableFromRows(rows, columns)].join('\n');
   }
 
   private activatedAlertsMarkdown(exportData: GptPortfolioExport): string {
@@ -1611,7 +1654,8 @@ export class GptPortfolioExportService {
       `- Valor comparable ARS: ${summary.currentComparableArs ?? 'N/D'}`,
       `- Mínimo esperado ARS: ${summary.minimumExpectedArs ?? 'N/D'}`,
       `- Posiciones ARS comparables: ${summary.comparableLotsCount}`,
-      `- Posiciones debajo del mínimo: ${review.items.length}`
+      `- Posiciones debajo del mínimo: ${review.items.length}`,
+      '- Nota: el valor comparable no es el valor de mercado; se usa solo para comparar contra el mínimo esperado.'
     ];
 
     if (exportData.benchmarkMinimum.positionsBelowMinimum.length) {
@@ -1839,7 +1883,7 @@ export class GptPortfolioExportService {
     }
     if (insights.mejorPosicion) {
       lines.push(`- Mejor posicion: ${insights.mejorPosicion.symbol}`);
-      lines.push(`  - Resultado: ${insights.mejorPosicion.resultPercent}`);
+      lines.push(`  - Resultado efectivo: ${insights.mejorPosicion.resultPercent}`);
       lines.push(`  - Valor actual: ${insights.mejorPosicion.currentValue}`);
       if (insights.mejorPosicion.note) {
         lines.push(`  - Nota: ${insights.mejorPosicion.note}`);
@@ -1847,7 +1891,7 @@ export class GptPortfolioExportService {
     }
     if (insights.peorPosicion) {
       lines.push(`- Peor posicion: ${insights.peorPosicion.symbol}`);
-      lines.push(`  - Resultado: ${insights.peorPosicion.resultPercent}`);
+      lines.push(`  - Resultado efectivo: ${insights.peorPosicion.resultPercent}`);
       lines.push(`  - Valor actual: ${insights.peorPosicion.currentValue}`);
       if (insights.peorPosicion.note) {
         lines.push(`  - Nota: ${insights.peorPosicion.note}`);

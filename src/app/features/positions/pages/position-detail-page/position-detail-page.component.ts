@@ -166,7 +166,7 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
     }
 
     return [
-      'Benchmark ajustado por movimientos de inversión.',
+      'El valor actual no cambia; solo se ajusta la comparación contra el mínimo esperado para reflejar rentas y amortizaciones cobradas.',
       'Para comparar contra el mínimo esperado se usa:',
       'Total actual + rentas cobradas + amortizaciones cobradas.',
       'El mínimo esperado ajustado incluye capital amortizado, benchmark acumulado por tramos y capital remanente ajustado.',
@@ -186,7 +186,7 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
     }
 
     return [
-      'Resultado ajustado por movimientos de inversión.',
+      'El valor actual no cambia; solo se ajusta el resultado para reflejar rentas y amortizaciones cobradas.',
       `Movimientos aplicados: ${detail.movementSummary.movementsCount}`,
       `Rentas cobradas: ${this.formatMoney(detail.movementSummary.incomeAmount, detail.position.currency)}`,
       `Amortizaciones cobradas: ${this.formatMoney(detail.movementSummary.capitalReturnedAmount, detail.position.currency)}`,
@@ -197,7 +197,7 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
 
   movementSummaryNotes(detail: AssetDetailViewModel): string {
     if (detail.movementSummary?.hasAdjustments) {
-      return 'Resultado ajustado por movimientos de inversión.';
+      return 'El valor actual no cambia; solo se ajusta el resultado para reflejar rentas y amortizaciones cobradas.';
     }
     if (detail.movementEntries.length) {
       return 'Movimientos detectados, pero no se pudieron asignar completamente a lotes.';
@@ -236,7 +236,7 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
     }
 
     return [
-      'Benchmark ajustado por movimientos de inversión.',
+      'El valor actual no cambia; solo se ajusta la comparación contra el mínimo esperado para reflejar rentas y amortizaciones cobradas.',
       'Para comparar contra el mínimo esperado se usa:',
       'Total actual + rentas cobradas + amortizaciones cobradas.',
       'El mínimo esperado ajustado incluye capital amortizado, benchmark acumulado por tramos y capital remanente ajustado.',

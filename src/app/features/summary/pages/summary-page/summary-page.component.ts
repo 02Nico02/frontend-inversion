@@ -25,16 +25,18 @@ export class SummaryPageComponent {
   ) {}
 
   healthSummary(snapshot: PortfolioAppState) {
-    return snapshot.dataset && snapshot.workbook ? this.healthService.buildReport(snapshot.dataset, snapshot.workbook.validation).summary : {
-      criticalProblems: 0,
-      warnings: 0,
-      uncategorizedAssets: 0,
-      assetsWithoutHistory: 0,
-      alertsToReview: 0,
-      incompleteSignals: 0,
-      strategicSplitIssues: 0,
-      status: 'ok' as const
-    };
+    return snapshot.dataset && snapshot.workbook
+      ? this.healthService.buildReport(snapshot.dataset, snapshot.workbook.validation).summary
+      : {
+          criticalProblems: 0,
+          warnings: 0,
+          uncategorizedAssets: 0,
+          assetsWithoutHistory: 0,
+          alertsToReview: 0,
+          incompleteSignals: 0,
+          strategicSplitIssues: 0,
+          status: 'ok' as const
+        };
   }
 
   concentration(snapshot: PortfolioAppState) {

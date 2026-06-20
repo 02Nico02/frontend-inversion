@@ -62,8 +62,8 @@ export class PositionsTableComponent implements OnInit, OnChanges {
     { key: 'currentPrice', label: 'Precio act.' },
     { key: 'totalInvested', label: 'Total inv.' },
     { key: 'currentValue', label: 'Total actual' },
-    { key: 'resultAmount', label: 'Resultado $' },
-    { key: 'resultPercent', label: 'Resultado %' },
+    { key: 'resultAmount', label: 'Resultado efectivo $' },
+    { key: 'resultPercent', label: 'Resultado efectivo %' },
     { key: 'weight', label: 'Peso %' },
     { key: 'minimumExpected', label: 'Mínimo esperado' },
     { key: 'minimumDifferenceAmount', label: 'Vs mínimo' },
@@ -376,7 +376,7 @@ export class PositionsTableComponent implements OnInit, OnChanges {
     }
 
     return [
-      'Resultado ajustado por movimientos de inversión.',
+      'El valor actual no cambia; solo se ajusta el resultado para reflejar rentas y amortizaciones cobradas.',
       `Rentas cobradas: ${this.formatMoney(summary.incomeAmount, position.currency)}`,
       `Amortizaciones cobradas: ${this.formatMoney(summary.capitalReturnedAmount, position.currency)}`,
       `Resultado sin ajuste: ${this.formatMoney(position.resultAmount, position.currency)}`,
@@ -391,7 +391,7 @@ export class PositionsTableComponent implements OnInit, OnChanges {
     }
 
     return [
-      'Benchmark ajustado por movimientos de inversión.',
+      'El valor actual no cambia; solo se ajusta la comparación contra el mínimo esperado para reflejar rentas y amortizaciones cobradas.',
       'Para comparar contra el mínimo esperado se usa:',
       'Total actual + rentas cobradas + amortizaciones cobradas.',
       'El mínimo esperado ajustado incluye capital amortizado, benchmark acumulado por tramos y capital remanente ajustado.',
@@ -627,9 +627,9 @@ export class PositionsTableComponent implements OnInit, OnChanges {
       case 'symbol':
         return 'Especie';
       case 'resultAmount':
-        return 'Resultado';
+        return 'Resultado efectivo';
       case 'resultPercent':
-        return 'Resultado %';
+        return 'Resultado efectivo %';
       case 'portfolioWeight':
         return 'Peso';
       case 'minimumDifferenceAmount':

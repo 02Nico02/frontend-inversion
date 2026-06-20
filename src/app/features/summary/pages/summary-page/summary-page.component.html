@@ -1,100 +1,102 @@
 <section class="page" *ngIf="state.snapshot as snapshot">
-      <header class="page-header">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Resumen</p>
+      <h2>Vista general del portafolio</h2>
+      <p class="lead">Arranque rápido para entender el estado del Excel, la concentración y las alertas importantes.</p>
+    </div>
+  </header>
+
+  <ng-container *ngIf="snapshot.dataset && snapshot.summary; else emptyState">
+    <app-dashboard-summary-panel [summary]="snapshot.summary"></app-dashboard-summary-panel>
+
+    <article class="panel benchmark-panel" *ngIf="minimumPerformanceSummary(snapshot) as minimumSummary" [ngClass]="minimumPerformanceStatusClass(minimumSummary.status)">
+      <div class="metric-head">
         <div>
-          <p class="eyebrow">Resumen</p>
-          <h2>Vista general del portafolio</h2>
-          <p class="lead">Arranque rápido para entender el estado del Excel, la concentración y las alertas importantes.</p>
+          <p class="eyebrow">Comparación vs mínimo ARS</p>
+          <h3>{{ minimumPerformanceStatusLabel(minimumSummary.status) }}</h3>
         </div>
-      </header>
+        <strong class="badge">{{ minimumSummary.comparableLotsCount }} lotes</strong>
+      </div>
 
-      <ng-container *ngIf="snapshot.dataset && snapshot.summary; else emptyState">
-        <app-dashboard-summary-panel [summary]="snapshot.summary"></app-dashboard-summary-panel>
-
-        <article class="panel benchmark-panel" *ngIf="minimumPerformanceSummary(snapshot) as minimumSummary" [ngClass]="minimumPerformanceStatusClass(minimumSummary.status)">
-          <div class="metric-head">
-            <div>
-              <p class="eyebrow">Balance vs mínimo ARS</p>
-              <h3>{{ minimumPerformanceStatusLabel(minimumSummary.status) }}</h3>
-            </div>
-            <strong class="badge">{{ minimumSummary.comparableLotsCount }} lotes</strong>
-          </div>
-
-            <div class="metric-grid compact" *ngIf="minimumSummary.status !== 'missing'; else missingBenchmark">
-              <div class="metric-cell">
-                <span>Balance</span>
-                <strong [class.positive]="(minimumSummary.balanceVsMinimumArs ?? 0) >= 0" [class.negative]="(minimumSummary.balanceVsMinimumArs ?? 0) < 0">
-                  {{ minimumSummary.balanceVsMinimumArs !== null ? percent(minimumSummary.balanceVsMinimumPercentArs ?? 0) : 'N/D' }}
-                </strong>
-              </div>
-              <div class="metric-cell">
-                <span>Balance $</span>
-                <strong [class.positive]="(minimumSummary.balanceVsMinimumArs ?? 0) >= 0" [class.negative]="(minimumSummary.balanceVsMinimumArs ?? 0) < 0">
-                  {{ minimumSummary.balanceVsMinimumArs !== null ? (minimumSummary.balanceVsMinimumArs | currency:'ARS':'symbol-narrow':'1.2-2') : 'N/D' }}
-                </strong>
-              </div>
-              <div class="metric-cell">
-                <span>Comparable ARS</span>
-                <strong>{{ minimumSummary.currentComparableArs !== null ? (minimumSummary.currentComparableArs | currency:'ARS':'symbol-narrow':'1.2-2') : 'N/D' }}</strong>
-              </div>
-              <div class="metric-cell">
-                <span>Mínimo esperado ARS</span>
-                <strong>{{ minimumSummary.minimumExpectedArs !== null ? (minimumSummary.minimumExpectedArs | currency:'ARS':'symbol-narrow':'1.2-2') : 'N/D' }}</strong>
-              </div>
-            </div>
-
-            <ng-template #missingBenchmark>
-              <div class="empty-benchmark">
-                <strong>N/D</strong>
-                <p>No hay datos suficientes para calcular el benchmark mínimo.</p>
-              </div>
-            </ng-template>
-
-            <p class="benchmark-note">{{ minimumSummary.description }}</p>
-        </article>
-
-        <div class="mini-grid">
-          <article class="panel">
-            <p class="eyebrow">Salud de datos</p>
-            <h3>{{ healthSummary(snapshot).status | titlecase }}</h3>
-            <p>Críticos: {{ healthSummary(snapshot).criticalProblems }}</p>
-            <p>Advertencias: {{ healthSummary(snapshot).warnings }}</p>
-            <p>Sin clasificación: {{ healthSummary(snapshot).uncategorizedAssets }}</p>
-          </article>
-
-          <article class="panel">
-            <p class="eyebrow">Concentración</p>
-            <h3>{{ percent(concentration(snapshot).top1Percent) }} Top 1</h3>
-            <p>{{ percent(concentration(snapshot).top3Percent) }} Top 3</p>
-            <p>{{ percent(concentration(snapshot).top5Percent) }} Top 5</p>
-            <a routerLink="/concentracion" class="link">Ver concentración</a>
-          </article>
-
-          <article class="panel">
-            <p class="eyebrow">Alertas clave</p>
-            <h3>{{ snapshot.combinedAlerts.length }} alertas</h3>
-            <p *ngIf="snapshot.combinedAlerts[0] as alert">
-              {{ alert.symbol }} · {{ alert.status }}
-            </p>
-            <a routerLink="/alertas" class="link">Abrir alertas</a>
-          </article>
-
-          <article class="panel">
-            <p class="eyebrow">Acciones rápidas</p>
-            <div class="action-list">
-              <a routerLink="/importacion" class="link">Importar o reemplazar Excel</a>
-              <a routerLink="/posiciones" class="link">Ir a posiciones</a>
-              <a routerLink="/historico" class="link">Ver histórico</a>
-              <a routerLink="/datos-a-revisar" class="link">Revisar datos</a>
-            </div>
-          </article>
+      <div class="metric-grid compact" *ngIf="minimumSummary.status !== 'missing'; else missingBenchmark">
+        <div class="metric-cell">
+          <span>Vs mínimo %</span>
+          <strong [class.positive]="(minimumSummary.balanceVsMinimumPercentArs ?? 0) >= 0" [class.negative]="(minimumSummary.balanceVsMinimumPercentArs ?? 0) < 0">
+            {{ minimumSummary.balanceVsMinimumArs !== null ? percent(minimumSummary.balanceVsMinimumPercentArs ?? 0) : 'N/D' }}
+          </strong>
         </div>
-      </ng-container>
+        <div class="metric-cell">
+          <span>Vs mínimo $</span>
+          <strong [class.positive]="(minimumSummary.balanceVsMinimumArs ?? 0) >= 0" [class.negative]="(minimumSummary.balanceVsMinimumArs ?? 0) < 0">
+            {{ minimumSummary.balanceVsMinimumArs !== null ? (minimumSummary.balanceVsMinimumArs | currency:'ARS':'symbol-narrow':'1.2-2') : 'N/D' }}
+          </strong>
+        </div>
+        <div class="metric-cell">
+          <span>Valor comparable ARS</span>
+          <strong>{{ minimumSummary.currentComparableArs !== null ? (minimumSummary.currentComparableArs | currency:'ARS':'symbol-narrow':'1.2-2') : 'N/D' }}</strong>
+        </div>
+        <div class="metric-cell">
+          <span>Mínimo esperado ARS</span>
+          <strong>{{ minimumSummary.minimumExpectedArs !== null ? (minimumSummary.minimumExpectedArs | currency:'ARS':'symbol-narrow':'1.2-2') : 'N/D' }}</strong>
+        </div>
+      </div>
 
-      <ng-template #emptyState>
-        <article class="panel empty">
-          <h3>No hay datos cargados</h3>
-          <p>Cargá tu archivo <strong>Historial Sueldo.xlsm</strong> para ver el resumen general.</p>
-          <a routerLink="/importacion" class="button">Cargar Excel</a>
-        </article>
+      <ng-template #missingBenchmark>
+        <div class="empty-benchmark">
+          <strong>N/D</strong>
+          <p>No hay datos suficientes para calcular el benchmark mínimo.</p>
+        </div>
       </ng-template>
-    </section>
+
+      <p class="benchmark-note">
+        Este bloque compara el valor comparable contra el mínimo esperado. No representa valor de mercado ni resultado nominal.
+      </p>
+    </article>
+
+    <div class="mini-grid">
+      <article class="panel">
+        <p class="eyebrow">Salud de datos</p>
+        <h3>{{ healthSummary(snapshot).status | titlecase }}</h3>
+        <p>Críticos: {{ healthSummary(snapshot).criticalProblems }}</p>
+        <p>Advertencias: {{ healthSummary(snapshot).warnings }}</p>
+        <p>Sin clasificación: {{ healthSummary(snapshot).uncategorizedAssets }}</p>
+      </article>
+
+      <article class="panel">
+        <p class="eyebrow">Concentración</p>
+        <h3>{{ percent(concentration(snapshot).top1Percent) }} Top 1</h3>
+        <p>{{ percent(concentration(snapshot).top3Percent) }} Top 3</p>
+        <p>{{ percent(concentration(snapshot).top5Percent) }} Top 5</p>
+        <a routerLink="/concentracion" class="link">Ver concentración</a>
+      </article>
+
+      <article class="panel">
+        <p class="eyebrow">Alertas clave</p>
+        <h3>{{ snapshot.combinedAlerts.length }} alertas</h3>
+        <p *ngIf="snapshot.combinedAlerts[0] as alert">
+          {{ alert.symbol }} · {{ alert.status }}
+        </p>
+        <a routerLink="/alertas" class="link">Abrir alertas</a>
+      </article>
+
+      <article class="panel">
+        <p class="eyebrow">Acciones rápidas</p>
+        <div class="action-list">
+          <a routerLink="/importacion" class="link">Importar o reemplazar Excel</a>
+          <a routerLink="/posiciones" class="link">Ir a posiciones</a>
+          <a routerLink="/historico" class="link">Ver histórico</a>
+          <a routerLink="/datos-a-revisar" class="link">Revisar datos</a>
+        </div>
+      </article>
+    </div>
+  </ng-container>
+
+  <ng-template #emptyState>
+    <article class="panel empty">
+      <h3>No hay datos cargados</h3>
+      <p>Cargá tu archivo <strong>Historial Sueldo.xlsm</strong> para ver el resumen general.</p>
+      <a routerLink="/importacion" class="button">Cargar Excel</a>
+    </article>
+  </ng-template>
+</section>

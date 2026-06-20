@@ -323,12 +323,12 @@ export class DataReviewPageComponent implements OnInit, OnDestroy {
 
   private normalizeText(value: string): string {
     return value
-      .replace(/Ã¡/g, 'á')
-      .replace(/Ã©/g, 'é')
-      .replace(/Ã­/g, 'í')
-      .replace(/Ã³/g, 'ó')
-      .replace(/Ãº/g, 'ú')
-      .replace(/Ã±/g, 'ñ')
+      .replace(/á/g, 'á')
+      .replace(/é/g, 'é')
+      .replace(/í/g, 'í')
+      .replace(/ó/g, 'ó')
+      .replace(/ú/g, 'ú')
+      .replace(/ñ/g, 'ñ')
       .replace(/Ã/g, 'Á')
       .replace(/Ã‰/g, 'É')
       .replace(/Ã/g, 'Í')

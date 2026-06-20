@@ -66,8 +66,8 @@
       <select [(ngModel)]="sortField" (ngModelChange)="onSortChange()">
         <option value="symbol">Especie</option>
         <option value="currentValue">Total actual</option>
-        <option value="resultAmount">Resultado</option>
-        <option value="resultPercent">Resultado %</option>
+        <option value="resultAmount">Resultado efectivo</option>
+        <option value="resultPercent">Resultado efectivo %</option>
         <option value="portfolioWeight">Peso</option>
         <option value="minimumDifferenceAmount">Vs mínimo</option>
         <option value="minimumDifferencePercent">% vs mínimo</option>
@@ -192,8 +192,8 @@
           <th class="num" *ngIf="isColumnVisible('currentPrice')">Precio act.</th>
           <th class="num" *ngIf="isColumnVisible('totalInvested')">Total inv.</th>
           <th class="num" *ngIf="isColumnVisible('currentValue')">Total actual</th>
-          <th class="num" *ngIf="isColumnVisible('resultAmount')">Resultado $</th>
-          <th class="num" *ngIf="isColumnVisible('resultPercent')">Resultado %</th>
+          <th class="num" *ngIf="isColumnVisible('resultAmount')">Resultado efectivo $</th>
+          <th class="num" *ngIf="isColumnVisible('resultPercent')">Resultado efectivo %</th>
           <th class="num" *ngIf="isColumnVisible('weight')">Peso %</th>
           <th class="num" *ngIf="isColumnVisible('minimumExpected')">Mínimo esperado</th>
           <th class="num" *ngIf="isColumnVisible('minimumDifferenceAmount')">Vs mínimo</th>

@@ -15,19 +15,23 @@
           <strong>{{ formatMoney(item.totalInvested, item.currency) }}</strong>
         </div>
         <div class="metric-cell">
-          <span>Resultado</span>
-          <strong [class.positive]="item.totalResult >= 0" [class.negative]="item.totalResult < 0">{{ formatMoney(item.totalResult, item.currency) }}</strong>
+          <span>Resultado nominal</span>
+          <strong [class.positive]="item.totalResult >= 0" [class.negative]="item.totalResult < 0">
+            {{ formatMoney(item.totalResult, item.currency) }}
+          </strong>
         </div>
         <div class="metric-cell">
-          <span>Resultado %</span>
-          <strong [class.positive]="(item.totalResultPercent ?? 0) >= 0" [class.negative]="(item.totalResultPercent ?? 0) < 0">{{ formatPercent(item.totalResultPercent) }}</strong>
+          <span>Resultado nominal %</span>
+          <strong [class.positive]="(item.totalResultPercent ?? 0) >= 0" [class.negative]="(item.totalResultPercent ?? 0) < 0">
+            {{ formatPercent(item.totalResultPercent) }}
+          </strong>
         </div>
       </div>
     </article>
 
     <article class="metric metric-wide">
       <div class="metric-head">
-        <span>General sin conversión</span>
+        <span>Resumen general sin conversión</span>
         <strong>Resumen operativo según Excel</strong>
       </div>
       <div class="metric-grid compact">
@@ -40,8 +44,10 @@
           <strong>{{ formatMoney(summary.totalInvested, 'UNKNOWN') }}</strong>
         </div>
         <div class="metric-cell">
-          <span>Resultado total</span>
-          <strong [class.positive]="summary.totalResult >= 0" [class.negative]="summary.totalResult < 0">{{ formatMoney(summary.totalResult, 'UNKNOWN') }}</strong>
+          <span>Resultado nominal total</span>
+          <strong [class.positive]="summary.totalResult >= 0" [class.negative]="summary.totalResult < 0">
+            {{ formatMoney(summary.totalResult, 'UNKNOWN') }}
+          </strong>
         </div>
         <div class="metric-cell">
           <span>Especies</span>
@@ -64,6 +70,7 @@
           <strong>{{ summary.latestBalanceDate ? formatDateLabel(summary.latestBalanceDate) : 'N/D' }}</strong>
         </div>
       </div>
+      <p class="metric-note">Los valores de resultado mostrados en este resumen son nominales: valor actual menos total invertido.</p>
     </article>
   </div>
   <ng-template #emptySummary>
