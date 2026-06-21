@@ -87,6 +87,78 @@
       </app-simple-chart>
     </section>
 
+    <section class="panel minimum-balance-panel">
+      <div class="minimum-balance-header">
+        <div>
+          <p class="eyebrow">Balance vs mínimo ARS</p>
+          <h3>Evolución del balance contra el benchmark mínimo</h3>
+          <p class="lead">Estado actual y evolución histórica si existe una serie confiable.</p>
+        </div>
+
+        <div class="minimum-balance-stats">
+          <div class="minimum-balance-stat">
+            <span>Tendencia</span>
+            <strong>{{ minimumBalanceTrendLabel(snapshot) }}</strong>
+          </div>
+          <div class="minimum-balance-stat">
+            <span>Posiciones bajo mínimo</span>
+            <strong>{{ minimumBalanceTrendPositionsBelow(snapshot) }}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="minimum-balance-grid">
+        <div class="minimum-balance-card">
+          <span>Actual</span>
+          <strong>{{ minimumBalanceTrendAmount(snapshot) }}</strong>
+        </div>
+        <div class="minimum-balance-card">
+          <span>% vs mínimo</span>
+          <strong>{{ minimumBalanceTrendPercent(snapshot) }}</strong>
+        </div>
+        <div class="minimum-balance-card">
+          <span>Mejor histórico</span>
+          <strong>{{ minimumBalanceTrendHistoricalAmount(minimumBalanceTrend(snapshot).bestHistoricalBalanceARS) }}</strong>
+          <small>{{ minimumBalanceTrendHistoricalDate(minimumBalanceTrend(snapshot).bestHistoricalDate) }}</small>
+        </div>
+        <div class="minimum-balance-card">
+          <span>Peor histórico</span>
+          <strong>{{ minimumBalanceTrendHistoricalAmount(minimumBalanceTrend(snapshot).worstHistoricalBalanceARS) }}</strong>
+          <small>{{ minimumBalanceTrendHistoricalDate(minimumBalanceTrend(snapshot).worstHistoricalDate) }}</small>
+        </div>
+        <div class="minimum-balance-card">
+          <span>30D</span>
+          <strong>{{ minimumBalanceTrendHistoricalAmount(minimumBalanceTrend(snapshot).change30dARS) }}</strong>
+          <small>{{ minimumBalanceTrendHistoricalPercent(minimumBalanceTrend(snapshot).change30dPercentPoints) }}</small>
+        </div>
+        <div class="minimum-balance-card">
+          <span>Déficit total</span>
+          <strong>{{ minimumBalanceTrendDeficit(snapshot) }}</strong>
+          <small>contra posiciones bajo mínimo</small>
+        </div>
+      </div>
+
+      <ng-container *ngIf="minimumBalanceTrendHasHistory(snapshot) && !privacyMode.enabled; else minimumBalanceNoHistory">
+        <app-simple-chart
+          title="Balance vs mínimo ARS"
+          subtitle="Evolución disponible"
+          mode="line"
+          [points]="minimumBalanceTrendSeries(snapshot)"
+          currency="ARS"
+          valueKind="money"
+          [showAverage]="false">
+        </app-simple-chart>
+      </ng-container>
+
+      <ng-template #minimumBalanceNoHistory>
+        <div class="minimum-balance-empty">
+          <strong>Todavía no hay historial suficiente para graficar la evolución del Balance vs mínimo.</strong>
+          <p>Se muestra el estado actual y el cálculo por posiciones.</p>
+          <small *ngIf="minimumBalanceTrendWarnings(snapshot).length">{{ minimumBalanceTrendWarnings(snapshot)[0] }}</small>
+        </div>
+      </ng-template>
+    </section>
+
     <section class="panel milestones-panel">
       <div class="milestones-header">
         <div>

@@ -9,12 +9,14 @@ import { ChartDataService } from '../../../../core/services/chart-data.service';
 import { CurrencyMapperService } from '../../../../core/services/currency-mapper.service';
 import { PortfolioAppState } from '../../../../core/services/portfolio-state.service';
 import { PortfolioMilestonesService } from '../../../../core/services/portfolio-milestones.service';
+import { PortfolioMinimumBalanceTrendService } from '../../../../core/services/portfolio-minimum-balance-trend.service';
 import {
   PortfolioMilestone,
   PortfolioMilestoneBuildResult,
   PortfolioMilestoneCategory,
   PortfolioUnavailableMilestone
 } from '../../../../core/models/portfolio-milestones.model';
+import { MinimumBalanceTrendSummary } from '../../../../core/models/portfolio-minimum-balance-trend.model';
 import { PrivacyModeService } from '../../../../core/services/privacy-mode.service';
 import { parseExcelDate } from '../../../../core/utils/value-parsing.utils';
 
@@ -41,6 +43,26 @@ export class HistoricalPageComponent {
   private cachedBalanceSeries: ReturnType<ChartDataService['balanceSeries']> = [];
   private cachedMilestonesKey = '';
   private cachedMilestoneReport: PortfolioMilestoneBuildResult = { detected: [], unavailable: [] };
+  private cachedMinimumBalanceTrendKey = '';
+  private cachedMinimumBalanceTrend: MinimumBalanceTrendSummary = {
+    currentBalanceVsMinimumARS: null,
+    currentBalanceVsMinimumPercent: null,
+    bestHistoricalBalanceARS: null,
+    bestHistoricalDate: null,
+    worstHistoricalBalanceARS: null,
+    worstHistoricalDate: null,
+    change30dARS: null,
+    change30dPercentPoints: null,
+    change90dARS: null,
+    change90dPercentPoints: null,
+    trendStatus: 'not-available',
+    trendLabel: 'Sin historial suficiente',
+    positionsBelowMinimumCount: 0,
+    totalDeficitBelowMinimumARS: 0,
+    points: [],
+    source: 'MinimumPerformanceService',
+    warnings: []
+  };
   showAllMilestones = false;
   showUnavailableMilestones = false;
 
@@ -50,6 +72,7 @@ export class HistoricalPageComponent {
     private readonly chartData: ChartDataService,
     private readonly currencyMapper: CurrencyMapperService,
     private readonly milestonesService: PortfolioMilestonesService,
+    private readonly minimumBalanceTrendService: PortfolioMinimumBalanceTrendService,
     public readonly privacyMode: PrivacyModeService
   ) {}
 
@@ -159,6 +182,100 @@ export class HistoricalPageComponent {
 
   unavailableMilestones(snapshot: PortfolioAppState): PortfolioUnavailableMilestone[] {
     return this.historicalMilestoneReport(snapshot).unavailable;
+  }
+
+  minimumBalanceTrend(snapshot: PortfolioAppState): MinimumBalanceTrendSummary {
+    const cacheKey = [
+      snapshot.importedAt ?? '',
+      snapshot.fileName ?? '',
+      snapshot.dataset?.operations.length ?? 0,
+      snapshot.dataset?.positions.length ?? 0,
+      snapshot.dataset?.investmentMovements.length ?? 0,
+      snapshot.dataset?.calendarBenchmarks.length ?? 0
+    ].join('|');
+
+    if (cacheKey === this.cachedMinimumBalanceTrendKey) {
+      return this.cachedMinimumBalanceTrend;
+    }
+
+    this.cachedMinimumBalanceTrend = this.minimumBalanceTrendService.buildTrend(snapshot);
+    this.cachedMinimumBalanceTrendKey = cacheKey;
+    return this.cachedMinimumBalanceTrend;
+  }
+
+  minimumBalanceTrendPoints(snapshot: PortfolioAppState) {
+    return this.minimumBalanceTrend(snapshot).points;
+  }
+
+  minimumBalanceTrendLabel(snapshot: PortfolioAppState): string {
+    return this.minimumBalanceTrend(snapshot).trendLabel;
+  }
+
+  minimumBalanceTrendStatusClass(snapshot: PortfolioAppState): string {
+    return this.minimumBalanceTrend(snapshot).trendStatus;
+  }
+
+  minimumBalanceTrendWarnings(snapshot: PortfolioAppState): string[] {
+    return this.minimumBalanceTrend(snapshot).warnings;
+  }
+
+  minimumBalanceTrendHasHistory(snapshot: PortfolioAppState): boolean {
+    return this.minimumBalanceTrendPoints(snapshot).length > 0;
+  }
+
+  minimumBalanceTrendPercent(snapshot: PortfolioAppState): string {
+    if (this.privacyMode.enabled) {
+      return 'Oculto';
+    }
+    return this.percent(this.minimumBalanceTrend(snapshot).currentBalanceVsMinimumPercent);
+  }
+
+  minimumBalanceTrendAmount(snapshot: PortfolioAppState): string {
+    if (this.privacyMode.enabled) {
+      return 'Oculto';
+    }
+    const trend = this.minimumBalanceTrend(snapshot);
+    return trend.currentBalanceVsMinimumARS !== null ? this.currencyMapper.formatCurrency(trend.currentBalanceVsMinimumARS, 'ARS') : 'N/D';
+  }
+
+  minimumBalanceTrendHistoricalAmount(value: number | null): string {
+    if (this.privacyMode.enabled) {
+      return 'Oculto';
+    }
+    if (value === null) {
+      return 'N/D';
+    }
+    return this.currencyMapper.formatCurrency(value, 'ARS');
+  }
+
+  minimumBalanceTrendHistoricalPercent(value: number | null): string {
+    if (this.privacyMode.enabled) {
+      return 'Oculto';
+    }
+    return this.percent(value);
+  }
+
+  minimumBalanceTrendHistoricalDate(value: Date | string | null): string {
+    return this.milestoneDate(value);
+  }
+
+  minimumBalanceTrendPositionsBelow(snapshot: PortfolioAppState): number {
+    return this.minimumBalanceTrend(snapshot).positionsBelowMinimumCount;
+  }
+
+  minimumBalanceTrendDeficit(snapshot: PortfolioAppState): string {
+    const value = this.minimumBalanceTrend(snapshot).totalDeficitBelowMinimumARS;
+    return this.privacyMode.enabled ? 'Oculto' : this.currencyMapper.formatCurrency(value, 'ARS');
+  }
+
+  minimumBalanceTrendSeries(snapshot: PortfolioAppState) {
+    return this.minimumBalanceTrendPoints(snapshot).map((point) => ({
+      label: this.milestoneDate(point.date),
+      value: point.balanceVsMinimumARS,
+      date: this.milestoneDate(point.date),
+      changeAmount: null,
+      changePercent: point.balanceVsMinimumPercent
+    }));
   }
 
   hasUnavailableMilestones(snapshot: PortfolioAppState): boolean {

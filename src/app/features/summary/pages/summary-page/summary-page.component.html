@@ -54,6 +54,39 @@
       </p>
     </article>
 
+    <article class="panel balance-trend-panel" *ngIf="minimumBalanceTrend(snapshot) as trend">
+      <div class="metric-head">
+        <div>
+          <p class="eyebrow">Balance vs mínimo ARS</p>
+          <h3>Evolución del balance contra el benchmark mínimo</h3>
+        </div>
+        <strong class="badge">{{ trend.trendLabel }}</strong>
+      </div>
+
+      <div class="metric-grid compact">
+        <div class="metric-cell">
+          <span>Actual</span>
+          <strong>{{ trend.currentBalanceVsMinimumARS !== null ? (privacyMode.enabled ? 'Oculto' : (trend.currentBalanceVsMinimumARS | currency:'ARS':'symbol-narrow':'1.2-2')) : 'N/D' }}</strong>
+        </div>
+        <div class="metric-cell">
+          <span>% vs mínimo</span>
+          <strong>{{ trend.currentBalanceVsMinimumPercent !== null ? (privacyMode.enabled ? 'Oculto' : percent(trend.currentBalanceVsMinimumPercent)) : 'N/D' }}</strong>
+        </div>
+        <div class="metric-cell">
+          <span>Posiciones bajo mínimo</span>
+          <strong>{{ trend.positionsBelowMinimumCount }}</strong>
+        </div>
+        <div class="metric-cell">
+          <span>Déficit total</span>
+          <strong>{{ privacyMode.enabled ? 'Oculto' : (trend.totalDeficitBelowMinimumARS | currency:'ARS':'symbol-narrow':'1.2-2') }}</strong>
+        </div>
+      </div>
+
+      <p class="benchmark-note" *ngIf="!trend.points.length">
+        Todavía no hay historial suficiente para graficar la evolución del Balance vs mínimo. Se muestra el estado actual.
+      </p>
+    </article>
+
     <section class="panel upcoming-panel">
       <div class="upcoming-header">
         <div>

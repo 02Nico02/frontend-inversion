@@ -12,6 +12,8 @@ import { CurrencyMapperService } from '../../../../core/services/currency-mapper
 import { MinimumPerformanceService } from '../../../../core/services/minimum-performance.service';
 import { PrivacyModeService } from '../../../../core/services/privacy-mode.service';
 import { PortfolioUpcomingMilestonesService } from '../../../../core/services/portfolio-upcoming-milestones.service';
+import { PortfolioMinimumBalanceTrendService } from '../../../../core/services/portfolio-minimum-balance-trend.service';
+import { MinimumBalanceTrendSummary } from '../../../../core/models/portfolio-minimum-balance-trend.model';
 
 const UPCOMING_CONTRIBUTION_KEY = 'summary.upcomingGoals.monthlyContributionArs';
 
@@ -26,6 +28,26 @@ export class SummaryPageComponent {
 
   private cachedUpcomingGoalsKey = '';
   private cachedUpcomingGoals: PortfolioUpcomingMilestone[] = [];
+  private cachedMinimumBalanceTrendKey = '';
+  private cachedMinimumBalanceTrend: MinimumBalanceTrendSummary = {
+    currentBalanceVsMinimumARS: null,
+    currentBalanceVsMinimumPercent: null,
+    bestHistoricalBalanceARS: null,
+    bestHistoricalDate: null,
+    worstHistoricalBalanceARS: null,
+    worstHistoricalDate: null,
+    change30dARS: null,
+    change90dARS: null,
+    change30dPercentPoints: null,
+    change90dPercentPoints: null,
+    trendStatus: 'not-available',
+    trendLabel: 'Sin historial suficiente',
+    positionsBelowMinimumCount: 0,
+    totalDeficitBelowMinimumARS: 0,
+    points: [],
+    source: 'MinimumPerformanceService',
+    warnings: []
+  };
 
   constructor(
     public readonly state: PortfolioStateService,
@@ -34,6 +56,7 @@ export class SummaryPageComponent {
     private readonly currencyMapper: CurrencyMapperService,
     private readonly minimumPerformanceService: MinimumPerformanceService,
     private readonly upcomingMilestonesService: PortfolioUpcomingMilestonesService,
+    private readonly minimumBalanceTrendService: PortfolioMinimumBalanceTrendService,
     public readonly privacyMode: PrivacyModeService
   ) {}
 
@@ -59,6 +82,25 @@ export class SummaryPageComponent {
 
   minimumPerformanceSummary(snapshot: PortfolioAppState): MinimumPerformanceSummary {
     return this.minimumPerformanceService.buildMinimumPerformanceSummary(snapshot);
+  }
+
+  minimumBalanceTrend(snapshot: PortfolioAppState): MinimumBalanceTrendSummary {
+    const cacheKey = [
+      snapshot.importedAt ?? '',
+      snapshot.fileName ?? '',
+      snapshot.dataset?.operations.length ?? 0,
+      snapshot.dataset?.positions.length ?? 0,
+      snapshot.dataset?.investmentMovements.length ?? 0,
+      snapshot.dataset?.calendarBenchmarks.length ?? 0
+    ].join('|');
+
+    if (cacheKey === this.cachedMinimumBalanceTrendKey) {
+      return this.cachedMinimumBalanceTrend;
+    }
+
+    this.cachedMinimumBalanceTrend = this.minimumBalanceTrendService.buildTrend(snapshot);
+    this.cachedMinimumBalanceTrendKey = cacheKey;
+    return this.cachedMinimumBalanceTrend;
   }
 
   minimumPerformanceStatusLabel(status: MinimumPerformanceSummary['status']): string {
@@ -89,7 +131,7 @@ export class SummaryPageComponent {
     }
   }
 
-  percent(value: number): string {
+  percent(value: number | null | undefined): string {
     return this.currencyMapper.formatPercentage(value);
   }
 

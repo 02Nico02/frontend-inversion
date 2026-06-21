@@ -72,6 +72,81 @@
   font-size: 0.85rem;
 }
 
+.minimum-balance-panel {
+  gap: 0.95rem;
+}
+
+.minimum-balance-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.minimum-balance-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(160px, 1fr));
+  gap: 0.6rem;
+  min-width: min(420px, 100%);
+}
+
+.minimum-balance-stat {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--panel-border);
+}
+
+.minimum-balance-stat span,
+.minimum-balance-card span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.minimum-balance-stat strong,
+.minimum-balance-card strong {
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.minimum-balance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.7rem;
+}
+
+.minimum-balance-card {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.minimum-balance-card small {
+  color: var(--muted);
+}
+
+.minimum-balance-empty {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.9rem;
+  border-radius: 16px;
+  border: 1px dashed var(--panel-border);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--muted);
+}
+
+.minimum-balance-empty strong {
+  color: var(--text);
+}
+
 .milestones-panel {
   gap: 1rem;
 }
@@ -282,6 +357,11 @@
   .title-row,
   .milestones-header {
     align-items: start;
+  }
+
+  .minimum-balance-stats {
+    min-width: 100%;
+    grid-template-columns: 1fr;
   }
 
   .milestones-stats {
