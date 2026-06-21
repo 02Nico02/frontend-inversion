@@ -14,6 +14,7 @@ interface LineChartConfig {
   valueKind?: ValueKind;
   showAverage?: boolean;
   showZoom?: boolean;
+  showZeroLine?: boolean;
 }
 
 interface WaterfallChartConfig {
@@ -39,6 +40,7 @@ interface LineDatum {
   date?: string | null;
   changeAmount?: number | null;
   changePercent?: number | null;
+  meta?: Record<string, unknown> | null;
 }
 
 interface WaterfallDatum {
@@ -70,6 +72,7 @@ export class ChartConfigService {
     const hugeSeries = points.length > 300;
     const average = config.showAverage === false || !points.length ? null : points.reduce((sum, item) => sum + item.value, 0) / points.length;
     const showZoom = config.showZoom ?? points.length > 20;
+    const showZeroLine = config.showZeroLine === true;
 
     return {
       backgroundColor: 'transparent',
@@ -196,7 +199,8 @@ export class ChartConfigService {
             value: point.value,
             date: point.date ?? null,
             changeAmount: point.changeAmount ?? null,
-            changePercent: point.changePercent ?? null
+            changePercent: point.changePercent ?? null,
+            meta: point.meta ?? null
           })),
           smooth: true,
           showSymbol: !manyPoints,
@@ -216,20 +220,33 @@ export class ChartConfigService {
           emphasis: {
             focus: 'series'
           },
-          markLine: average !== null
+          markLine: showZeroLine
             ? {
                 symbol: 'none',
                 lineStyle: {
                   type: 'dashed',
-                  color: 'rgba(148, 163, 184, 0.5)'
+                  color: 'rgba(229, 238, 252, 0.45)'
                 },
                 label: {
                   color: '#9db0d1',
-                  formatter: 'Promedio'
+                  formatter: '0'
                 },
-                data: [{ yAxis: average }]
+                data: [{ yAxis: 0 }]
               }
-            : undefined
+            : average !== null
+              ? {
+                  symbol: 'none',
+                  lineStyle: {
+                    type: 'dashed',
+                    color: 'rgba(148, 163, 184, 0.5)'
+                  },
+                  label: {
+                    color: '#9db0d1',
+                    formatter: 'Promedio'
+                  },
+                  data: [{ yAxis: average }]
+                }
+              : undefined
         }
       ]
     };
@@ -555,6 +572,24 @@ export class ChartConfigService {
         }
         if (typeof value === 'number' && Number.isFinite(value)) {
           lines.push(`Valor: ${this.formatAxisValue(value, valueKind, currency)}`);
+        }
+        const meta = payload && typeof payload === 'object' && 'meta' in payload ? (payload.meta as Record<string, unknown> | null) : null;
+        if (meta) {
+          const entries = [
+            meta['comparableValueARS'] !== undefined ? `Valor comparable: ${this.formatAxisValue(Number(meta['comparableValueARS']), valueKind, currency)}` : null,
+            meta['minimumExpectedARS'] !== undefined ? `Mínimo esperado: ${this.formatAxisValue(Number(meta['minimumExpectedARS']), valueKind, currency)}` : null,
+            meta['balanceVsMinimumARS'] !== undefined ? `Vs mínimo $: ${this.formatAxisValue(Number(meta['balanceVsMinimumARS']), valueKind, currency)}` : null,
+            meta['balanceVsMinimumPercent'] !== undefined && meta['balanceVsMinimumPercent'] !== null
+              ? `Vs mínimo %: ${this.formatAxisValue(Number(meta['balanceVsMinimumPercent']), 'percent', currency)}`
+              : null,
+            meta['marketValue'] !== undefined ? `Market value: ${this.formatAxisValue(Number(meta['marketValue']), valueKind, currency)}` : null,
+            meta['baseCapitalUsed'] !== undefined && meta['baseCapitalUsed'] !== null
+              ? `Capital base usado: ${this.formatAxisValue(Number(meta['baseCapitalUsed']), valueKind, currency)}`
+              : null,
+            meta['baseCapitalSource'] ? `Fuente de base: ${String(meta['baseCapitalSource'])}` : null,
+            meta['baseCapitalRule'] ? `Regla de cálculo: ${String(meta['baseCapitalRule'])}` : null
+          ].filter((value): value is string => Boolean(value));
+          lines.push(...entries);
         }
         return lines.join('<br/>');
       }

@@ -24,6 +24,7 @@ export class SimpleChartComponent {
   private _includeOther = true;
   private _showAverage = true;
   private _showZoom: boolean | null = null;
+  private _showZeroLine = false;
 
   chartOptions: EChartsCoreOption = {};
   chartInstance: ECharts | null = null;
@@ -120,6 +121,15 @@ export class SimpleChartComponent {
     return this._showZoom;
   }
 
+  @Input()
+  set showZeroLine(value: boolean) {
+    this._showZeroLine = value === true;
+    this.rebuildOptions();
+  }
+  get showZeroLine(): boolean {
+    return this._showZeroLine;
+  }
+
   get seriesHint(): string {
     const count = this.points.length;
     if (count > 300) {
@@ -174,7 +184,8 @@ export class SimpleChartComponent {
       currency: this._currency,
       valueKind: this._valueKind,
       showAverage: this._showAverage,
-      showZoom: this._showZoom ?? undefined
+      showZoom: this._showZoom ?? undefined,
+      showZeroLine: this._showZeroLine
     });
   }
 }

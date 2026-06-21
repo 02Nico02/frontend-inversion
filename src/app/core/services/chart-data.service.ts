@@ -25,6 +25,7 @@ export interface SeriesPoint {
   count?: number;
   percentage?: number;
   total?: number;
+  meta?: Record<string, unknown>;
 }
 
 @Injectable({ providedIn: 'root' })

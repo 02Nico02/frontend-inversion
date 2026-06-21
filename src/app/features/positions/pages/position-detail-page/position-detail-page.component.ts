@@ -9,6 +9,11 @@ import { AssetDetailService, AssetDetailViewModel, AssetHistoryStats } from '../
 import { MinimumPerformanceBySymbol, MinimumPerformanceLot } from '../../../../core/models/minimum-performance.model';
 import { MinimumPerformanceService } from '../../../../core/services/minimum-performance.service';
 import { InvestmentMovementLotAdjustment } from '../../../../core/models/investment-movements.model';
+import {
+  MinimumBalanceTrendSymbolPoint,
+  MinimumBalanceTrendSymbolReport
+} from '../../../../core/services/portfolio-minimum-balance-trend.service';
+import { PortfolioMinimumBalanceTrendService } from '../../../../core/services/portfolio-minimum-balance-trend.service';
 
 type DetailTab = 'summary' | 'operations' | 'alerts' | 'history' | 'classification';
 type SortDirection = 'asc' | 'desc';
@@ -34,6 +39,18 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
   historyStats: AssetHistoryStats | null = null;
   minimumPerformance: MinimumPerformanceBySymbol | null = null;
   minimumPerformanceLots: MinimumPerformanceLot[] = [];
+  minimumBalanceTrendReport: MinimumBalanceTrendSymbolReport | null = null;
+  minimumBalanceTrendSeries: MinimumBalanceTrendSymbolPoint[] = [];
+  minimumBalanceTrendStats: {
+    initial: number | null;
+    final: number | null;
+    max: number | null;
+    min: number | null;
+    latest: number | null;
+    latestDate: string | null;
+    variationAmount: number | null;
+    variationPercent: number | null;
+  } | null = null;
 
   private symbol = '';
   private subscription?: Subscription;
@@ -43,7 +60,8 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
     private readonly router: Router,
     private readonly route: ActivatedRoute,
     private readonly assetDetail: AssetDetailService,
-    private readonly minimumPerformanceService: MinimumPerformanceService
+    private readonly minimumPerformanceService: MinimumPerformanceService,
+    private readonly minimumBalanceTrendService: PortfolioMinimumBalanceTrendService
   ) {}
 
   ngOnInit(): void {
@@ -52,7 +70,7 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
       this.detail = this.symbol ? this.assetDetail.buildViewModel(snapshot, this.symbol) : null;
       this.operationPageIndex = 0;
       this.refreshMinimumPerformance(snapshot);
-      this.refreshHistory();
+      this.refreshHistory(snapshot);
     });
   }
 
@@ -357,15 +375,62 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
     return operation.id || `${index}`;
   }
 
-  private refreshHistory(): void {
+  private refreshHistory(snapshot?: PortfolioAppState): void {
     if (!this.detail) {
       this.historyChartSeries = [];
       this.historyStats = null;
+      this.minimumBalanceTrendReport = null;
+      this.minimumBalanceTrendSeries = [];
+      this.minimumBalanceTrendStats = null;
       return;
     }
     const filtered = this.assetDetail.filterHistory(this.detail.historicalPrices, this.historyPeriod);
     this.historyChartSeries = this.assetDetail.seriesForHistory(filtered, this.detail.symbol);
     this.historyStats = this.assetDetail.historyStats(filtered);
+
+    const state = snapshot ?? this.state.snapshot;
+    if (state?.dataset) {
+      this.minimumBalanceTrendReport = this.minimumBalanceTrendService.buildTrendBySymbol(state, this.detail.symbol, 'monthly');
+      this.minimumBalanceTrendSeries = this.minimumBalanceTrendReport.points;
+      this.minimumBalanceTrendStats = this.buildMinimumBalanceTrendStats(this.minimumBalanceTrendSeries);
+    } else {
+      this.minimumBalanceTrendReport = null;
+      this.minimumBalanceTrendSeries = [];
+      this.minimumBalanceTrendStats = null;
+    }
+  }
+
+  private buildMinimumBalanceTrendStats(points: MinimumBalanceTrendSymbolPoint[]): {
+    initial: number | null;
+    final: number | null;
+    max: number | null;
+    min: number | null;
+    latest: number | null;
+    latestDate: string | null;
+    variationAmount: number | null;
+    variationPercent: number | null;
+  } | null {
+    if (!points.length) {
+      return null;
+    }
+
+    const values = points.map((item) => item.value);
+    const initial = values[0] ?? null;
+    const final = values[values.length - 1] ?? null;
+    const max = Math.max(...values);
+    const min = Math.min(...values);
+    const latest = values.at(-1) ?? final;
+
+    return {
+      initial,
+      final,
+      max,
+      min,
+      latest,
+      latestDate: points.at(-1)?.date ?? null,
+      variationAmount: initial !== null && final !== null ? final - initial : null,
+      variationPercent: initial !== null && initial !== 0 && final !== null ? ((final - initial) / initial) * 100 : null
+    };
   }
 
   private refreshMinimumPerformance(snapshot: PortfolioAppState): void {

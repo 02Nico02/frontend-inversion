@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+﻿import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -323,20 +323,20 @@ export class DataReviewPageComponent implements OnInit, OnDestroy {
 
   private normalizeText(value: string): string {
     return value
-      .replace(/á/g, 'á')
-      .replace(/é/g, 'é')
-      .replace(/í/g, 'í')
-      .replace(/ó/g, 'ó')
-      .replace(/ú/g, 'ú')
-      .replace(/ñ/g, 'ñ')
-      .replace(/Ã/g, 'Á')
-      .replace(/Ã‰/g, 'É')
-      .replace(/Ã/g, 'Í')
-      .replace(/Ã“/g, 'Ó')
-      .replace(/Ãš/g, 'Ú')
-      .replace(/Ã‘/g, 'Ñ')
-      .replace(/Ã¼/g, 'ü')
-      .replace(/Ãœ/g, 'Ü');
+      .replace(/\u00C3\u00A1/g, 'á')
+      .replace(/\u00C3\u00A9/g, 'é')
+      .replace(/\u00C3\u00AD/g, 'í')
+      .replace(/\u00C3\u00B3/g, 'ó')
+      .replace(/\u00C3\u00BA/g, 'ú')
+      .replace(/\u00C3\u00B1/g, 'ñ')
+      .replace(/\u00C3\u0081/g, 'Á')
+      .replace(/\u00C3\u0089/g, 'É')
+      .replace(/\u00C3\u008D/g, 'Í')
+      .replace(/\u00C3\u0093/g, 'Ó')
+      .replace(/\u00C3\u009A/g, 'Ú')
+      .replace(/\u00C3\u0091/g, 'Ñ')
+      .replace(/\u00C3\u00BC/g, 'ü')
+      .replace(/\u00C3\u009C/g, 'Ü');
   }
 
   private uniqueSorted(values: string[]): string[] {
@@ -359,3 +359,4 @@ export class DataReviewPageComponent implements OnInit, OnDestroy {
     };
   }
 }
+

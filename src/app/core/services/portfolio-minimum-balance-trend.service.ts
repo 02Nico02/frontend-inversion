@@ -19,6 +19,7 @@ import {
 } from '../models/portfolio.models';
 import { WorkbookTableData } from '../models/workbook.models';
 import { parseExcelDate } from '../utils/value-parsing.utils';
+import type { SeriesPoint } from './chart-data.service';
 
 interface HistoricalLot {
   id: string;
@@ -226,6 +227,55 @@ export interface MinimumBalanceTrendCurrentComparisonReport {
   warnings: string[];
 }
 
+export interface MinimumBalanceTrendSymbolPoint extends SeriesPoint {
+  meta?: {
+    comparableValueARS: number;
+    minimumExpectedARS: number;
+    balanceVsMinimumARS: number;
+    balanceVsMinimumPercent: number | null;
+    marketValue: number | null;
+    historicalPrice: number | null;
+    historicalPriceDate: string | null;
+    baseCapitalUsed: number | null;
+    baseCapitalRule: string | null;
+    baseCapitalSource: string | null;
+    benchmarkRatio: number | null;
+    included: boolean;
+    skipReason: string | null;
+    warnings: string[];
+  };
+}
+
+export interface MinimumBalanceTrendSymbolReport {
+  symbol: string;
+  currency: 'ARS';
+  points: MinimumBalanceTrendSymbolPoint[];
+  warnings: string[];
+  benchmarkSourceSelected: CalendarBenchmarkRow['source'] | null;
+  benchmarkSourcesAvailable: CalendarBenchmarkRow['source'][];
+  emptyMessage: string | null;
+}
+
+export interface MinimumBalanceTrendSymbolDateReport {
+  symbol: string;
+  currency: 'ARS';
+  date: string;
+  marketValue: number | null;
+  comparableValue: number | null;
+  minimumExpectedUsed: number | null;
+  balanceVsMinimum: number | null;
+  balanceVsMinimumPercent: number | null;
+  baseCapitalUsed: number | null;
+  baseCapitalRule: string | null;
+  baseCapitalSource: string | null;
+  historicalPrice: number | null;
+  historicalPriceDate: string | null;
+  benchmarkRatio: number | null;
+  included: boolean;
+  skipReason: string | null;
+  warnings: string[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class PortfolioMinimumBalanceTrendService {
   constructor(private readonly minimumPerformance: MinimumPerformanceService) {}
@@ -268,6 +318,63 @@ export class PortfolioMinimumBalanceTrendService {
       points,
       source: 'MinimumPerformanceService',
       warnings: this.uniqueWarnings(warnings)
+    };
+  }
+
+  buildTrendBySymbol(
+    snapshot: PortfolioAppState,
+    symbol: string,
+    viewMode: 'monthly' | 'daily' = 'monthly'
+  ): MinimumBalanceTrendSymbolReport {
+    const normalizedSymbol = String(symbol ?? '').trim().toUpperCase();
+    if (!normalizedSymbol) {
+      return {
+        symbol: '',
+        currency: 'ARS',
+        points: [],
+        warnings: ['No se indicó una especie válida para construir la serie vs mínimo histórico.'],
+        benchmarkSourceSelected: null,
+        benchmarkSourcesAvailable: [],
+        emptyMessage: 'No hay datos suficientes para reconstruir el vs mínimo histórico de esta especie.'
+      };
+    }
+
+    const historical = this.buildHistoricalPoints(snapshot, viewMode);
+    const points: MinimumBalanceTrendSymbolPoint[] = [];
+    const warnings = [...historical.warnings];
+    let previousPoint: MinimumBalanceTrendSymbolPoint | null = null;
+
+    for (const point of historical.points) {
+      const date = this.asDate(point.date);
+      if (!date) {
+        continue;
+      }
+
+      const report = this.buildDebugReportForDate(snapshot, date);
+      const symbolPoint = this.buildSymbolPointFromDebugReport(report, normalizedSymbol);
+      if (!symbolPoint.meta?.included) {
+        continue;
+      }
+
+      if (previousPoint) {
+        symbolPoint.changeAmount = symbolPoint.value - previousPoint.value;
+        symbolPoint.changePercent =
+          previousPoint.value !== 0 ? ((symbolPoint.value - previousPoint.value) / previousPoint.value) * 100 : null;
+      }
+
+      previousPoint = symbolPoint;
+      points.push(symbolPoint);
+      warnings.push(...(symbolPoint.meta?.warnings ?? []));
+    }
+
+    return {
+      symbol: normalizedSymbol,
+      currency: 'ARS',
+      points,
+      warnings: this.uniqueWarnings(warnings),
+      benchmarkSourceSelected: historical.benchmarkSourceSelected,
+      benchmarkSourcesAvailable: historical.benchmarkSourcesAvailable,
+      emptyMessage: points.length ? null : 'No hay datos suficientes para reconstruir el vs mínimo histórico de esta especie.'
     };
   }
 
@@ -437,10 +544,127 @@ export class PortfolioMinimumBalanceTrendService {
       warnings: this.uniqueWarnings([
         ...trend.warnings,
         ...(currentBenchmarkSelection.source !== historicalBenchmarkSelection.source
-          ? ['El histÃ³rico usa una fuente de benchmark distinta al cÃ¡lculo actual.']
+          ? ['El histórico usa una fuente de benchmark distinta al cálculo actual.']
           : []),
         ...(skippedReport?.warnings ?? [])
       ])
+    };
+  }
+
+  debugMinimumBalanceTrendForSymbol(snapshot: PortfolioAppState, symbol: string): MinimumBalanceTrendSymbolReport {
+    return this.buildTrendBySymbol(snapshot, symbol);
+  }
+
+  debugMinimumBalanceTrendForSymbolAtDate(
+    snapshot: PortfolioAppState,
+    symbol: string,
+    dateInput: string | Date
+  ): MinimumBalanceTrendSymbolDateReport {
+    const date = this.asDate(dateInput);
+    const normalizedSymbol = String(symbol ?? '').trim().toUpperCase();
+    if (!date || !normalizedSymbol) {
+      return {
+        symbol: normalizedSymbol,
+        currency: 'ARS',
+        date: String(dateInput ?? ''),
+        marketValue: null,
+        comparableValue: null,
+        minimumExpectedUsed: null,
+        balanceVsMinimum: null,
+        balanceVsMinimumPercent: null,
+        baseCapitalUsed: null,
+        baseCapitalRule: null,
+        baseCapitalSource: null,
+        historicalPrice: null,
+        historicalPriceDate: null,
+        benchmarkRatio: null,
+        included: false,
+        skipReason: 'invalid-input',
+        warnings: ['No se pudo interpretar la especie o la fecha solicitada para el debug de Balance vs minimo ARS.']
+      };
+    }
+
+    const report = this.buildDebugReportForDate(snapshot, date);
+    return this.buildSymbolDateReportFromDebugReport(report, normalizedSymbol);
+  }
+
+  private buildSymbolPointFromDebugReport(
+    report: MinimumBalanceTrendDateDebugReport,
+    normalizedSymbol: string
+  ): MinimumBalanceTrendSymbolPoint {
+    const symbolRows = report.lots.filter((lot) => lot.symbol.trim().toUpperCase() === normalizedSymbol);
+    const includedRows = symbolRows.filter(
+      (lot) => !lot.skipped && lot.currency === 'ARS' && lot.comparableValue !== null && lot.minimumExpectedUsed !== null
+    );
+    const warnings = this.uniqueWarnings([
+      ...report.warnings,
+      ...symbolRows.filter((lot) => lot.skipped && lot.skipReason).map((lot) => `${lot.symbol}: ${lot.skipReason}`)
+    ]);
+    const date = report.date;
+    const formattedDate = this.asDate(date) ? this.formatDate(this.asDate(date)!) : date;
+    const historicalPrice = this.pickLatestNumber(symbolRows.map((row) => row.historicalPrice));
+    const historicalPriceDate = this.pickLatestDate(symbolRows.map((row) => row.historicalPriceDate));
+    const marketValue = this.sumNumbers(includedRows.map((row) => row.marketValue));
+    const comparableValue = this.sumNumbers(includedRows.map((row) => row.comparableValue));
+    const minimumExpectedUsed = this.sumNumbers(includedRows.map((row) => row.minimumExpectedUsed));
+    const baseCapitalUsed = this.sumNumbers(includedRows.map((row) => row.baseCapitalUsed));
+    const balanceVsMinimumARS = comparableValue - minimumExpectedUsed;
+    const balanceVsMinimumPercent = minimumExpectedUsed > 0 ? ((comparableValue / minimumExpectedUsed) - 1) * 100 : null;
+    const benchmarkRatio = baseCapitalUsed > 0 ? minimumExpectedUsed / baseCapitalUsed : null;
+    const baseCapitalRule = this.joinUniqueStrings(includedRows.map((row) => row.baseCapitalRule), 'by-symbol-aggregate');
+    const baseCapitalSource = this.joinUniqueStrings(includedRows.map((row) => row.baseCapitalSource), 'agregado por símbolo');
+    const skipReason = symbolRows.find((lot) => lot.skipReason)?.skipReason ?? 'symbol-not-in-series';
+
+    return {
+      label: formattedDate,
+      value: balanceVsMinimumARS,
+      date: formattedDate,
+      changeAmount: null,
+      changePercent: null,
+      tooltip: `${normalizedSymbol} · ${date} · ${balanceVsMinimumARS}`,
+      meta: {
+        comparableValueARS: comparableValue,
+        minimumExpectedARS: minimumExpectedUsed,
+        balanceVsMinimumARS,
+        balanceVsMinimumPercent,
+        marketValue,
+        historicalPrice,
+        historicalPriceDate,
+        baseCapitalUsed,
+        baseCapitalRule,
+        baseCapitalSource,
+        benchmarkRatio,
+        included: includedRows.length > 0,
+        skipReason: includedRows.length > 0 ? null : skipReason,
+        warnings
+      }
+    };
+  }
+
+  private buildSymbolDateReportFromDebugReport(
+    report: MinimumBalanceTrendDateDebugReport,
+    normalizedSymbol: string
+  ): MinimumBalanceTrendSymbolDateReport {
+    const symbolPoint = this.buildSymbolPointFromDebugReport(report, normalizedSymbol);
+    const included = Boolean(symbolPoint.meta?.included);
+    return {
+      symbol: normalizedSymbol,
+      currency: 'ARS',
+      date: report.date,
+      marketValue: included ? symbolPoint.meta?.marketValue ?? null : null,
+      comparableValue: included ? symbolPoint.meta?.comparableValueARS ?? null : null,
+      minimumExpectedUsed: included ? symbolPoint.meta?.minimumExpectedARS ?? null : null,
+      balanceVsMinimum: included ? symbolPoint.meta?.balanceVsMinimumARS ?? null : null,
+      balanceVsMinimumPercent: included ? symbolPoint.meta?.balanceVsMinimumPercent ?? null : null,
+      baseCapitalUsed: included ? symbolPoint.meta?.baseCapitalUsed ?? null : null,
+      baseCapitalRule: included ? symbolPoint.meta?.baseCapitalRule ?? null : null,
+      baseCapitalSource: included ? symbolPoint.meta?.baseCapitalSource ?? null : null,
+      historicalPrice: included ? symbolPoint.meta?.historicalPrice ?? null : null,
+      historicalPriceDate: included ? symbolPoint.meta?.historicalPriceDate ?? null : null,
+      benchmarkRatio: included ? symbolPoint.meta?.benchmarkRatio ?? null : null,
+      included,
+      skipReason: symbolPoint.meta?.skipReason ?? null,
+      warnings: symbolPoint.meta?.warnings ?? []
     };
   }
 
@@ -455,8 +679,8 @@ export class PortfolioMinimumBalanceTrendService {
         benchmarkSourceSelected: null,
         benchmarkSourcesAvailable: [],
         warnings: [
-          'No hay serie histÃ³rica confiable de Balance vs mÃ­nimo ARS.',
-          'No hay dataset disponible para construir la serie histÃ³rica de Balance vs mÃ­nimo ARS.'
+          'No hay serie histórica confiable de Balance vs mínimo ARS.',
+          'No hay dataset disponible para construir la serie histórica de Balance vs mínimo ARS.'
         ]
       };
     }
@@ -470,10 +694,10 @@ export class PortfolioMinimumBalanceTrendService {
         benchmarkSourceSelected: null,
         benchmarkSourcesAvailable: [],
         warnings: [
-          'No hay serie histÃ³rica confiable de Balance vs mÃ­nimo ARS.',
+          'No hay serie histórica confiable de Balance vs mínimo ARS.',
           viewMode === 'daily'
-            ? 'No hay historial diario suficiente para construir la serie histÃ³rica de Balance vs mÃ­nimo ARS.'
-            : 'No hay historial mensual suficiente para construir la serie histÃ³rica de Balance vs mÃ­nimo ARS.'
+            ? 'No hay historial diario suficiente para construir la serie histórica de Balance vs mínimo ARS.'
+            : 'No hay historial mensual suficiente para construir la serie histórica de Balance vs mínimo ARS.'
         ]
       };
     }
@@ -491,8 +715,8 @@ export class PortfolioMinimumBalanceTrendService {
         benchmarkSourceSelected: null,
         benchmarkSourcesAvailable: [],
         warnings: [
-          'No hay serie histÃ³rica confiable de Balance vs mÃ­nimo ARS.',
-          'No hay lotes ARS suficientes para construir la serie histÃ³rica de Balance vs mÃ­nimo ARS.'
+          'No hay serie histórica confiable de Balance vs mínimo ARS.',
+          'No hay lotes ARS suficientes para construir la serie histórica de Balance vs mínimo ARS.'
         ]
       };
     }
@@ -506,8 +730,8 @@ export class PortfolioMinimumBalanceTrendService {
         benchmarkSourceSelected: benchmarkSelection.source,
         benchmarkSourcesAvailable: benchmarkSelection.availableSources,
         warnings: [
-          'No hay serie histÃ³rica confiable de Balance vs mÃ­nimo ARS.',
-          'No hay benchmark mÃ­nimo suficiente para construir la serie histÃ³rica de Balance vs mÃ­nimo ARS.'
+          'No hay serie histórica confiable de Balance vs mínimo ARS.',
+          'No hay benchmark mínimo suficiente para construir la serie histórica de Balance vs mínimo ARS.'
         ]
       };
     }
@@ -533,8 +757,8 @@ export class PortfolioMinimumBalanceTrendService {
     }
 
     if (!points.length) {
-      warnings.push('No hay serie histÃ³rica confiable de Balance vs mÃ­nimo ARS.');
-      warnings.push('No se pudieron reconstruir puntos histÃ³ricos confiables de Balance vs mÃ­nimo ARS.');
+      warnings.push('No hay serie histórica confiable de Balance vs mínimo ARS.');
+      warnings.push('No se pudieron reconstruir puntos históricos confiables de Balance vs mínimo ARS.');
     } else {
       const currentSummary = this.minimumPerformance.buildMinimumPerformanceSummary(snapshot);
       const currentBalance = currentSummary.balanceVsMinimumArs;
@@ -543,7 +767,7 @@ export class PortfolioMinimumBalanceTrendService {
         const diff = Math.abs(lastPoint.balanceVsMinimumARS - currentBalance);
         const threshold = Math.max(1, Math.abs(currentBalance) * 0.15);
         if (diff > threshold) {
-          warnings.push('El Ãºltimo punto histÃ³rico difiere significativamente del cÃ¡lculo actual de Balance vs mÃ­nimo.');
+          warnings.push('El último punto histórico difiere significativamente del cálculo actual de Balance vs mínimo.');
         }
       }
       if (currentBalance !== null && lastPoint) {
@@ -551,7 +775,7 @@ export class PortfolioMinimumBalanceTrendService {
         const threshold = Math.max(1, Math.abs(currentBalance) * 0.15);
         if (diff > threshold) {
           warnings.push(
-            `Ãšltimo punto histÃ³rico: ${this.debugDateKey(lastPoint.date) ?? 'N/D'}. Si la diferencia con el cÃ¡lculo actual persiste, revisar lotes omitidos, FCI, cauciones o precios histÃ³ricos.`
+            `Último punto histórico: ${this.debugDateKey(lastPoint.date) ?? 'N/D'}. Si la diferencia con el cálculo actual persiste, revisar lotes omitidos, FCI, cauciones o precios históricos.`
           );
         }
       }
@@ -1622,7 +1846,7 @@ export class PortfolioMinimumBalanceTrendService {
       const movementIndexInfo = this.benchmarkIndexInfo(benchmarkRows, movement.date);
       const movementIndex = movementIndexInfo.index;
       if (movementIndex === null || movementIndex <= 0) {
-        warnings.push(`No se pudo ubicar una amortizaciÃ³n en el calendario de benchmark para ${this.formatDate(movement.date)}.`);
+        warnings.push(`No se pudo ubicar una amortización en el calendario de benchmark para ${this.formatDate(movement.date)}.`);
         continue;
       }
 
@@ -1635,7 +1859,7 @@ export class PortfolioMinimumBalanceTrendService {
       usesAdjustedBenchmark = true;
 
       if (exposedCapital <= 0) {
-        warnings.push('La amortizaciÃ³n supera el capital expuesto del lote. Revisar datos.');
+        warnings.push('La amortización supera el capital expuesto del lote. Revisar datos.');
         exposedCapital = 0;
         break;
       }
@@ -2015,7 +2239,7 @@ export class PortfolioMinimumBalanceTrendService {
       case 'improving':
         return 'Mejorando';
       case 'deteriorating':
-        return 'DeteriorÃ¡ndose';
+        return 'Deteriorándose';
       case 'stable':
         return 'Estable';
       case 'not-available':
@@ -2085,6 +2309,35 @@ export class PortfolioMinimumBalanceTrendService {
       }
     }
     return candidate ?? points[0] ?? null;
+  }
+
+  private sumNumbers(values: Array<number | null | undefined>): number {
+    return values.reduce<number>((sum, value) => {
+      return sum + (typeof value === 'number' && Number.isFinite(value) ? value : 0);
+    }, 0);
+  }
+
+  private pickLatestNumber(values: Array<number | null | undefined>): number | null {
+    const filtered = values.filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+    return filtered.length ? filtered[filtered.length - 1] : null;
+  }
+
+  private pickLatestDate(values: Array<string | null | undefined>): string | null {
+    const filtered = values.filter((value): value is string => Boolean(value));
+    return filtered.length ? filtered[filtered.length - 1] : null;
+  }
+
+  private joinUniqueStrings(values: Array<string | null | undefined>, fallback: string): string {
+    const unique = Array.from(
+      new Set(values.map((value) => String(value ?? '').trim()).filter((value) => Boolean(value)))
+    );
+    if (!unique.length) {
+      return fallback;
+    }
+    if (unique.length === 1) {
+      return unique[0];
+    }
+    return unique.join(' + ');
   }
 
   private uniqueWarnings(values: string[]): string[] {
@@ -2267,21 +2520,21 @@ export class PortfolioMinimumBalanceTrendService {
       return {
         skip: true,
         reason: 'valuation-like-instrument',
-        warning: `FCI/valor valorizado omitido en histÃ³rico: no hay fÃ³rmula confiable para reconstruir valor por cantidad * precio para ${lot.symbol}.`
+        warning: `FCI/valor valorizado omitido en histórico: no hay fórmula confiable para reconstruir valor por cantidad * precio para ${lot.symbol}.`
       };
     }
     if (this.isNonComparableHistoricalInstrument(lot.symbol)) {
       return {
         skip: true,
         reason: 'non-comparable-instrument',
-        warning: `Instrumento no comparable omitido en histÃ³rico: ${lot.symbol}. No se reconstruye por cantidad * precio.`
+        warning: `Instrumento no comparable omitido en histórico: ${lot.symbol}. No se reconstruye por cantidad * precio.`
       };
     }
     if (marketValue !== null && investedAmount !== null && investedAmount > 0 && marketValue > investedAmount * 100) {
       return {
         skip: true,
         reason: 'suspicious-scale',
-        warning: `Valor histÃ³rico sospechoso para ${lot.symbol}: marketValue muy superior al capital invertido. Revisar escala de precio/cantidad.`
+        warning: `Valor histórico sospechoso para ${lot.symbol}: marketValue muy superior al capital invertido. Revisar escala de precio/cantidad.`
       };
     }
     return { skip: false, reason: null, warning: null };
@@ -2289,7 +2542,7 @@ export class PortfolioMinimumBalanceTrendService {
 
   private isNonComparableHistoricalInstrument(symbol: string): boolean {
     const normalized = symbol.trim().toUpperCase();
-    return ['CAUCION', 'CAUCIÃ“N COLOCADORA', 'ADRDOLA', 'PRFAHOB'].includes(normalized);
+    return ['CAUCION', 'CAUCIÓN COLOCADORA', 'ADRDOLA', 'PRFAHOB'].includes(normalized);
   }
 
   private formatDate(value: Date): string {

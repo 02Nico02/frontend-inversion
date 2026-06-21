@@ -26,7 +26,9 @@ import {
   MinimumBalanceTrendCurrentComparisonReport,
   MinimumBalanceTrendSkippedLotsReport,
   MinimumBalanceTrendPointsDebugReport,
-  MinimumBalanceTrendTopContributorsReport
+  MinimumBalanceTrendTopContributorsReport,
+  MinimumBalanceTrendSymbolDateReport,
+  MinimumBalanceTrendSymbolReport
 } from '../../../../core/services/portfolio-minimum-balance-trend.service';
 
 interface PortfolioHistoricalDebugApi {
@@ -36,6 +38,8 @@ interface PortfolioHistoricalDebugApi {
   minimumBalanceTrendSuspiciousLots: (date: string | Date) => MinimumBalanceTrendDateDebugReport;
   minimumBalanceTrendSkippedLots: (date: string | Date) => MinimumBalanceTrendSkippedLotsReport;
   minimumBalanceTrendCurrentComparison: () => MinimumBalanceTrendCurrentComparisonReport;
+  minimumBalanceTrendForSymbol: (symbol: string) => MinimumBalanceTrendSymbolReport;
+  minimumBalanceTrendForSymbolAtDate: (symbol: string, date: string | Date) => MinimumBalanceTrendSymbolDateReport;
 }
 
 declare global {
@@ -659,6 +663,64 @@ export class HistoricalPageComponent implements OnInit, OnDestroy {
             count
           }))
         );
+        if (report.warnings.length) {
+          console.warn('[portfolio-debug] warnings', report.warnings);
+        }
+        console.groupEnd();
+        return report;
+      },
+      minimumBalanceTrendForSymbol: (symbol: string) => {
+        const report = this.minimumBalanceTrendService.debugMinimumBalanceTrendForSymbol(this.state.snapshot, symbol);
+        console.groupCollapsed(`[portfolio-debug] minimumBalanceTrendForSymbol ${report.symbol}`);
+        console.log(report);
+        console.table(
+          report.points.map((point) => ({
+            date: point.date,
+            value: point.value,
+            comparableValueARS: point.meta?.comparableValueARS ?? null,
+            minimumExpectedARS: point.meta?.minimumExpectedARS ?? null,
+            balanceVsMinimumARS: point.meta?.balanceVsMinimumARS ?? null,
+            balanceVsMinimumPercent: point.meta?.balanceVsMinimumPercent ?? null,
+            marketValue: point.meta?.marketValue ?? null,
+            baseCapitalUsed: point.meta?.baseCapitalUsed ?? null,
+            baseCapitalRule: point.meta?.baseCapitalRule ?? null,
+            baseCapitalSource: point.meta?.baseCapitalSource ?? null,
+            historicalPrice: point.meta?.historicalPrice ?? null,
+            historicalPriceDate: point.meta?.historicalPriceDate ?? null,
+            benchmarkRatio: point.meta?.benchmarkRatio ?? null,
+            included: point.meta?.included ?? false,
+            skipReason: point.meta?.skipReason ?? null
+          }))
+        );
+        if (report.warnings.length) {
+          console.warn('[portfolio-debug] warnings', report.warnings);
+        }
+        console.groupEnd();
+        return report;
+      },
+      minimumBalanceTrendForSymbolAtDate: (symbol: string, date: string | Date) => {
+        const report = this.minimumBalanceTrendService.debugMinimumBalanceTrendForSymbolAtDate(this.state.snapshot, symbol, date);
+        console.groupCollapsed(`[portfolio-debug] minimumBalanceTrendForSymbolAtDate ${report.symbol} ${report.date}`);
+        console.log(report);
+        console.table([
+          {
+            symbol: report.symbol,
+            date: report.date,
+            marketValue: report.marketValue,
+            comparableValue: report.comparableValue,
+            minimumExpectedUsed: report.minimumExpectedUsed,
+            balanceVsMinimum: report.balanceVsMinimum,
+            balanceVsMinimumPercent: report.balanceVsMinimumPercent,
+            baseCapitalUsed: report.baseCapitalUsed,
+            baseCapitalRule: report.baseCapitalRule,
+            baseCapitalSource: report.baseCapitalSource,
+            historicalPrice: report.historicalPrice,
+            historicalPriceDate: report.historicalPriceDate,
+            benchmarkRatio: report.benchmarkRatio,
+            included: report.included,
+            skipReason: report.skipReason
+          }
+        ]);
         if (report.warnings.length) {
           console.warn('[portfolio-debug] warnings', report.warnings);
         }
