@@ -1115,8 +1115,8 @@ export class PortfolioMinimumBalanceTrendService {
 
         const resolvedFciBaseCapital =
           instrumentKind === 'fci'
-            ? (baseInfo?.purchaseAmount && baseInfo.purchaseAmount > 0
-                ? baseInfo.purchaseAmount
+            ? (baseInfo?.netAmount && baseInfo.netAmount > 0
+                ? baseInfo.netAmount
                 : segmentInfo?.baseCapital && segmentInfo.baseCapital > 0
                   ? segmentInfo.baseCapital
                   : this.priceAtOrBeforeInfo(priceIndex, consolidated.symbol, date).price)
@@ -1978,7 +1978,7 @@ export class PortfolioMinimumBalanceTrendService {
       };
 
       current.soldAmount += amount;
-      current.netAmount -= amount;
+      current.netAmount += amount;
       current.soldLotIds.push(id);
       current.baseDate = current.baseDate && current.baseDate.getTime() <= saleDate.getTime() ? current.baseDate : saleDate;
       current.capitalEvents.push({
@@ -2018,7 +2018,7 @@ export class PortfolioMinimumBalanceTrendService {
         continue;
       }
       const saleDate = this.asDate(sale.sellDate ?? sale.buyDate);
-      if (!saleDate || saleDate.getTime() > date.getTime()) {
+      if (!saleDate) {
         continue;
       }
       const amount = Math.max(0, this.asNumber(sale.total ?? sale.amount) ?? 0);
@@ -2029,7 +2029,7 @@ export class PortfolioMinimumBalanceTrendService {
     }
 
     for (const info of grouped.values()) {
-      info.netAmount = Math.max(0, info.purchaseAmount - info.soldAmount);
+      info.netAmount = Math.max(0, info.purchaseAmount + info.soldAmount);
       info.capitalEvents.sort((left, right) => {
         const diff = left.date.getTime() - right.date.getTime();
         if (diff !== 0) {
@@ -2061,7 +2061,6 @@ export class PortfolioMinimumBalanceTrendService {
     fciCapitalEvents: FciCapitalEvent[];
   } {
     const { benchmarkRows, date, baseInfo, fallbackBaseCapital } = args;
-    const benchmarkStartDate = baseInfo?.baseDate ?? null;
     const sortedEvents = [...(baseInfo?.capitalEvents ?? [])].sort((left, right) => {
       const diff = left.date.getTime() - right.date.getTime();
       if (diff !== 0) {
@@ -2073,27 +2072,44 @@ export class PortfolioMinimumBalanceTrendService {
       return left.type === 'buy' ? -1 : 1;
     });
 
-    if (!sortedEvents.length) {
+    const reconstructedBaseCapital =
+      baseInfo && baseInfo.netAmount > 0
+        ? baseInfo.netAmount
+        : fallbackBaseCapital !== null && fallbackBaseCapital > 0
+          ? fallbackBaseCapital
+          : null;
+    const benchmarkStartDate = baseInfo?.baseDate ?? sortedEvents[0]?.date ?? null;
+    const benchmarkStartInfo = benchmarkStartDate
+      ? this.benchmarkIndexInfo(benchmarkRows, benchmarkStartDate)
+      : { index: null, row: null, beforeStart: false, afterEnd: false };
+    const evalBenchmarkInfo = this.benchmarkIndexInfo(benchmarkRows, date);
+
+    if (!reconstructedBaseCapital || reconstructedBaseCapital <= 0) {
       return {
-        baseCapitalInitial: fallbackBaseCapital !== null && fallbackBaseCapital > 0 ? fallbackBaseCapital : null,
-        remainingExposedCapital: fallbackBaseCapital !== null && fallbackBaseCapital > 0 ? fallbackBaseCapital : null,
+        baseCapitalInitial: null,
+        remainingExposedCapital: null,
         capitalReturnedAmount: 0,
-        benchmarkAccruedAmount: fallbackBaseCapital !== null && fallbackBaseCapital > 0 ? fallbackBaseCapital : null,
-        minimumExpectedUsed: fallbackBaseCapital !== null && fallbackBaseCapital > 0 ? fallbackBaseCapital : null,
+        benchmarkAccruedAmount: null,
+        minimumExpectedUsed: null,
         benchmarkRatio: null,
         baseDate: benchmarkStartDate,
         fciCapitalEvents: []
       };
     }
 
-    let capital = 0;
-    let benchmarkBalance = 0;
-    let lastBenchmarkIndex: number | null = null;
-    let baseDate = sortedEvents[0]?.date ?? benchmarkStartDate ?? null;
+    const saleEvents = sortedEvents.filter((event) => event.type === 'sell');
+    let capital = reconstructedBaseCapital;
+    let benchmarkBalance = reconstructedBaseCapital;
+    let lastBenchmarkIndex: number | null = benchmarkStartInfo.index && benchmarkStartInfo.index > 0 ? benchmarkStartInfo.index : null;
+    let baseDate = benchmarkStartDate;
     let capitalReturnedAmount = 0;
-    let firstBenchmarkIndex: number | null = null;
+    let firstBenchmarkIndex: number | null = benchmarkStartInfo.index && benchmarkStartInfo.index > 0 ? benchmarkStartInfo.index : null;
 
-    for (const event of sortedEvents) {
+    for (const event of saleEvents) {
+      if (event.date.getTime() > date.getTime()) {
+        continue;
+      }
+
       const benchmarkInfo = this.benchmarkIndexInfo(benchmarkRows, event.date);
       if (benchmarkInfo.index === null || benchmarkInfo.index <= 0) {
         continue;
@@ -2110,14 +2126,9 @@ export class PortfolioMinimumBalanceTrendService {
 
       const capitalBeforeEvent = capital;
       const minimumAccruedBeforeEvent = benchmarkBalance;
-      if (event.type === 'buy') {
-        capital += event.amount;
-        benchmarkBalance += event.amount;
-      } else {
-        capital = Math.max(0, capital - event.amount);
-        benchmarkBalance = Math.max(0, benchmarkBalance - event.amount);
-        capitalReturnedAmount += event.amount;
-      }
+      capital = Math.max(0, capital - event.amount);
+      benchmarkBalance = Math.max(0, benchmarkBalance - event.amount);
+      capitalReturnedAmount += event.amount;
 
       event.benchmarkIndexAtEvent = benchmarkInfo.index;
       event.capitalBeforeEvent = capitalBeforeEvent;
@@ -2126,7 +2137,6 @@ export class PortfolioMinimumBalanceTrendService {
       event.minimumAccruedAfterEvent = benchmarkBalance;
     }
 
-    const evalBenchmarkInfo = this.benchmarkIndexInfo(benchmarkRows, date);
     if (evalBenchmarkInfo.index !== null && evalBenchmarkInfo.index > 0 && lastBenchmarkIndex !== null && lastBenchmarkIndex > 0) {
       benchmarkBalance = benchmarkBalance * (evalBenchmarkInfo.index / lastBenchmarkIndex);
     }
@@ -2137,7 +2147,7 @@ export class PortfolioMinimumBalanceTrendService {
         : null;
 
     return {
-      baseCapitalInitial: sortedEvents.reduce((sum, event) => sum + (event.type === 'buy' ? event.amount : 0), 0),
+      baseCapitalInitial: reconstructedBaseCapital,
       remainingExposedCapital: capital,
       capitalReturnedAmount,
       benchmarkAccruedAmount: benchmarkBalance,
