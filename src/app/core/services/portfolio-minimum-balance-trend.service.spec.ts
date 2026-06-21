@@ -735,14 +735,14 @@ describe('PortfolioMinimumBalanceTrendService', () => {
     expect(debug.lots.some((lot) => lot.symbol === 'BTC' && lot.skipReason === 'unsupported-currency')).toBeTrue();
   });
 
-  it('detects FCI symbols from Tabla11 and skips them in the historical series', () => {
+  it('consolidates FCI symbols from Tabla11 and does not duplicate sales in the historical series', () => {
     minimumPerformance.buildMinimumPerformanceSummary.and.returnValue({
       currency: 'ARS',
       comparableLotsCount: 1,
-      currentComparableArs: 200,
-      minimumExpectedArs: 180,
-      balanceVsMinimumArs: 20,
-      balanceVsMinimumPercentArs: 11.1111111111,
+      currentComparableArs: 806791.91,
+      minimumExpectedArs: 1000,
+      balanceVsMinimumArs: 805791.91,
+      balanceVsMinimumPercentArs: 80579.191,
       status: 'positive',
       description: 'ok',
       notes: []
@@ -767,14 +767,14 @@ describe('PortfolioMinimumBalanceTrendService', () => {
         operations: [
           {
             id: '1',
-            date: '2025-01-01',
+            date: '2026-06-01',
             symbol: 'IOLCAMA',
             currency: 'ARS',
-            quantity: 2,
-            buyPrice: 90,
-            total: 180,
-            currentPrice: 100,
-            currentValue: 200,
+            quantity: 10,
+            buyPrice: 80,
+            total: 800,
+            currentPrice: 806791.91,
+            currentValue: 806791.91,
             variation: null,
             remVariation: null,
             remValue: null,
@@ -786,14 +786,14 @@ describe('PortfolioMinimumBalanceTrendService', () => {
           },
           {
             id: '2',
-            date: '2025-01-01',
-            symbol: 'AAA',
+            date: '2026-06-01',
+            symbol: 'IOLCAMA',
             currency: 'ARS',
-            quantity: 2,
-            buyPrice: 90,
-            total: 180,
-            currentPrice: 100,
-            currentValue: 200,
+            quantity: 10,
+            buyPrice: 80,
+            total: 800,
+            currentPrice: 806791.91,
+            currentValue: 806791.91,
             variation: null,
             remVariation: null,
             remValue: null,
@@ -804,7 +804,38 @@ describe('PortfolioMinimumBalanceTrendService', () => {
             trend: null
           }
         ],
-        sales: [],
+        sales: [
+          {
+            id: '67',
+            buyDate: '2026-06-01',
+            sellDate: '2026-07-31',
+            symbol: 'IOLCAMA',
+            currency: 'ARS',
+            quantity: 10,
+            buyPrice: 80,
+            total: 800,
+            sellPrice: 82,
+            totalSold: 820,
+            amount: 0,
+            price: 82,
+            currentPrice: 82
+          },
+          {
+            id: '69',
+            buyDate: '2026-06-01',
+            sellDate: '2026-07-31',
+            symbol: 'IOLCAMA',
+            currency: 'ARS',
+            quantity: 10,
+            buyPrice: 80,
+            total: 800,
+            sellPrice: 82,
+            totalSold: 820,
+            amount: 0,
+            price: 82,
+            currentPrice: 82
+          }
+        ],
         investmentMovements: [],
         positions: [
           buildPortfolioPosition({
@@ -812,55 +843,118 @@ describe('PortfolioMinimumBalanceTrendService', () => {
             currency: 'ARS',
             positionType: 'Accion',
             assetType: 'Accion',
-            quantity: 2,
-            totalInvested: 180,
-            currentValue: 200
-          }),
-          buildPortfolioPosition({
-            symbol: 'AAA',
-            currency: 'ARS',
-            positionType: 'Accion',
-            assetType: 'Accion',
-            quantity: 2,
-            totalInvested: 180,
-            currentValue: 200
+            quantity: 20,
+            totalInvested: 1600,
+            currentValue: 806791.91
           })
         ],
         historicalPrices: [
-          { date: '2025-01-31', month: 'ene-25', symbol: 'IOLCAMA', price: 1298834.747902916 },
-          { date: '2025-01-31', month: 'ene-25', symbol: 'AAA', price: 100 }
+          { date: '2026-06-30', month: 'jun-26', symbol: 'IOLCAMA', price: 806791.91 }
         ],
         dailyBalances: [],
         classifications: [
-          buildClassification({ symbol: 'IOLCAMA', type: 'Accion' }),
-          buildClassification({ symbol: 'AAA', type: 'Accion' })
+          buildClassification({ symbol: 'IOLCAMA', type: 'Accion' })
         ],
         manualAlerts: [],
         calculatedAlerts: [],
         signals: [],
-        monthlySummary: [buildMonthlySummary({ month: 'ene-25', year: 2025 })],
+        monthlySummary: [buildMonthlySummary({ month: 'jun-26', year: 2026 })],
         annualSummary: [],
         monthlyPerformance: [],
         strategicSplit: [],
         platformDistribution: [],
         calendarBenchmarks: [
-          { date: new Date(Date.UTC(2025, 0, 1)), tna: 10, dailyReturnPercent: 0.01, index: 100, source: 'TablaCalendario' },
-          { date: new Date(Date.UTC(2025, 0, 31)), tna: 10, dailyReturnPercent: 0.01, index: 100, source: 'TablaCalendario' }
+          { date: new Date(Date.UTC(2026, 5, 1)), tna: 10, dailyReturnPercent: 0.01, index: 100, source: 'TablaCalendario' },
+          { date: new Date(Date.UTC(2026, 5, 30)), tna: 10, dailyReturnPercent: 0.01, index: 100, source: 'TablaCalendario' }
         ]
       },
       summary: null
     });
 
     const trend = service.buildTrend(snapshot);
-    const debug = service.debugMinimumBalanceTrendForDate(snapshot, '2025-01-31');
+    const debug = service.debugMinimumBalanceTrendForDate(snapshot, '2026-06-30');
 
     expect(trend.points.length).toBe(1);
-    expect(trend.points[0].comparableValueARS).toBe(200);
-    expect(debug.lots.some((lot) => lot.symbol === 'IOLCAMA' && lot.skipReason === 'valuation-like-instrument')).toBeTrue();
-    expect(trend.warnings.some((warning) => warning.includes('FCI/valor valorizado omitido'))).toBeTrue();
+    expect(trend.points[0].comparableValueARS).toBeCloseTo(806791.91, 2);
+    expect(debug.lots.filter((lot) => lot.symbol === 'IOLCAMA' && !lot.skipped).length).toBe(1);
+    expect(debug.lots.some((lot) => lot.symbol === 'IOLCAMA' && lot.skipReason === 'fci-sale-ignored-when-fci-active')).toBeTrue();
   });
 
-  it('skips non-comparable instruments like CAUCION in the historical series', () => {
+  it('omits an FCI that appears only in Tabla13', () => {
+    minimumPerformance.buildMinimumPerformanceSummary.and.returnValue({
+      currency: 'ARS',
+      comparableLotsCount: 1,
+      currentComparableArs: 200,
+      minimumExpectedArs: 180,
+      balanceVsMinimumArs: 20,
+      balanceVsMinimumPercentArs: 11.1111111111,
+      status: 'positive',
+      description: 'ok',
+      notes: []
+    });
+    minimumPerformance.buildMinimumPerformanceBySymbol.and.returnValue([]);
+
+    const snapshot = buildPortfolioAppState({
+      workbook: buildWorkbookSnapshot({
+        tables: [
+          buildWorkbookTable({
+            name: 'Tabla11',
+            displayName: 'Tabla11',
+            rows: [{ 'Fondos com. Inv.': 'IOLCAMA' }],
+            columns: ['Fondos com. Inv.'],
+            rowCount: 1
+          })
+        ]
+      }),
+      dataset: {
+        operations: [],
+        sales: [
+          {
+            id: '67',
+            buyDate: '2026-06-01',
+            sellDate: '2026-06-30',
+            symbol: 'IOLCAMA',
+            currency: 'ARS',
+            quantity: 10,
+            buyPrice: 80,
+            total: 800,
+            sellPrice: 82,
+            totalSold: 820,
+            amount: 0,
+            price: 82,
+            currentPrice: 82
+          }
+        ],
+        investmentMovements: [],
+        positions: [],
+        historicalPrices: [
+          { date: '2026-06-30', month: 'jun-26', symbol: 'IOLCAMA', price: 806791.91 }
+        ],
+        dailyBalances: [],
+        classifications: [buildClassification({ symbol: 'IOLCAMA', type: 'Accion' })],
+        manualAlerts: [],
+        calculatedAlerts: [],
+        signals: [],
+        monthlySummary: [buildMonthlySummary({ month: 'jun-26', year: 2026 })],
+        annualSummary: [],
+        monthlyPerformance: [],
+        strategicSplit: [],
+        platformDistribution: [],
+        calendarBenchmarks: [
+          { date: new Date(Date.UTC(2026, 5, 1)), tna: 10, dailyReturnPercent: 0.01, index: 100, source: 'TablaCalendario' },
+          { date: new Date(Date.UTC(2026, 5, 30)), tna: 10, dailyReturnPercent: 0.01, index: 100, source: 'TablaCalendario' }
+        ]
+      },
+      summary: null
+    });
+
+    const debug = service.debugMinimumBalanceTrendForDate(snapshot, '2026-06-30');
+
+    expect(debug.lots.some((lot) => lot.symbol === 'IOLCAMA' && lot.skipReason === 'fci-sale-without-active-position')).toBeTrue();
+    expect(debug.lots.some((lot) => lot.symbol === 'IOLCAMA' && !lot.skipped)).toBeFalse();
+  });
+
+  it('includes caucions before sellDate and excludes them on sellDate', () => {
     minimumPerformance.buildMinimumPerformanceSummary.and.returnValue({
       currency: 'ARS',
       comparableLotsCount: 1,
@@ -879,14 +973,14 @@ describe('PortfolioMinimumBalanceTrendService', () => {
         operations: [
           {
             id: '1',
-            date: '2025-01-01',
-            symbol: 'CAUCION',
+            date: '2026-06-03',
+            symbol: 'CAUCION COLOCADORA',
             currency: 'ARS',
-            quantity: 2,
-            buyPrice: 90,
-            total: 180,
-            currentPrice: 100,
-            currentValue: 200,
+            quantity: 200000,
+            buyPrice: 1,
+            total: 200000,
+            currentPrice: 1,
+            currentValue: 200000,
             variation: null,
             remVariation: null,
             remValue: null,
@@ -897,48 +991,63 @@ describe('PortfolioMinimumBalanceTrendService', () => {
             trend: null
           }
         ],
-        sales: [],
+        sales: [
+          {
+            id: 's1',
+            buyDate: '2026-06-03',
+            sellDate: '2026-06-05',
+            symbol: 'CAUCION COLOCADORA',
+            currency: 'ARS',
+            quantity: 200000,
+            buyPrice: 1,
+            total: 200000,
+            sellPrice: 1,
+            totalSold: 200000,
+            amount: 0,
+            price: 1,
+            currentPrice: 1
+          }
+        ],
         investmentMovements: [],
         positions: [
           buildPortfolioPosition({
-            symbol: 'CAUCION',
+            symbol: 'CAUCION COLOCADORA',
             currency: 'ARS',
             positionType: 'Caucion',
             assetType: 'Caucion',
-            quantity: 2,
-            totalInvested: 180,
-            currentValue: 200
+            quantity: 200000,
+            totalInvested: 200000,
+            currentValue: 200000
           })
         ],
         historicalPrices: [
-          { date: '2025-01-31', month: 'ene-25', symbol: 'CAUCION', price: 100 }
+          { date: '2026-06-04', month: 'jun-26', symbol: 'CAUCION COLOCADORA', price: 1 },
+          { date: '2026-06-05', month: 'jun-26', symbol: 'CAUCION COLOCADORA', price: 1 }
         ],
         dailyBalances: [],
-        classifications: [
-          buildClassification({ symbol: 'CAUCION', type: 'Caucion' })
-        ],
+        classifications: [buildClassification({ symbol: 'CAUCION COLOCADORA', type: 'Caucion' })],
         manualAlerts: [],
         calculatedAlerts: [],
         signals: [],
-        monthlySummary: [buildMonthlySummary({ month: 'ene-25', year: 2025 })],
+        monthlySummary: [buildMonthlySummary({ month: 'jun-26', year: 2026 })],
         annualSummary: [],
         monthlyPerformance: [],
         strategicSplit: [],
         platformDistribution: [],
         calendarBenchmarks: [
-          { date: new Date(Date.UTC(2025, 0, 1)), tna: 10, dailyReturnPercent: 0.01, index: 100, source: 'TablaCalendario' },
-          { date: new Date(Date.UTC(2025, 0, 31)), tna: 10, dailyReturnPercent: 0.01, index: 100, source: 'TablaCalendario' }
+          { date: new Date(Date.UTC(2026, 5, 3)), tna: 10, dailyReturnPercent: 0.01, index: 100, source: 'TablaCalendario' },
+          { date: new Date(Date.UTC(2026, 5, 4)), tna: 10, dailyReturnPercent: 0.01, index: 100, source: 'TablaCalendario' },
+          { date: new Date(Date.UTC(2026, 5, 5)), tna: 10, dailyReturnPercent: 0.01, index: 100, source: 'TablaCalendario' }
         ]
       },
       summary: null
     });
 
-    const trend = service.buildTrend(snapshot);
-    const debug = service.debugMinimumBalanceTrendSkippedLots(snapshot, '2025-01-31');
+    const debugBeforeClose = service.debugMinimumBalanceTrendForDate(snapshot, '2026-06-04');
+    const debugOnClose = service.debugMinimumBalanceTrendForDate(snapshot, '2026-06-05');
 
-    expect(trend.points.length).toBe(0);
-    expect(debug.skippedLots.some((lot) => lot.symbol === 'CAUCION' && lot.skipReason === 'non-comparable-instrument')).toBeTrue();
-    expect(debug.skippedByReason['non-comparable-instrument']).toBe(1);
+    expect(debugBeforeClose.lots.some((lot) => lot.symbol === 'CAUCION COLOCADORA' && !lot.skipped)).toBeTrue();
+    expect(debugOnClose.lots.some((lot) => lot.symbol === 'CAUCION COLOCADORA' && lot.skipReason === 'lot-not-active-at-date')).toBeTrue();
   });
 
   it('reports the comparison against the current calculation and omitted reasons', () => {

@@ -576,8 +576,91 @@ export class PortfolioMinimumBalanceTrendService {
     const movementsIndex = this.indexMovements(dataset.investmentMovements ?? []);
     const activeLots = lots.filter((lot) => lot.currency === 'ARS' && this.isLotActiveAtDate(lot, date));
     const movementTotalsByLot = this.buildMovementTotalsByLot(activeLots, movementsIndex, date, warnings);
+    const activeSymbolBaseLots = new Map<string, HistoricalLot[]>();
+    for (const lot of lots.filter((item) => item.sourceTable === 'Tabla6' && this.isLotActiveAtDate(item, date))) {
+      const bucket = activeSymbolBaseLots.get(lot.symbol) ?? [];
+      bucket.push(lot);
+      activeSymbolBaseLots.set(lot.symbol, bucket);
+    }
 
     const rows = lots.map((lot) => {
+      if (lot.instrumentKind === 'fci' && lot.sourceTable === 'Tabla13') {
+        const hasActiveBase = (activeSymbolBaseLots.get(lot.symbol)?.length ?? 0) > 0;
+        return {
+          lotId: lot.id,
+          sourceTable: lot.sourceTable,
+          symbol: lot.symbol,
+          currency: lot.currency,
+          positionType: lot.positionType,
+          assetType: lot.assetType,
+          buyDate: this.debugDateKey(lot.buyDate),
+          sellDate: this.debugDateKey(lot.sellDate),
+          quantity: lot.quantity,
+          investedAmount: lot.investedAmount,
+          historicalPrice: null,
+          historicalPriceDate: null,
+          marketValue: null,
+          benchmarkSource: null,
+          buyBenchmarkSource: null,
+          evalBenchmarkSource: null,
+          buyIndex: null,
+          buyIndexDate: null,
+          evalIndex: null,
+          evalIndexDate: null,
+          benchmarkRatio: null,
+          rawMinimumExpected: null,
+          adjustedMinimumExpected: null,
+          minimumExpectedUsed: null,
+          incomeAmount: 0,
+          capitalReturnedAmount: 0,
+          comparableValue: null,
+          balanceVsMinimum: null,
+          balanceVsMinimumPercent: null,
+          impactScore: 0,
+          movements: [],
+          skipped: true,
+          skipReason: hasActiveBase ? 'fci-sale-ignored-when-fci-active' : 'fci-sale-without-active-position'
+        } satisfies MinimumBalanceTrendLotDebugRow;
+      }
+
+      if (lot.instrumentKind === 'caucion' && lot.sourceTable === 'Tabla13' && (activeSymbolBaseLots.get(lot.symbol)?.length ?? 0) > 0) {
+        return {
+          lotId: lot.id,
+          sourceTable: lot.sourceTable,
+          symbol: lot.symbol,
+          currency: lot.currency,
+          positionType: lot.positionType,
+          assetType: lot.assetType,
+          buyDate: this.debugDateKey(lot.buyDate),
+          sellDate: this.debugDateKey(lot.sellDate),
+          quantity: lot.quantity,
+          investedAmount: lot.investedAmount,
+          historicalPrice: null,
+          historicalPriceDate: null,
+          marketValue: null,
+          benchmarkSource: null,
+          buyBenchmarkSource: null,
+          evalBenchmarkSource: null,
+          buyIndex: null,
+          buyIndexDate: null,
+          evalIndex: null,
+          evalIndexDate: null,
+          benchmarkRatio: null,
+          rawMinimumExpected: null,
+          adjustedMinimumExpected: null,
+          minimumExpectedUsed: null,
+          incomeAmount: 0,
+          capitalReturnedAmount: 0,
+          comparableValue: null,
+          balanceVsMinimum: null,
+          balanceVsMinimumPercent: null,
+          impactScore: 0,
+          movements: [],
+          skipped: true,
+          skipReason: 'caucion-sale-ignored-when-active-base-exists'
+        } satisfies MinimumBalanceTrendLotDebugRow;
+      }
+
       const contribution = this.buildHistoricalLotContribution({
         lot,
         date,
@@ -687,14 +770,18 @@ export class PortfolioMinimumBalanceTrendService {
     for (const symbolLots of activeLotsBySymbol.values()) {
       const instrumentKind = this.resolveHistoricalInstrumentKind(symbolLots, fciSymbols);
       if (instrumentKind === 'fci' || instrumentKind === 'caucion') {
-        const representative = this.pickHistoricalRepresentativeLot(symbolLots, date);
-        if (!representative) {
-          warnings.push(`No se pudo reconstruir ${symbolLots[0]?.symbol ?? 'N/D'} en ${this.formatDate(date)}. Lote omitido en ese punto.`);
+        const consolidated = this.buildConsolidatedHistoricalLot(symbolLots, date, instrumentKind);
+        if (!consolidated) {
+          warnings.push(
+            instrumentKind === 'fci'
+              ? `FCI omitido: ${symbolLots[0]?.symbol ?? 'N/D'} no tiene base activa en Tabla6 para ${this.formatDate(date)}.`
+              : `Caucion omitida: ${symbolLots[0]?.symbol ?? 'N/D'} no tiene base activa en Tabla6 para ${this.formatDate(date)}.`
+          );
           continue;
         }
 
         const contribution = this.buildHistoricalLotContribution({
-          lot: representative,
+          lot: consolidated,
           date,
           priceIndex,
           benchmarkRows,
@@ -1061,6 +1148,36 @@ export class PortfolioMinimumBalanceTrendService {
       }, activeTabla6Lots[0]) ?? null;
     }
     return null;
+  }
+
+  private buildConsolidatedHistoricalLot(
+    lots: HistoricalLot[],
+    date: Date,
+    instrumentKind: 'fci' | 'caucion'
+  ): HistoricalLot | null {
+    const activeLots =
+      instrumentKind === 'fci'
+        ? lots.filter((lot) => lot.sourceTable === 'Tabla6' && this.isLotActiveAtDate(lot, date))
+        : lots.filter((lot) => this.isLotActiveAtDate(lot, date));
+
+    if (!activeLots.length) {
+      return null;
+    }
+
+    const quantity = activeLots.reduce((sum, lot) => sum + Math.max(0, lot.quantity ?? 0), 0);
+    const investedAmount = activeLots.reduce((sum, lot) => sum + Math.max(0, lot.investedAmount ?? 0), 0);
+    const buyDates = activeLots.map((lot) => lot.buyDate).filter((value): value is Date => Boolean(value));
+    const sellDates = activeLots.map((lot) => lot.sellDate).filter((value): value is Date => Boolean(value));
+
+    return {
+      ...activeLots[0],
+      quantity,
+      investedAmount,
+      buyDate: buyDates.length ? new Date(Math.min(...buyDates.map((value) => value.getTime()))) : activeLots[0].buyDate,
+      sellDate: sellDates.length ? new Date(Math.max(...sellDates.map((value) => value.getTime()))) : activeLots[0].sellDate,
+      instrumentKind,
+      fciSource: instrumentKind === 'fci' ? activeLots[0].fciSource : null
+    };
   }
 
   private resolveHistoricalInstrumentKind(lots: HistoricalLot[], fciSymbols: Set<string>): 'standard' | 'fci' | 'caucion' {
@@ -1507,7 +1624,7 @@ export class PortfolioMinimumBalanceTrendService {
     const buyDate = lot.buyDate?.getTime() ?? 0;
     const sellDate = lot.sellDate?.getTime() ?? Number.POSITIVE_INFINITY;
     const target = date.getTime();
-    return buyDate <= target && target <= sellDate;
+    return buyDate <= target && target < sellDate;
   }
 
   private isCurrencyCompatible(lotCurrency: CanonicalCurrency | 'UNKNOWN', movementCurrency: CanonicalCurrency | 'UNKNOWN'): boolean {

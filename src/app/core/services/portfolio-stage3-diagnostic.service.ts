@@ -1,6 +1,10 @@
 import { Injectable } from '@angular/core';
 import { EffectivePortfolioPosition, PositionEffectiveMetricsService } from './position-effective-metrics.service';
-import { PortfolioMinimumBalanceTrendService } from './portfolio-minimum-balance-trend.service';
+import {
+  MinimumBalanceTrendDateDebugReport,
+  MinimumBalanceTrendLotDebugRow,
+  PortfolioMinimumBalanceTrendService
+} from './portfolio-minimum-balance-trend.service';
 import { PortfolioAppState } from './portfolio-state.service';
 import { WorkbookTableData } from '../models/workbook.models';
 import { parseExcelDate } from '../utils/value-parsing.utils';
@@ -107,8 +111,8 @@ export class PortfolioStage3DiagnosticService {
       },
       currentPositions,
       historicalLots: historical.lots.map((lot) => ({ ...lot })),
-      fci: this.buildFciDiagnostics(snapshot, dateInput),
-      caucions: this.buildCaucionDiagnostics(snapshot, dateInput),
+      fci: this.buildFciDiagnostics(snapshot, historical, dateInput),
+      caucions: this.buildCaucionDiagnostics(snapshot, historical, dateInput),
       crossedPurchasesSales: this.buildCrossedMovementsDiagnostics(snapshot),
       tables: {
         hasTabla11: this.hasTable(tables, ['Tabla11']),
@@ -181,41 +185,45 @@ export class PortfolioStage3DiagnosticService {
     };
   }
 
-  private buildFciDiagnostics(snapshot: PortfolioAppState, dateInput: string): Array<Record<string, unknown>> {
+  private buildFciDiagnostics(
+    snapshot: PortfolioAppState,
+    historical: MinimumBalanceTrendDateDebugReport,
+    dateInput: string
+  ): Array<Record<string, unknown>> {
     const tables = snapshot.workbook?.tables ?? [];
     const fciSymbols = this.extractFciSymbols(tables);
-    const date = this.asDate(dateInput);
     const currentBySymbol = new Map(
       (snapshot.dataset ? this.effectiveMetrics.buildEffectivePositions(snapshot) : []).map((item) => [item.symbol.toUpperCase(), item] as const)
     );
-    const historicalPrices = this.indexHistoricalPrices(snapshot.dataset?.historicalPrices ?? []);
-    const operationsBySymbol = this.groupBySymbol(snapshot.dataset?.operations ?? [], (item) => ({
-      quantity: Number(item.quantity ?? 0),
-      total: Number(item.total ?? item.amount ?? 0)
-    }));
-    const salesBySymbol = this.groupBySymbol(snapshot.dataset?.sales ?? [], (item) => ({
-      quantity: Number(item.quantity ?? 0),
-      total: Number(item.total ?? item.amount ?? 0),
-      sellPrice: Number(item.sellPrice ?? item.buyPrice ?? 0)
-    }));
     const tabla11 = this.findTable(tables, ['Tabla11']);
+    const historicalRowsBySymbol = this.groupHistoricalRowsBySymbol(historical.lots, (row) => row.symbol);
 
     const symbols = Array.from(fciSymbols).sort((left, right) => left.localeCompare(right, 'es'));
     return symbols.map((symbol) => {
-      const priceInfo = date ? this.priceAtOrBefore(historicalPrices, symbol, date) : null;
       const currentPosition = currentBySymbol.get(symbol) ?? null;
-      const opStats = operationsBySymbol.get(symbol) ?? { quantity: 0, total: 0 };
-      const saleStats = salesBySymbol.get(symbol) ?? { quantity: 0, total: 0, sellPrice: 0 };
+      const rows = historicalRowsBySymbol.get(symbol) ?? [];
+      const includedRows = rows.filter((row) => !row.skipped && row.sourceTable === 'Tabla6');
+      const ignoredSaleRows = rows.filter(
+        (row) => row.skipped && row.sourceTable === 'Tabla13' && row.skipReason === 'fci-sale-ignored-when-fci-active'
+      );
       const tabla11Rows = tabla11?.rows ?? [];
       const tabla11Row = tabla11Rows.find(
         (row) => String(this.pickRowValue(row, ['Fondos com. Inv.', 'Fondos com Inv']) ?? '').trim().toUpperCase() === symbol
       ) ?? null;
-      const quantity = opStats.quantity || currentPosition?.position.quantity || 0;
-      const directValue = priceInfo?.price ?? null;
+      const quantity = includedRows.reduce((sum, row) => sum + Math.max(0, Number(row.quantity ?? 0)), 0);
+      const baseCapital = includedRows.reduce((sum, row) => sum + Math.max(0, Number(row.investedAmount ?? 0)), 0);
+      const directValue = includedRows[0]?.historicalPrice ?? currentPosition?.position.currentValue ?? null;
       const multiplicativeValue = directValue !== null ? quantity * directValue : null;
+      const consolidatedFromLotIds = includedRows.map((row) => row.lotId);
+      const ignoredSaleLotIds = ignoredSaleRows.map((row) => row.lotId);
       return {
         symbol,
-        marketValueRule: 'tabla5-direct-value',
+        isFci: true,
+        isConsolidatedFci: includedRows.length > 0,
+        fciConsolidationKey: symbol,
+        consolidatedFromLotIds,
+        ignoredSaleLotIds,
+        marketValueRule: 'fci-direct-value',
         apareceEnTabla11: Boolean(tabla11Row),
         apareceEnTabla5: this.hasSymbolInTable(tables, ['Tabla5'], symbol),
         apareceEnTabla6: this.hasSymbolInTable(tables, ['Tabla6'], symbol),
@@ -223,62 +231,83 @@ export class PortfolioStage3DiagnosticService {
         positionType: currentPosition?.position.positionType ?? null,
         assetType: currentPosition?.position.assetType ?? null,
         tabla5PrecioEnFecha: directValue,
-        tabla6Cantidad: opStats.quantity || null,
-        tabla6Total: opStats.total || null,
-        tabla13CantidadVendida: saleStats.quantity || null,
-        tabla13PrecioVenta: saleStats.sellPrice || null,
+        historicalPriceFromTabla5: directValue,
+        tabla6Cantidad: quantity || null,
+        tabla6Total: baseCapital || null,
+        tabla13CantidadVendida: ignoredSaleRows.reduce((sum, row) => sum + Math.max(0, Number(row.quantity ?? 0)), 0) || null,
+        tabla13PrecioVenta: ignoredSaleRows[0]?.marketValue ?? null,
         valorCalculadoActual: currentPosition?.position.currentValue ?? null,
+        marketValue: directValue,
+        baseCapital,
+        minimumExpectedUsed: currentPosition?.minimumExpectedValue ?? null,
+        balanceVsMinimum: currentPosition?.minimumValueVsAmount ?? null,
         valorHistoricoSiUsaTabla5PrecioDirecto: directValue,
         valorHistoricoSiMultiplicaCantidadPorPrecio: multiplicativeValue,
         diferenciaEntreAmbos: directValue !== null && multiplicativeValue !== null ? multiplicativeValue - directValue : null,
-        included: Boolean(currentPosition),
-        skipReason: currentPosition ? null : 'missing-active-position-base'
+        included: includedRows.length > 0,
+        skipReason: includedRows.length > 0 ? null : 'fci-sale-without-active-position'
       };
     });
   }
 
-  private buildCaucionDiagnostics(snapshot: PortfolioAppState, dateInput: string): Array<Record<string, unknown>> {
+  private buildCaucionDiagnostics(
+    snapshot: PortfolioAppState,
+    historical: MinimumBalanceTrendDateDebugReport,
+    dateInput: string
+  ): Array<Record<string, unknown>> {
     const tables = snapshot.workbook?.tables ?? [];
-    const date = this.asDate(dateInput);
     const currentBySymbol = new Map(
       (snapshot.dataset ? this.effectiveMetrics.buildEffectivePositions(snapshot) : []).map((item) => [item.symbol.toUpperCase(), item] as const)
     );
-    const symbols = new Set<string>();
-    for (const table of tables) {
-      for (const row of table.rows ?? []) {
-        const symbol = String(this.pickRowValue(row, ['ESPECIE', 'Especie']) ?? '').trim().toUpperCase();
-        if (this.isCaucionSymbol(symbol)) {
-          symbols.add(symbol);
-        }
-      }
-    }
+    const historicalRowsBySymbol = this.groupHistoricalRowsBySymbol(historical.lots, (row) => row.symbol);
+    const symbols = Array.from(historicalRowsBySymbol.keys()).filter((symbol) => this.isCaucionSymbol(symbol));
 
     return Array.from(symbols)
       .sort((left, right) => left.localeCompare(right, 'es'))
       .map((symbol) => {
         const currentPosition = currentBySymbol.get(symbol) ?? null;
-        const priceInfo = date ? this.priceAtOrBefore(this.indexHistoricalPrices(snapshot.dataset?.historicalPrices ?? []), symbol, date) : null;
-        const quantity = this.sumTableQuantity(snapshot.workbook?.tables ?? [], ['Tabla6', 'Tabla13'], symbol);
-        const sellPrice = this.findLatestSellPrice(snapshot.workbook?.tables ?? [], symbol);
-        const buyDate = this.findTableDate(snapshot.workbook?.tables ?? [], ['Tabla6'], symbol, ['FECHA', 'Fecha', 'Fecha Com.']);
-        const sellDate = this.findTableDate(snapshot.workbook?.tables ?? [], ['Tabla13'], symbol, ['FECHA', 'Fecha Vent.', 'Fecha Vent']);
+        const rows = historicalRowsBySymbol.get(symbol) ?? [];
+        const activeRows = rows.filter((row) => !row.skipped);
+        const ignoredRows = rows.filter((row) => row.skipped);
+        const buyDates = activeRows.map((row) => row.buyDate).filter((value): value is string => Boolean(value));
+        const sellDates = activeRows.map((row) => row.sellDate).filter((value): value is string => Boolean(value));
+        const isActiveOnDate = activeRows.length > 0;
+        const quantity = activeRows.reduce((sum, row) => sum + Math.max(0, Number(row.quantity ?? 0)), 0);
         return {
           symbol,
           sourceTable: this.findSymbolSourceTable(snapshot.workbook?.tables ?? [], symbol),
-          buyDate: this.debugDateKey(buyDate),
-          sellDate: this.debugDateKey(sellDate),
+          buyDate: buyDates[0] ?? null,
+          sellDate: sellDates[sellDates.length - 1] ?? null,
           quantity,
-          tabla5PrecioEnFecha: priceInfo?.price ?? null,
-          tabla13PrecioVenta: sellPrice,
+          tabla5PrecioEnFecha: activeRows[0]?.historicalPrice ?? null,
+          tabla13PrecioVenta: ignoredRows[0]?.historicalPrice ?? null,
           marketValueRule: 'quantity-while-active',
+          activityRule: 'buyDate <= date < sellDate',
           valorMientrasActiva: quantity ?? null,
-          valorAlCierre: quantity !== null && sellPrice !== null ? quantity * sellPrice : null,
-          estaActivaEnFechaEvaluada: Boolean(currentPosition),
-          deberiaContarEnFechaEvaluada: Boolean(currentPosition),
-          included: Boolean(currentPosition),
-          skipReason: currentPosition ? null : 'missing-active-position-base'
+          valorAlCierre: quantity !== null && ignoredRows[0]?.historicalPrice !== null ? quantity * Number(ignoredRows[0]?.historicalPrice ?? 0) : null,
+          estaActivaEnFechaEvaluada: isActiveOnDate,
+          deberiaContarEnFechaEvaluada: isActiveOnDate,
+          included: isActiveOnDate,
+          skipReason: isActiveOnDate ? null : 'lot-not-active-at-date'
         };
       });
+  }
+
+  private groupHistoricalRowsBySymbol(
+    rows: MinimumBalanceTrendLotDebugRow[],
+    symbolSelector: (row: MinimumBalanceTrendLotDebugRow) => string
+  ): Map<string, MinimumBalanceTrendLotDebugRow[]> {
+    const grouped = new Map<string, MinimumBalanceTrendLotDebugRow[]>();
+    for (const row of rows) {
+      const symbol = symbolSelector(row).trim().toUpperCase();
+      if (!symbol) {
+        continue;
+      }
+      const bucket = grouped.get(symbol) ?? [];
+      bucket.push(row);
+      grouped.set(symbol, bucket);
+    }
+    return grouped;
   }
 
   private buildCrossedMovementsDiagnostics(snapshot: PortfolioAppState): Array<Record<string, unknown>> {
