@@ -13,6 +13,7 @@ interface LineChartConfig {
   currency?: string;
   valueKind?: ValueKind;
   showAverage?: boolean;
+  showZoom?: boolean;
 }
 
 interface WaterfallChartConfig {
@@ -68,7 +69,7 @@ export class ChartConfigService {
     const manyPoints = points.length > 80;
     const hugeSeries = points.length > 300;
     const average = config.showAverage === false || !points.length ? null : points.reduce((sum, item) => sum + item.value, 0) / points.length;
-    const showZoom = points.length > 20;
+    const showZoom = config.showZoom ?? points.length > 20;
 
     return {
       backgroundColor: 'transparent',

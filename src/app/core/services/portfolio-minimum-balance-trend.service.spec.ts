@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 
 import { MinimumPerformanceBySymbol, MinimumPerformanceSummary } from '../models/minimum-performance.model';
-import { buildClassification, buildMonthlySummary, buildPortfolioAppState, buildPortfolioPosition } from '../testing/portfolio-test-builders';
+import { buildClassification, buildMonthlySummary, buildPortfolioAppState, buildPortfolioPosition, buildWorkbookSnapshot, buildWorkbookTable } from '../testing/portfolio-test-builders';
 import { MinimumPerformanceService } from './minimum-performance.service';
 import { PortfolioMinimumBalanceTrendService } from './portfolio-minimum-balance-trend.service';
 
@@ -533,5 +533,323 @@ describe('PortfolioMinimumBalanceTrendService', () => {
     expect(trend.points.length).toBe(1);
     expect(trend.points[0].comparableValueARS).toBe(200);
     expect(debug.lots.some((lot) => lot.symbol === 'BTC' && lot.skipReason === 'unsupported-currency')).toBeTrue();
+  });
+
+  it('detects FCI symbols from Tabla11 and skips them in the historical series', () => {
+    minimumPerformance.buildMinimumPerformanceSummary.and.returnValue({
+      currency: 'ARS',
+      comparableLotsCount: 1,
+      currentComparableArs: 200,
+      minimumExpectedArs: 180,
+      balanceVsMinimumArs: 20,
+      balanceVsMinimumPercentArs: 11.1111111111,
+      status: 'positive',
+      description: 'ok',
+      notes: []
+    });
+    minimumPerformance.buildMinimumPerformanceBySymbol.and.returnValue([]);
+
+    const snapshot = buildPortfolioAppState({
+      workbook: buildWorkbookSnapshot({
+        tables: [
+          buildWorkbookTable({
+            name: 'Tabla11',
+            displayName: 'Tabla11',
+            rows: [
+              { 'Fondos com. Inv.': 'IOLCAMA' }
+            ],
+            columns: ['Fondos com. Inv.'],
+            rowCount: 1
+          })
+        ]
+      }),
+      dataset: {
+        operations: [
+          {
+            id: '1',
+            date: '2025-01-01',
+            symbol: 'IOLCAMA',
+            currency: 'ARS',
+            quantity: 2,
+            buyPrice: 90,
+            total: 180,
+            currentPrice: 100,
+            currentValue: 200,
+            variation: null,
+            remVariation: null,
+            remValue: null,
+            amount: null,
+            monthlyRate: null,
+            annualRate: null,
+            top: null,
+            trend: null
+          },
+          {
+            id: '2',
+            date: '2025-01-01',
+            symbol: 'AAA',
+            currency: 'ARS',
+            quantity: 2,
+            buyPrice: 90,
+            total: 180,
+            currentPrice: 100,
+            currentValue: 200,
+            variation: null,
+            remVariation: null,
+            remValue: null,
+            amount: null,
+            monthlyRate: null,
+            annualRate: null,
+            top: null,
+            trend: null
+          }
+        ],
+        sales: [],
+        investmentMovements: [],
+        positions: [
+          buildPortfolioPosition({
+            symbol: 'IOLCAMA',
+            currency: 'ARS',
+            positionType: 'Accion',
+            assetType: 'Accion',
+            quantity: 2,
+            totalInvested: 180,
+            currentValue: 200
+          }),
+          buildPortfolioPosition({
+            symbol: 'AAA',
+            currency: 'ARS',
+            positionType: 'Accion',
+            assetType: 'Accion',
+            quantity: 2,
+            totalInvested: 180,
+            currentValue: 200
+          })
+        ],
+        historicalPrices: [
+          { date: '2025-01-31', month: 'ene-25', symbol: 'IOLCAMA', price: 1298834.747902916 },
+          { date: '2025-01-31', month: 'ene-25', symbol: 'AAA', price: 100 }
+        ],
+        dailyBalances: [],
+        classifications: [
+          buildClassification({ symbol: 'IOLCAMA', type: 'Accion' }),
+          buildClassification({ symbol: 'AAA', type: 'Accion' })
+        ],
+        manualAlerts: [],
+        calculatedAlerts: [],
+        signals: [],
+        monthlySummary: [buildMonthlySummary({ month: 'ene-25', year: 2025 })],
+        annualSummary: [],
+        monthlyPerformance: [],
+        strategicSplit: [],
+        platformDistribution: [],
+        calendarBenchmarks: [
+          { date: new Date(Date.UTC(2025, 0, 1)), tna: 10, dailyReturnPercent: 0.01, index: 100, source: 'TablaCalendario' },
+          { date: new Date(Date.UTC(2025, 0, 31)), tna: 10, dailyReturnPercent: 0.01, index: 100, source: 'TablaCalendario' }
+        ]
+      },
+      summary: null
+    });
+
+    const trend = service.buildTrend(snapshot);
+    const debug = service.debugMinimumBalanceTrendForDate(snapshot, '2025-01-31');
+
+    expect(trend.points.length).toBe(1);
+    expect(trend.points[0].comparableValueARS).toBe(200);
+    expect(debug.lots.some((lot) => lot.symbol === 'IOLCAMA' && lot.skipReason === 'valuation-like-instrument')).toBeTrue();
+    expect(trend.warnings.some((warning) => warning.includes('FCI/valor valorizado omitido'))).toBeTrue();
+  });
+
+  it('skips non-comparable instruments like CAUCION in the historical series', () => {
+    minimumPerformance.buildMinimumPerformanceSummary.and.returnValue({
+      currency: 'ARS',
+      comparableLotsCount: 1,
+      currentComparableArs: 200,
+      minimumExpectedArs: 180,
+      balanceVsMinimumArs: 20,
+      balanceVsMinimumPercentArs: 11.1111111111,
+      status: 'positive',
+      description: 'ok',
+      notes: []
+    });
+    minimumPerformance.buildMinimumPerformanceBySymbol.and.returnValue([]);
+
+    const snapshot = buildPortfolioAppState({
+      dataset: {
+        operations: [
+          {
+            id: '1',
+            date: '2025-01-01',
+            symbol: 'CAUCION',
+            currency: 'ARS',
+            quantity: 2,
+            buyPrice: 90,
+            total: 180,
+            currentPrice: 100,
+            currentValue: 200,
+            variation: null,
+            remVariation: null,
+            remValue: null,
+            amount: null,
+            monthlyRate: null,
+            annualRate: null,
+            top: null,
+            trend: null
+          }
+        ],
+        sales: [],
+        investmentMovements: [],
+        positions: [
+          buildPortfolioPosition({
+            symbol: 'CAUCION',
+            currency: 'ARS',
+            positionType: 'Caucion',
+            assetType: 'Caucion',
+            quantity: 2,
+            totalInvested: 180,
+            currentValue: 200
+          })
+        ],
+        historicalPrices: [
+          { date: '2025-01-31', month: 'ene-25', symbol: 'CAUCION', price: 100 }
+        ],
+        dailyBalances: [],
+        classifications: [
+          buildClassification({ symbol: 'CAUCION', type: 'Caucion' })
+        ],
+        manualAlerts: [],
+        calculatedAlerts: [],
+        signals: [],
+        monthlySummary: [buildMonthlySummary({ month: 'ene-25', year: 2025 })],
+        annualSummary: [],
+        monthlyPerformance: [],
+        strategicSplit: [],
+        platformDistribution: [],
+        calendarBenchmarks: [
+          { date: new Date(Date.UTC(2025, 0, 1)), tna: 10, dailyReturnPercent: 0.01, index: 100, source: 'TablaCalendario' },
+          { date: new Date(Date.UTC(2025, 0, 31)), tna: 10, dailyReturnPercent: 0.01, index: 100, source: 'TablaCalendario' }
+        ]
+      },
+      summary: null
+    });
+
+    const trend = service.buildTrend(snapshot);
+    const debug = service.debugMinimumBalanceTrendSkippedLots(snapshot, '2025-01-31');
+
+    expect(trend.points.length).toBe(0);
+    expect(debug.skippedLots.some((lot) => lot.symbol === 'CAUCION' && lot.skipReason === 'non-comparable-instrument')).toBeTrue();
+    expect(debug.skippedByReason['non-comparable-instrument']).toBe(1);
+  });
+
+  it('reports the comparison against the current calculation and omitted reasons', () => {
+    minimumPerformance.buildMinimumPerformanceSummary.and.returnValue({
+      currency: 'ARS',
+      comparableLotsCount: 1,
+      currentComparableArs: 200,
+      minimumExpectedArs: 180,
+      balanceVsMinimumArs: 20,
+      balanceVsMinimumPercentArs: 11.1111111111,
+      status: 'positive',
+      description: 'ok',
+      notes: []
+    });
+    minimumPerformance.buildMinimumPerformanceBySymbol.and.returnValue([]);
+
+    const snapshot = buildPortfolioAppState({
+      dataset: {
+        operations: [
+          {
+            id: '1',
+            date: '2025-01-01',
+            symbol: 'AAA',
+            currency: 'ARS',
+            quantity: 2,
+            buyPrice: 90,
+            total: 180,
+            currentPrice: 100,
+            currentValue: 200,
+            variation: null,
+            remVariation: null,
+            remValue: null,
+            amount: null,
+            monthlyRate: null,
+            annualRate: null,
+            top: null,
+            trend: null
+          },
+          {
+            id: '2',
+            date: '2025-01-01',
+            symbol: 'BTC',
+            currency: 'USD',
+            quantity: 1,
+            buyPrice: 100,
+            total: 100,
+            currentPrice: 100,
+            currentValue: 100,
+            variation: null,
+            remVariation: null,
+            remValue: null,
+            amount: null,
+            monthlyRate: null,
+            annualRate: null,
+            top: null,
+            trend: null
+          }
+        ],
+        sales: [],
+        investmentMovements: [],
+        positions: [
+          buildPortfolioPosition({
+            symbol: 'AAA',
+            currency: 'ARS',
+            positionType: 'Accion',
+            assetType: 'Accion',
+            quantity: 2,
+            totalInvested: 180,
+            currentValue: 200
+          }),
+          buildPortfolioPosition({
+            symbol: 'BTC',
+            currency: 'USD',
+            positionType: 'Cripto',
+            assetType: 'Cripto',
+            quantity: 1,
+            totalInvested: 100,
+            currentValue: 100
+          })
+        ],
+        historicalPrices: [
+          { date: '2025-01-31', month: 'ene-25', symbol: 'AAA', price: 100 },
+          { date: '2025-01-31', month: 'ene-25', symbol: 'BTC', price: 100 }
+        ],
+        dailyBalances: [],
+        classifications: [
+          buildClassification({ symbol: 'AAA', type: 'Accion' }),
+          buildClassification({ symbol: 'BTC', type: 'Cripto' })
+        ],
+        manualAlerts: [],
+        calculatedAlerts: [],
+        signals: [],
+        monthlySummary: [buildMonthlySummary({ month: 'ene-25', year: 2025 })],
+        annualSummary: [],
+        monthlyPerformance: [],
+        strategicSplit: [],
+        platformDistribution: [],
+        calendarBenchmarks: [
+          { date: new Date(Date.UTC(2025, 0, 1)), tna: 10, dailyReturnPercent: 0.01, index: 100, source: 'TablaCalendario' },
+          { date: new Date(Date.UTC(2025, 0, 31)), tna: 10, dailyReturnPercent: 0.01, index: 100, source: 'TablaCalendario' }
+        ]
+      },
+      summary: null
+    });
+
+    const report = service.debugMinimumBalanceTrendCurrentComparison(snapshot);
+
+    expect(report.current.balanceVsMinimumARS).toBe(20);
+    expect(report.lastHistoricalPoint.date).toBe('2025-01-31');
+    expect(report.difference.balanceVsMinimumARS).toBe(0);
+    expect(report.omittedByReason['unsupported-currency']).toBe(1);
+    expect(report.warnings.length).toBeGreaterThanOrEqual(0);
   });
 });

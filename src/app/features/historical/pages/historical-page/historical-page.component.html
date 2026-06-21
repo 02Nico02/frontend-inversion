@@ -95,14 +95,24 @@
           <p class="lead">Estado actual y evolución histórica si existe una serie confiable.</p>
         </div>
 
-        <div class="minimum-balance-stats">
-          <div class="minimum-balance-stat">
-            <span>Tendencia</span>
-            <strong>{{ minimumBalanceTrendLabel(snapshot) }}</strong>
-          </div>
-          <div class="minimum-balance-stat">
-            <span>Posiciones bajo mínimo</span>
-            <strong>{{ minimumBalanceTrendPositionsBelow(snapshot) }}</strong>
+        <div class="minimum-balance-toolbar">
+          <label class="minimum-balance-mode">
+            <span>Vista</span>
+            <select [(ngModel)]="minimumBalanceTrendView" (ngModelChange)="onMinimumBalanceTrendViewChange($event)">
+              <option value="monthly">Mensual</option>
+              <option value="daily">Diario</option>
+            </select>
+          </label>
+
+          <div class="minimum-balance-stats">
+            <div class="minimum-balance-stat">
+              <span>Tendencia</span>
+              <strong>{{ minimumBalanceTrendLabel(snapshot) }}</strong>
+            </div>
+            <div class="minimum-balance-stat">
+              <span>Posiciones bajo mínimo</span>
+              <strong>{{ minimumBalanceTrendPositionsBelow(snapshot) }}</strong>
+            </div>
           </div>
         </div>
       </div>
@@ -141,11 +151,12 @@
       <ng-container *ngIf="minimumBalanceTrendHasHistory(snapshot) && !privacyMode.enabled; else minimumBalanceNoHistory">
         <app-simple-chart
           title="Balance vs mínimo ARS"
-          subtitle="Evolución disponible"
+          [subtitle]="minimumBalanceTrendViewLabel() + ' disponible'"
           mode="line"
           [points]="minimumBalanceTrendSeries(snapshot)"
           currency="ARS"
           valueKind="money"
+          [showZoom]="minimumBalanceTrendHasHistory(snapshot)"
           [showAverage]="false">
         </app-simple-chart>
       </ng-container>

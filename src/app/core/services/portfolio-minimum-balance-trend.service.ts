@@ -17,6 +17,7 @@ import {
   MonthlyInvestmentSummary,
   PortfolioPosition
 } from '../models/portfolio.models';
+import { WorkbookTableData } from '../models/workbook.models';
 import { parseExcelDate } from '../utils/value-parsing.utils';
 
 interface HistoricalLot {
@@ -135,14 +136,45 @@ export interface MinimumBalanceTrendPointsDebugReport {
 
 export interface MinimumBalanceTrendTopContributorsReport extends MinimumBalanceTrendDateDebugReport {}
 
+export interface MinimumBalanceTrendSkippedLotsReport {
+  date: string;
+  skippedLots: Array<MinimumBalanceTrendLotDebugRow>;
+  skippedByReason: Record<string, number>;
+  warnings: string[];
+}
+
+export interface MinimumBalanceTrendCurrentComparisonReport {
+  current: {
+    comparableValueARS: number | null;
+    minimumExpectedARS: number | null;
+    balanceVsMinimumARS: number | null;
+    balanceVsMinimumPercent: number | null;
+  };
+  lastHistoricalPoint: {
+    date: string | null;
+    comparableValueARS: number | null;
+    minimumExpectedARS: number | null;
+    balanceVsMinimumARS: number | null;
+    balanceVsMinimumPercent: number | null;
+  };
+  difference: {
+    comparableValueARS: number | null;
+    minimumExpectedARS: number | null;
+    balanceVsMinimumARS: number | null;
+    balanceVsMinimumPercentPoints: number | null;
+  };
+  omittedByReason: Record<string, number>;
+  warnings: string[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class PortfolioMinimumBalanceTrendService {
   constructor(private readonly minimumPerformance: MinimumPerformanceService) {}
 
-  buildTrend(snapshot: PortfolioAppState): MinimumBalanceTrendSummary {
+  buildTrend(snapshot: PortfolioAppState, viewMode: 'monthly' | 'daily' = 'monthly'): MinimumBalanceTrendSummary {
     const minimumSummary = this.minimumPerformance.buildMinimumPerformanceSummary(snapshot);
     const bySymbol = this.minimumPerformance.buildMinimumPerformanceBySymbol(snapshot);
-    const historical = this.buildHistoricalPoints(snapshot);
+    const historical = this.buildHistoricalPoints(snapshot, viewMode);
     const warnings = [...minimumSummary.notes, ...historical.warnings];
 
     const arsLots = bySymbol.filter((item) => item.currency === 'ARS');
@@ -267,9 +299,87 @@ export class PortfolioMinimumBalanceTrendService {
     };
   }
 
-  private buildHistoricalPoints(snapshot: PortfolioAppState): HistoricalPointBuildResult {
+  debugMinimumBalanceTrendSkippedLots(snapshot: PortfolioAppState, dateInput: string | Date): MinimumBalanceTrendSkippedLotsReport {
+    const report = this.debugMinimumBalanceTrendForDate(snapshot, dateInput);
+    const skippedLots = report.lots.filter((lot) => lot.skipped);
+    const skippedByReason = skippedLots.reduce<Record<string, number>>((acc, lot) => {
+      const key = lot.skipReason ?? 'unknown';
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    }, {});
+
+    return {
+      date: report.date,
+      skippedLots,
+      skippedByReason,
+      warnings: report.warnings
+    };
+  }
+
+  debugMinimumBalanceTrendCurrentComparison(snapshot: PortfolioAppState): MinimumBalanceTrendCurrentComparisonReport {
+    const currentSummary = this.minimumPerformance.buildMinimumPerformanceSummary(snapshot);
+    const trend = this.buildTrend(snapshot);
+    const lastHistoricalPoint = trend.points.at(-1) ?? null;
+    const skippedReport = lastHistoricalPoint ? this.debugMinimumBalanceTrendSkippedLots(snapshot, lastHistoricalPoint.date) : null;
+
+    const current = {
+      comparableValueARS: currentSummary.currentComparableArs,
+      minimumExpectedARS: currentSummary.minimumExpectedArs,
+      balanceVsMinimumARS: currentSummary.balanceVsMinimumArs,
+      balanceVsMinimumPercent: currentSummary.balanceVsMinimumPercentArs
+    };
+
+    const historical = lastHistoricalPoint
+      ? {
+          date: this.debugDateKey(lastHistoricalPoint.date),
+          comparableValueARS: lastHistoricalPoint.comparableValueARS,
+          minimumExpectedARS: lastHistoricalPoint.minimumExpectedARS,
+          balanceVsMinimumARS: lastHistoricalPoint.balanceVsMinimumARS,
+          balanceVsMinimumPercent: lastHistoricalPoint.balanceVsMinimumPercent
+        }
+      : {
+          date: null,
+          comparableValueARS: null,
+          minimumExpectedARS: null,
+          balanceVsMinimumARS: null,
+          balanceVsMinimumPercent: null
+        };
+
+    const difference = {
+      comparableValueARS:
+        current.comparableValueARS !== null && historical.comparableValueARS !== null
+          ? current.comparableValueARS - historical.comparableValueARS
+          : null,
+      minimumExpectedARS:
+        current.minimumExpectedARS !== null && historical.minimumExpectedARS !== null
+          ? current.minimumExpectedARS - historical.minimumExpectedARS
+          : null,
+      balanceVsMinimumARS:
+        current.balanceVsMinimumARS !== null && historical.balanceVsMinimumARS !== null
+          ? current.balanceVsMinimumARS - historical.balanceVsMinimumARS
+          : null,
+      balanceVsMinimumPercentPoints:
+        current.balanceVsMinimumPercent !== null && historical.balanceVsMinimumPercent !== null
+          ? current.balanceVsMinimumPercent - historical.balanceVsMinimumPercent
+          : null
+    };
+
+    return {
+      current,
+      lastHistoricalPoint: historical,
+      difference,
+      omittedByReason: skippedReport?.skippedByReason ?? {},
+      warnings: this.uniqueWarnings([
+        ...trend.warnings,
+        ...(skippedReport?.warnings ?? [])
+      ])
+    };
+  }
+
+  private buildHistoricalPoints(snapshot: PortfolioAppState, viewMode: 'monthly' | 'daily' = 'monthly'): HistoricalPointBuildResult {
     const warnings: string[] = [];
     const dataset = snapshot.dataset;
+    const fciSymbols = this.extractFciSymbols(snapshot.workbook?.tables ?? []);
 
     if (!dataset) {
       return {
@@ -281,13 +391,17 @@ export class PortfolioMinimumBalanceTrendService {
       };
     }
 
-    const evaluationDates = this.buildMonthlyEvaluationDates(dataset.monthlySummary ?? []);
+    const evaluationDates = viewMode === 'daily'
+      ? this.buildDailyEvaluationDates(dataset)
+      : this.buildMonthlyEvaluationDates(dataset.monthlySummary ?? []);
     if (!evaluationDates.length) {
       return {
         points: [],
         warnings: [
           'No hay serie histórica confiable de Balance vs mínimo ARS.',
-          'No hay historial mensual suficiente para construir la serie histórica de Balance vs mínimo ARS.'
+          viewMode === 'daily'
+            ? 'No hay historial diario suficiente para construir la serie histórica de Balance vs mínimo ARS.'
+            : 'No hay historial mensual suficiente para construir la serie histórica de Balance vs mínimo ARS.'
         ]
       };
     }
@@ -330,6 +444,7 @@ export class PortfolioMinimumBalanceTrendService {
         priceIndex,
         benchmarkRows,
         movementsIndex,
+        fciSymbols,
         warnings
       });
       if (point) {
@@ -351,6 +466,15 @@ export class PortfolioMinimumBalanceTrendService {
           warnings.push('El último punto histórico difiere significativamente del cálculo actual de Balance vs mínimo.');
         }
       }
+      if (currentBalance !== null && lastPoint) {
+        const diff = Math.abs(lastPoint.balanceVsMinimumARS - currentBalance);
+        const threshold = Math.max(1, Math.abs(currentBalance) * 0.15);
+        if (diff > threshold) {
+          warnings.push(
+            `Último punto histórico: ${this.debugDateKey(lastPoint.date) ?? 'N/D'}. Si la diferencia con el cálculo actual persiste, revisar lotes omitidos, FCI, cauciones o precios históricos.`
+          );
+        }
+      }
     }
 
     return {
@@ -362,6 +486,7 @@ export class PortfolioMinimumBalanceTrendService {
   private buildDebugReportForDate(snapshot: PortfolioAppState, date: Date): MinimumBalanceTrendDateDebugReport {
     const warnings: string[] = [];
     const dataset = snapshot.dataset;
+    const fciSymbols = this.extractFciSymbols(snapshot.workbook?.tables ?? []);
 
     if (!dataset) {
       return {
@@ -397,6 +522,7 @@ export class PortfolioMinimumBalanceTrendService {
         priceIndex,
         benchmarkRows,
         movementTotalsByLot,
+        fciSymbols,
         warnings
       })
     );
@@ -431,9 +557,10 @@ export class PortfolioMinimumBalanceTrendService {
     priceIndex: Map<string, HistoricalPrice[]>;
     benchmarkRows: CalendarBenchmarkRow[];
     movementTotalsByLot: Map<string, HistoricalLotMovementTotals>;
+    fciSymbols: Set<string>;
     warnings: string[];
   }): MinimumBalanceTrendLotDebugRow {
-    const { lot, date, priceIndex, benchmarkRows, movementTotalsByLot, warnings } = args;
+    const { lot, date, priceIndex, benchmarkRows, movementTotalsByLot, fciSymbols, warnings } = args;
     const emptyRow = {
       lotId: lot.id,
       sourceTable: lot.sourceTable,
@@ -489,7 +616,7 @@ export class PortfolioMinimumBalanceTrendService {
     }
 
     const marketValue = (lot.quantity ?? 0) * historicalPriceInfo.price;
-    const suspicious = this.shouldSkipHistoricalLot(lot, marketValue, lot.investedAmount);
+    const suspicious = this.shouldSkipHistoricalLot(lot, marketValue, lot.investedAmount, fciSymbols);
     if (suspicious.skip) {
       if (suspicious.warning) {
         warnings.push(suspicious.warning);
@@ -590,9 +717,10 @@ export class PortfolioMinimumBalanceTrendService {
     priceIndex: Map<string, HistoricalPrice[]>;
     benchmarkRows: CalendarBenchmarkRow[];
     movementsIndex: Map<string, InvestmentMovement[]>;
+    fciSymbols: Set<string>;
     warnings: string[];
   }): MinimumBalanceTrendPoint | null {
-    const { date, lots, priceIndex, benchmarkRows, movementsIndex, warnings } = args;
+    const { date, lots, priceIndex, benchmarkRows, movementsIndex, fciSymbols, warnings } = args;
     const activeLots = lots.filter((lot) => this.isLotActiveAtDate(lot, date));
     if (!activeLots.length) {
       return null;
@@ -615,10 +743,15 @@ export class PortfolioMinimumBalanceTrendService {
         continue;
       }
 
-      if (this.isValuationLikeLot(lot)) {
+      if (this.isValuationLikeLot(lot, fciSymbols)) {
         warnings.push(
           `FCI/valor valorizado omitido en histórico: no hay fórmula confiable para reconstruir valor por cantidad * precio para ${lot.symbol}.`
         );
+        continue;
+      }
+
+      if (this.isNonComparableHistoricalInstrument(lot.symbol)) {
+        warnings.push(`Instrumento no comparable omitido en histórico: ${lot.symbol}. No se reconstruye por cantidad * precio.`);
         continue;
       }
 
@@ -943,6 +1076,39 @@ export class PortfolioMinimumBalanceTrendService {
       }
       byKey.set(date.toISOString().slice(0, 10), date);
     }
+    return Array.from(byKey.values()).sort((left, right) => left.getTime() - right.getTime());
+  }
+
+  private buildDailyEvaluationDates(dataset: {
+    historicalPrices?: HistoricalPrice[] | null;
+    dailyBalances?: Array<{ date: string | Date | null }>;
+  }): Date[] {
+    const priceDates = (dataset.historicalPrices ?? [])
+      .map((item) => this.asDate(item.date))
+      .filter((date): date is Date => Boolean(date));
+    const balanceDates = (dataset.dailyBalances ?? [])
+      .map((item) => this.asDate(item.date))
+      .filter((date): date is Date => Boolean(date));
+    const sourceDates = priceDates.length ? priceDates : balanceDates;
+    if (!sourceDates.length) {
+      return [];
+    }
+
+    const latest = [...sourceDates].sort((left, right) => left.getTime() - right.getTime()).at(-1) ?? null;
+    if (!latest) {
+      return [];
+    }
+    const monthStart = new Date(Date.UTC(latest.getUTCFullYear(), latest.getUTCMonth(), 1));
+    const monthEnd = new Date(Date.UTC(latest.getUTCFullYear(), latest.getUTCMonth() + 1, 0));
+    const byKey = new Map<string, Date>();
+
+    for (const date of sourceDates) {
+      if (date.getTime() < monthStart.getTime() || date.getTime() > monthEnd.getTime()) {
+        continue;
+      }
+      byKey.set(date.toISOString().slice(0, 10), date);
+    }
+
     return Array.from(byKey.values()).sort((left, right) => left.getTime() - right.getTime());
   }
 
@@ -1281,6 +1447,47 @@ export class PortfolioMinimumBalanceTrendService {
     return 'UNKNOWN';
   }
 
+  private extractFciSymbols(tables: WorkbookTableData[]): Set<string> {
+    const symbols = new Set<string>();
+    const table = tables.find((item) => this.isWorkbookTableNamed(item, ['Tabla11', 'tabla11']));
+    if (!table) {
+      return symbols;
+    }
+
+    for (const row of table.rows ?? []) {
+      const value = this.getRowCellValue(row, ['Fondos com. Inv.', 'Fondos com Inv', 'Fondos com. Inv']);
+      const symbol = String(value ?? '').trim().toUpperCase();
+      if (symbol) {
+        symbols.add(symbol);
+      }
+    }
+
+    return symbols;
+  }
+
+  private isWorkbookTableNamed(table: WorkbookTableData, names: string[]): boolean {
+    const normalized = [table.name, table.displayName].map((value) => this.normalizeKey(value));
+    return names.some((name) => normalized.includes(this.normalizeKey(name)));
+  }
+
+  private getRowCellValue(row: Record<string, unknown>, headers: string[]): unknown {
+    const normalizedHeaders = headers.map((header) => this.normalizeKey(header));
+    for (const [key, value] of Object.entries(row)) {
+      if (normalizedHeaders.includes(this.normalizeKey(key))) {
+        return value;
+      }
+    }
+    return null;
+  }
+
+  private normalizeKey(value: unknown): string {
+    return String(value ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/gi, '')
+      .toLowerCase();
+  }
+
   private dateValue(value: Date | string | null | undefined): number {
     const date = this.asDate(value);
     return date ? date.getTime() : 0;
@@ -1325,9 +1532,10 @@ export class PortfolioMinimumBalanceTrendService {
     return Math.max(...candidates.map((value) => Math.abs(value ?? 0)));
   }
 
-  private isValuationLikeLot(lot: HistoricalLot): boolean {
+  private isValuationLikeLot(lot: HistoricalLot, fciSymbols: Set<string>): boolean {
     const combined = `${lot.assetType ?? ''} ${lot.positionType ?? ''}`.toUpperCase();
     return (
+      fciSymbols.has(lot.symbol.toUpperCase()) ||
       combined.includes('FCI') ||
       combined.includes('VALORIZADO') ||
       combined.includes('MONEY MARKET') ||
@@ -1338,16 +1546,24 @@ export class PortfolioMinimumBalanceTrendService {
   private shouldSkipHistoricalLot(
     lot: HistoricalLot,
     marketValue: number | null,
-    investedAmount: number | null
+    investedAmount: number | null,
+    fciSymbols: Set<string>
   ): { skip: boolean; reason: string | null; warning: string | null } {
     if (lot.currency !== 'ARS') {
       return { skip: true, reason: 'unsupported-currency', warning: null };
     }
-    if (this.isValuationLikeLot(lot)) {
+    if (this.isValuationLikeLot(lot, fciSymbols)) {
       return {
         skip: true,
         reason: 'valuation-like-instrument',
         warning: `FCI/valor valorizado omitido en histórico: no hay fórmula confiable para reconstruir valor por cantidad * precio para ${lot.symbol}.`
+      };
+    }
+    if (this.isNonComparableHistoricalInstrument(lot.symbol)) {
+      return {
+        skip: true,
+        reason: 'non-comparable-instrument',
+        warning: `Instrumento no comparable omitido en histórico: ${lot.symbol}. No se reconstruye por cantidad * precio.`
       };
     }
     if (marketValue !== null && investedAmount !== null && investedAmount > 0 && marketValue > investedAmount * 100) {
@@ -1358,6 +1574,11 @@ export class PortfolioMinimumBalanceTrendService {
       };
     }
     return { skip: false, reason: null, warning: null };
+  }
+
+  private isNonComparableHistoricalInstrument(symbol: string): boolean {
+    const normalized = symbol.trim().toUpperCase();
+    return ['CAUCION', 'CAUCIÓN COLOCADORA', 'ADRDOLA', 'PRFAHOB'].includes(normalized);
   }
 
   private formatDate(value: Date): string {

@@ -16,11 +16,13 @@ import {
   PortfolioMilestoneCategory,
   PortfolioUnavailableMilestone
 } from '../../../../core/models/portfolio-milestones.model';
-import { MinimumBalanceTrendSummary } from '../../../../core/models/portfolio-minimum-balance-trend.model';
+import { MinimumBalanceTrendPoint, MinimumBalanceTrendSummary } from '../../../../core/models/portfolio-minimum-balance-trend.model';
 import { PrivacyModeService } from '../../../../core/services/privacy-mode.service';
 import { parseExcelDate } from '../../../../core/utils/value-parsing.utils';
 import {
   MinimumBalanceTrendDateDebugReport,
+  MinimumBalanceTrendCurrentComparisonReport,
+  MinimumBalanceTrendSkippedLotsReport,
   MinimumBalanceTrendPointsDebugReport,
   MinimumBalanceTrendTopContributorsReport
 } from '../../../../core/services/portfolio-minimum-balance-trend.service';
@@ -30,6 +32,8 @@ interface PortfolioHistoricalDebugApi {
   minimumBalanceTrendForDate: (date: string | Date) => MinimumBalanceTrendDateDebugReport;
   minimumBalanceTrendTopContributors: (date: string | Date) => MinimumBalanceTrendTopContributorsReport;
   minimumBalanceTrendSuspiciousLots: (date: string | Date) => MinimumBalanceTrendDateDebugReport;
+  minimumBalanceTrendSkippedLots: (date: string | Date) => MinimumBalanceTrendSkippedLotsReport;
+  minimumBalanceTrendCurrentComparison: () => MinimumBalanceTrendCurrentComparisonReport;
 }
 
 declare global {
@@ -39,6 +43,7 @@ declare global {
 }
 
 type DatePeriod = 'ALL' | '1M' | '3M' | '6M' | 'YTD' | '1Y' | 'CUSTOM';
+type MinimumBalanceTrendViewMode = 'monthly' | 'daily';
 
 @Component({
   standalone: true,
@@ -54,6 +59,7 @@ export class HistoricalPageComponent implements OnInit, OnDestroy {
   balancePeriod: DatePeriod = 'YTD';
   balanceRangeStart = '';
   balanceRangeEnd = '';
+  minimumBalanceTrendView: MinimumBalanceTrendViewMode = 'monthly';
 
   private cachedPriceSeriesKey = '';
   private cachedPriceSeries: ReturnType<ChartDataService['priceSeries']> = [];
@@ -81,6 +87,14 @@ export class HistoricalPageComponent implements OnInit, OnDestroy {
     source: 'MinimumPerformanceService',
     warnings: []
   };
+  private cachedMinimumBalanceTrendSeriesSource: MinimumBalanceTrendPoint[] | null = null;
+  private cachedMinimumBalanceTrendSeries: Array<{
+    label: string;
+    value: number;
+    date: string;
+    changeAmount: null;
+    changePercent: number | null;
+  }> = [];
   showAllMilestones = false;
   showUnavailableMilestones = false;
 
@@ -219,14 +233,15 @@ export class HistoricalPageComponent implements OnInit, OnDestroy {
       snapshot.dataset?.operations.length ?? 0,
       snapshot.dataset?.positions.length ?? 0,
       snapshot.dataset?.investmentMovements.length ?? 0,
-      snapshot.dataset?.calendarBenchmarks.length ?? 0
+      snapshot.dataset?.calendarBenchmarks.length ?? 0,
+      this.minimumBalanceTrendView
     ].join('|');
 
     if (cacheKey === this.cachedMinimumBalanceTrendKey) {
       return this.cachedMinimumBalanceTrend;
     }
 
-    this.cachedMinimumBalanceTrend = this.minimumBalanceTrendService.buildTrend(snapshot);
+    this.cachedMinimumBalanceTrend = this.minimumBalanceTrendService.buildTrend(snapshot, this.minimumBalanceTrendView);
     this.cachedMinimumBalanceTrendKey = cacheKey;
     return this.cachedMinimumBalanceTrend;
   }
@@ -287,6 +302,16 @@ export class HistoricalPageComponent implements OnInit, OnDestroy {
     return this.milestoneDate(value);
   }
 
+  minimumBalanceTrendViewLabel(): string {
+    return this.minimumBalanceTrendView === 'daily' ? 'Diario' : 'Mensual';
+  }
+
+  onMinimumBalanceTrendViewChange(value: MinimumBalanceTrendViewMode): void {
+    this.minimumBalanceTrendView = value;
+    this.cachedMinimumBalanceTrendKey = '';
+    this.cachedMinimumBalanceTrendSeriesSource = null;
+  }
+
   minimumBalanceTrendPositionsBelow(snapshot: PortfolioAppState): number {
     return this.minimumBalanceTrend(snapshot).positionsBelowMinimumCount;
   }
@@ -297,13 +322,20 @@ export class HistoricalPageComponent implements OnInit, OnDestroy {
   }
 
   minimumBalanceTrendSeries(snapshot: PortfolioAppState) {
-    return this.minimumBalanceTrendPoints(snapshot).map((point) => ({
+    const trend = this.minimumBalanceTrend(snapshot);
+    if (trend.points === this.cachedMinimumBalanceTrendSeriesSource) {
+      return this.cachedMinimumBalanceTrendSeries;
+    }
+
+    this.cachedMinimumBalanceTrendSeriesSource = trend.points;
+    this.cachedMinimumBalanceTrendSeries = trend.points.map((point) => ({
       label: this.milestoneDate(point.date),
       value: point.balanceVsMinimumARS,
       date: this.milestoneDate(point.date),
       changeAmount: null,
       changePercent: point.balanceVsMinimumPercent
     }));
+    return this.cachedMinimumBalanceTrendSeries;
   }
 
   hasUnavailableMilestones(snapshot: PortfolioAppState): boolean {
@@ -540,6 +572,72 @@ export class HistoricalPageComponent implements OnInit, OnDestroy {
           ratio: lot.investedAmount && lot.marketValue !== null ? lot.marketValue / lot.investedAmount : null,
           skipReason: lot.skipReason
         })));
+        if (report.warnings.length) {
+          console.warn('[portfolio-debug] warnings', report.warnings);
+        }
+        console.groupEnd();
+        return report;
+      },
+      minimumBalanceTrendSkippedLots: (date: string | Date) => {
+        const report = this.minimumBalanceTrendService.debugMinimumBalanceTrendSkippedLots(this.state.snapshot, date);
+        console.groupCollapsed(`[portfolio-debug] minimumBalanceTrendSkippedLots ${report.date}`);
+        console.table(report.skippedLots.map((lot) => ({
+          symbol: lot.symbol,
+          sourceTable: lot.sourceTable,
+          currency: lot.currency,
+          positionType: lot.positionType,
+          assetType: lot.assetType,
+          skipReason: lot.skipReason,
+          investedAmount: lot.investedAmount,
+          quantity: lot.quantity,
+          historicalPrice: lot.historicalPrice,
+          marketValue: lot.marketValue
+        })));
+        console.table(
+          Object.entries(report.skippedByReason).map(([skipReason, count]) => ({
+            skipReason,
+            count
+          }))
+        );
+        if (report.warnings.length) {
+          console.warn('[portfolio-debug] warnings', report.warnings);
+        }
+        console.groupEnd();
+        return report;
+      },
+      minimumBalanceTrendCurrentComparison: () => {
+        const report = this.minimumBalanceTrendService.debugMinimumBalanceTrendCurrentComparison(this.state.snapshot);
+        console.groupCollapsed('[portfolio-debug] minimumBalanceTrendCurrentComparison');
+        console.log(report);
+        console.table([
+          {
+            scope: 'current',
+            comparableValueARS: report.current.comparableValueARS,
+            minimumExpectedARS: report.current.minimumExpectedARS,
+            balanceVsMinimumARS: report.current.balanceVsMinimumARS,
+            balanceVsMinimumPercent: report.current.balanceVsMinimumPercent
+          },
+          {
+            scope: 'lastHistoricalPoint',
+            comparableValueARS: report.lastHistoricalPoint.comparableValueARS,
+            minimumExpectedARS: report.lastHistoricalPoint.minimumExpectedARS,
+            balanceVsMinimumARS: report.lastHistoricalPoint.balanceVsMinimumARS,
+            balanceVsMinimumPercent: report.lastHistoricalPoint.balanceVsMinimumPercent
+          },
+          {
+            scope: 'difference',
+            comparableValueARS: report.difference.comparableValueARS,
+            minimumExpectedARS: report.difference.minimumExpectedARS,
+            balanceVsMinimumARS: report.difference.balanceVsMinimumARS,
+            balanceVsMinimumPercentPoints: report.difference.balanceVsMinimumPercentPoints
+          }
+        ]);
+        console.table(
+          Object.entries(report.omittedByReason).map(([skipReason, count]) => ({
+            skipReason,
+            count
+          }))
+        );
         if (report.warnings.length) {
           console.warn('[portfolio-debug] warnings', report.warnings);
         }
