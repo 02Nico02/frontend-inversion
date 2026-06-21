@@ -272,4 +272,61 @@ describe('PortfolioUpcomingMilestonesService', () => {
     expect(goals[0].estimatedMonths).toBeNull();
     expect(goals[1].estimatedMonths).toBeNull();
   });
+
+  it('recomputes the strategic reference when Tabla35 includes a negative savings outflow', () => {
+    const snapshot = buildPortfolioAppState({
+      summary: buildPortfolioSummary({
+        byCurrency: [
+          { currency: 'ARS', totalCurrentValue: 1500000, totalInvested: 0, totalResult: 0, totalResultPercent: 0, speciesCount: 0 },
+          { currency: 'USD', totalCurrentValue: 200, totalInvested: 0, totalResult: 0, totalResultPercent: 0, speciesCount: 0 }
+        ]
+      }),
+      dataset: {
+        operations: [],
+        sales: [],
+        investmentMovements: [],
+        positions: [],
+        historicalPrices: [],
+        dailyBalances: [],
+        classifications: [],
+        manualAlerts: [],
+        calculatedAlerts: [],
+        signals: [],
+        monthlySummary: [],
+        annualSummary: [],
+        monthlyPerformance: [],
+        strategicSplit: [
+          buildStrategicSplit({
+            date: '2026-06-01',
+            retirementAmountARS: 1000000,
+            savingsAmountARS: 1000000,
+            retirementAmountUSD: 100,
+            savingsAmountUSD: 100
+          }),
+          buildStrategicSplit({
+            date: '2026-06-15',
+            retirementAmountARS: 0,
+            savingsAmountARS: -500000,
+            retirementAmountUSD: 0,
+            savingsAmountUSD: 0
+          })
+        ],
+        platformDistribution: [],
+        calendarBenchmarks: []
+      },
+      workbook: null
+    });
+
+    const strategy = service.buildUpcomingMilestones(snapshot, null).find((goal) => goal.id === 'strategy-balance-guidance');
+    const arsBreakdown = strategy?.breakdown?.find((item) => item.currency === 'ARS');
+    const usdBreakdown = strategy?.breakdown?.find((item) => item.currency === 'USD');
+
+    expect(arsBreakdown?.retirementAmount).toBe(1000000);
+    expect(arsBreakdown?.savingsAmount).toBe(500000);
+    expect(arsBreakdown?.retirementPercent).toBeCloseTo(66.67, 2);
+    expect(arsBreakdown?.savingsPercent).toBeCloseTo(33.33, 2);
+    expect(arsBreakdown?.gapPercent).toBeCloseTo(33.33, 2);
+    expect(usdBreakdown?.retirementPercent).toBeCloseTo(50, 2);
+    expect(usdBreakdown?.savingsPercent).toBeCloseTo(50, 2);
+  });
 });

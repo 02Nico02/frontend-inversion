@@ -35,6 +35,37 @@ describe('PortfolioConcentrationService', () => {
     expect(report.largestRegion?.categoryCount).toBe(1);
   });
 
+  it('calculates top N concentration from the ranking without mixing currencies', () => {
+    const positions = [
+      buildPortfolioPosition({ symbol: 'AAPL', currency: 'ARS', currentValue: 500 }),
+      buildPortfolioPosition({ symbol: 'MSFT', currency: 'ARS', currentValue: 300 }),
+      buildPortfolioPosition({ symbol: 'GLD', currency: 'ARS', currentValue: 200 }),
+      buildPortfolioPosition({ symbol: 'SPY', currency: 'USD', currentValue: 1000 })
+    ];
+
+    const report = service.buildReport(positions, 'ARS');
+
+    expect(report.top1Percent).toBeCloseTo(50, 2);
+    expect(report.ranking[1].cumulativeWeightPercent).toBeCloseTo(80, 2);
+    expect(report.top5Percent).toBeCloseTo(100, 2);
+    expect(report.top10Percent).toBeCloseTo(100, 2);
+  });
+
+  it('returns controlled values when the scoped total is zero', () => {
+    const report = service.buildReport([
+      buildPortfolioPosition({ symbol: 'A', currency: 'ARS', currentValue: 0 }),
+      buildPortfolioPosition({ symbol: 'B', currency: 'ARS', currentValue: 0 })
+    ], 'ARS');
+
+    expect(report.totalCurrentValue).toBe(0);
+    expect(report.top1Percent).toBe(0);
+    expect(report.top3Percent).toBe(0);
+    expect(report.top5Percent).toBe(0);
+    expect(report.top10Percent).toBe(0);
+    expect(Number.isNaN(report.top1Percent)).toBeFalse();
+    expect(Number.isFinite(report.top1Percent)).toBeTrue();
+  });
+
   it('returns zero concentration for empty inputs', () => {
     const report = service.buildReport([], 'ALL');
 
