@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, OnDestroy, OnInit, isDevMode } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HistoricalSymbolComboboxComponent, HistoricalSymbolOption } from '../../../../shared/components/historical-symbol-combobox/historical-symbol-combobox.component';
 import { SimpleChartComponent } from '../../../../shared/components/simple-chart/simple-chart.component';
@@ -19,6 +19,24 @@ import {
 import { MinimumBalanceTrendSummary } from '../../../../core/models/portfolio-minimum-balance-trend.model';
 import { PrivacyModeService } from '../../../../core/services/privacy-mode.service';
 import { parseExcelDate } from '../../../../core/utils/value-parsing.utils';
+import {
+  MinimumBalanceTrendDateDebugReport,
+  MinimumBalanceTrendPointsDebugReport,
+  MinimumBalanceTrendTopContributorsReport
+} from '../../../../core/services/portfolio-minimum-balance-trend.service';
+
+interface PortfolioHistoricalDebugApi {
+  minimumBalanceTrendPoints: () => MinimumBalanceTrendPointsDebugReport;
+  minimumBalanceTrendForDate: (date: string | Date) => MinimumBalanceTrendDateDebugReport;
+  minimumBalanceTrendTopContributors: (date: string | Date) => MinimumBalanceTrendTopContributorsReport;
+  minimumBalanceTrendSuspiciousLots: (date: string | Date) => MinimumBalanceTrendDateDebugReport;
+}
+
+declare global {
+  interface Window {
+    __portfolioDebug?: PortfolioHistoricalDebugApi;
+  }
+}
 
 type DatePeriod = 'ALL' | '1M' | '3M' | '6M' | 'YTD' | '1Y' | 'CUSTOM';
 
@@ -28,7 +46,7 @@ type DatePeriod = 'ALL' | '1M' | '3M' | '6M' | 'YTD' | '1Y' | 'CUSTOM';
   templateUrl: './historical-page.component.html',
   styleUrls: ['./historical-page.component.scss'],
 })
-export class HistoricalPageComponent {
+export class HistoricalPageComponent implements OnInit, OnDestroy {
   selectedHistoricalSymbol = '';
   pricePeriod: DatePeriod = 'ALL';
   priceRangeStart = '';
@@ -75,6 +93,16 @@ export class HistoricalPageComponent {
     private readonly minimumBalanceTrendService: PortfolioMinimumBalanceTrendService,
     public readonly privacyMode: PrivacyModeService
   ) {}
+
+  ngOnInit(): void {
+    this.registerDebugApi();
+  }
+
+  ngOnDestroy(): void {
+    if (typeof window !== 'undefined' && window.__portfolioDebug) {
+      delete window.__portfolioDebug;
+    }
+  }
 
   historicalSpeciesOptions(snapshot: PortfolioAppState): HistoricalSymbolOption[] {
     const positions = snapshot.dataset ? this.calculator.enrichPositions(snapshot.dataset.positions, snapshot.dataset.classifications) : [];
@@ -411,6 +439,114 @@ export class HistoricalPageComponent {
 
   percent(value: number | null | undefined): string {
     return this.currencyMapper.formatPercentage(value);
+  }
+
+  private registerDebugApi(): void {
+    if (!isDevMode() || typeof window === 'undefined') {
+      return;
+    }
+
+    window.__portfolioDebug = {
+      minimumBalanceTrendPoints: () => {
+        const report = this.minimumBalanceTrendService.debugMinimumBalanceTrendPoints(this.state.snapshot);
+        console.groupCollapsed('[portfolio-debug] minimumBalanceTrendPoints');
+        console.table(report.points.map((point) => ({
+          date: point.date,
+          comparableValueARS: point.comparableValueARS,
+          minimumExpectedARS: point.minimumExpectedARS,
+          balanceVsMinimumARS: point.balanceVsMinimumARS,
+          balanceVsMinimumPercent: point.balanceVsMinimumPercent,
+          bestHistorical: point.bestHistorical,
+          worstHistorical: point.worstHistorical,
+          highestComparableValue: point.highestComparableValue,
+          highestMinimumExpected: point.highestMinimumExpected
+        })));
+        if (report.warnings.length) {
+          console.warn('[portfolio-debug] warnings', report.warnings);
+        }
+        console.groupEnd();
+        return report;
+      },
+      minimumBalanceTrendForDate: (date: string | Date) => {
+        const report = this.minimumBalanceTrendService.debugMinimumBalanceTrendForDate(this.state.snapshot, date);
+        console.groupCollapsed(`[portfolio-debug] minimumBalanceTrendForDate ${report.date}`);
+        console.log(report);
+        console.table(report.lots.map((lot) => ({
+          lotId: lot.lotId,
+          sourceTable: lot.sourceTable,
+          symbol: lot.symbol,
+          currency: lot.currency,
+          buyDate: lot.buyDate,
+          sellDate: lot.sellDate,
+          benchmarkSource: lot.benchmarkSource,
+          buyIndex: lot.buyIndex,
+          evalIndex: lot.evalIndex,
+          benchmarkRatio: lot.benchmarkRatio,
+          historicalPrice: lot.historicalPrice,
+          historicalPriceDate: lot.historicalPriceDate,
+          marketValue: lot.marketValue,
+          rawMinimumExpected: lot.rawMinimumExpected,
+          adjustedMinimumExpected: lot.adjustedMinimumExpected,
+          minimumExpectedUsed: lot.minimumExpectedUsed,
+          incomeAmount: lot.incomeAmount,
+          capitalReturnedAmount: lot.capitalReturnedAmount,
+          comparableValue: lot.comparableValue,
+          balanceVsMinimum: lot.balanceVsMinimum,
+          balanceVsMinimumPercent: lot.balanceVsMinimumPercent,
+          skipped: lot.skipped,
+          skipReason: lot.skipReason
+        })));
+        if (report.warnings.length) {
+          console.warn('[portfolio-debug] warnings', report.warnings);
+        }
+        console.groupEnd();
+        return report;
+      },
+      minimumBalanceTrendTopContributors: (date: string | Date) => {
+        const report = this.minimumBalanceTrendService.debugMinimumBalanceTrendTopContributors(this.state.snapshot, date);
+        console.groupCollapsed(`[portfolio-debug] minimumBalanceTrendTopContributors ${report.date}`);
+        console.table(report.lots.map((lot) => ({
+          lotId: lot.lotId,
+          sourceTable: lot.sourceTable,
+          symbol: lot.symbol,
+          impactScore: lot.impactScore,
+          comparableValue: lot.comparableValue,
+          minimumExpectedUsed: lot.minimumExpectedUsed,
+          balanceVsMinimum: lot.balanceVsMinimum,
+          marketValue: lot.marketValue,
+          capitalReturnedAmount: lot.capitalReturnedAmount,
+          incomeAmount: lot.incomeAmount
+        })));
+        if (report.warnings.length) {
+          console.warn('[portfolio-debug] warnings', report.warnings);
+        }
+        console.groupEnd();
+        return report;
+      },
+      minimumBalanceTrendSuspiciousLots: (date: string | Date) => {
+        const report = this.minimumBalanceTrendService.debugMinimumBalanceTrendSuspiciousLots(this.state.snapshot, date);
+        console.groupCollapsed(`[portfolio-debug] minimumBalanceTrendSuspiciousLots ${report.date}`);
+        console.table(report.lots.map((lot) => ({
+          symbol: lot.symbol,
+          sourceTable: lot.sourceTable,
+          currency: lot.currency,
+          positionType: lot.positionType,
+          assetType: lot.assetType,
+          quantity: lot.quantity,
+          historicalPrice: lot.historicalPrice,
+          historicalPriceDate: lot.historicalPriceDate,
+          investedAmount: lot.investedAmount,
+          marketValue: lot.marketValue,
+          ratio: lot.investedAmount && lot.marketValue !== null ? lot.marketValue / lot.investedAmount : null,
+          skipReason: lot.skipReason
+        })));
+        if (report.warnings.length) {
+          console.warn('[portfolio-debug] warnings', report.warnings);
+        }
+        console.groupEnd();
+        return report;
+      }
+    };
   }
 
   private filterHistoricalByPeriod<T extends { date: string | Date | null }>(values: T[], period: DatePeriod, startDate: string, endDate: string): T[] {

@@ -8,12 +8,14 @@ import {
   MinimumBalanceTrendSummary
 } from '../models/portfolio-minimum-balance-trend.model';
 import {
+  AssetClassification,
   CalendarBenchmarkRow,
   HistoricalPrice,
   InvestmentMovement,
   InvestmentOperation,
   InvestmentSale,
-  MonthlyInvestmentSummary
+  MonthlyInvestmentSummary,
+  PortfolioPosition
 } from '../models/portfolio.models';
 import { parseExcelDate } from '../utils/value-parsing.utils';
 
@@ -21,6 +23,8 @@ interface HistoricalLot {
   id: string;
   symbol: string;
   currency: CanonicalCurrency | 'UNKNOWN';
+  positionType: string | null;
+  assetType: string | null;
   buyDate: Date | null;
   sellDate: Date | null;
   quantity: number | null;
@@ -32,12 +36,104 @@ interface HistoricalLotMovementTotals {
   incomeAmount: number;
   capitalReturnedAmount: number;
   amortizations: Array<{ date: Date; amount: number }>;
+  appliedMovements: Array<{
+    date: Date;
+    type: string;
+    amount: number;
+    affectsPerformance: boolean;
+    affectsInvestedCapital: boolean;
+    capitalEffect: 'reduces-cost' | 'none' | 'unknown';
+    assignedAmount: number;
+    note: string | null;
+  }>;
 }
 
 interface HistoricalPointBuildResult {
   points: MinimumBalanceTrendPoint[];
   warnings: string[];
 }
+
+export interface MinimumBalanceTrendLotMovementDebug {
+  date: string;
+  type: string;
+  amount: number;
+  affectsPerformance: boolean;
+  affectsInvestedCapital: boolean;
+  capitalEffect: 'reduces-cost' | 'none' | 'unknown';
+  assignedAmount: number;
+  note: string | null;
+}
+
+export interface MinimumBalanceTrendLotDebugRow {
+  lotId: string;
+  sourceTable: 'Tabla6' | 'Tabla13';
+  symbol: string;
+  currency: CanonicalCurrency | 'UNKNOWN';
+  positionType: string | null;
+  assetType: string | null;
+  buyDate: string | null;
+  sellDate: string | null;
+  quantity: number | null;
+  investedAmount: number | null;
+  historicalPrice: number | null;
+  historicalPriceDate: string | null;
+  marketValue: number | null;
+  benchmarkSource: string | null;
+  buyBenchmarkSource: string | null;
+  evalBenchmarkSource: string | null;
+  buyIndex: number | null;
+  buyIndexDate: string | null;
+  evalIndex: number | null;
+  evalIndexDate: string | null;
+  benchmarkRatio: number | null;
+  rawMinimumExpected: number | null;
+  adjustedMinimumExpected: number | null;
+  minimumExpectedUsed: number | null;
+  incomeAmount: number;
+  capitalReturnedAmount: number;
+  comparableValue: number | null;
+  balanceVsMinimum: number | null;
+  balanceVsMinimumPercent: number | null;
+  impactScore: number;
+  movements: MinimumBalanceTrendLotMovementDebug[];
+  skipped: boolean;
+  skipReason: string | null;
+}
+
+export interface MinimumBalanceTrendPointDebugRow {
+  date: string;
+  comparableValueARS: number;
+  minimumExpectedARS: number;
+  balanceVsMinimumARS: number;
+  balanceVsMinimumPercent: number | null;
+  bestHistorical: boolean;
+  worstHistorical: boolean;
+  highestComparableValue: boolean;
+  highestMinimumExpected: boolean;
+  includedLots: number;
+  skippedLots: number;
+}
+
+export interface MinimumBalanceTrendDateDebugReport {
+  date: string;
+  totals: {
+    comparableValueARS: number;
+    minimumExpectedARS: number;
+    balanceVsMinimumARS: number;
+    balanceVsMinimumPercent: number | null;
+    includedLots: number;
+    skippedLots: number;
+  };
+  lots: MinimumBalanceTrendLotDebugRow[];
+  warnings: string[];
+}
+
+export interface MinimumBalanceTrendPointsDebugReport {
+  points: MinimumBalanceTrendPointDebugRow[];
+  warnings: string[];
+}
+
+export interface MinimumBalanceTrendTopContributorsReport extends MinimumBalanceTrendDateDebugReport {}
 
 @Injectable({ providedIn: 'root' })
 export class PortfolioMinimumBalanceTrendService {
@@ -84,6 +180,93 @@ export class PortfolioMinimumBalanceTrendService {
     };
   }
 
+  debugMinimumBalanceTrendPoints(snapshot: PortfolioAppState): MinimumBalanceTrendPointsDebugReport {
+    const trend = this.buildTrend(snapshot);
+    const best = this.bestPoint(trend.points);
+    const worst = this.worstPoint(trend.points);
+    const highestComparable = trend.points.reduce<MinimumBalanceTrendPoint | null>((winner, point) => {
+      if (!winner || point.comparableValueARS > winner.comparableValueARS) {
+        return point;
+      }
+      return winner;
+    }, null);
+    const highestMinimum = trend.points.reduce<MinimumBalanceTrendPoint | null>((winner, point) => {
+      if (!winner || point.minimumExpectedARS > winner.minimumExpectedARS) {
+        return point;
+      }
+      return winner;
+    }, null);
+
+    return {
+      points: trend.points.map((point) => ({
+        date: this.debugDateKey(point.date) ?? '',
+        comparableValueARS: point.comparableValueARS,
+        minimumExpectedARS: point.minimumExpectedARS,
+        balanceVsMinimumARS: point.balanceVsMinimumARS,
+        balanceVsMinimumPercent: point.balanceVsMinimumPercent,
+        bestHistorical: best?.date === point.date,
+        worstHistorical: worst?.date === point.date,
+        highestComparableValue: highestComparable?.date === point.date,
+        highestMinimumExpected: highestMinimum?.date === point.date,
+        includedLots: 0,
+        skippedLots: 0
+      })),
+      warnings: trend.warnings
+    };
+  }
+
+  debugMinimumBalanceTrendForDate(snapshot: PortfolioAppState, dateInput: string | Date): MinimumBalanceTrendDateDebugReport {
+    const date = this.asDate(dateInput);
+    if (!date) {
+      return {
+        date: String(dateInput ?? ''),
+        totals: {
+          comparableValueARS: 0,
+          minimumExpectedARS: 0,
+          balanceVsMinimumARS: 0,
+          balanceVsMinimumPercent: null,
+          includedLots: 0,
+          skippedLots: 0
+        },
+        lots: [],
+        warnings: ['No se pudo interpretar la fecha solicitada para el debug de Balance vs minimo ARS.']
+      };
+    }
+
+    return this.buildDebugReportForDate(snapshot, date);
+  }
+
+  debugMinimumBalanceTrendTopContributors(snapshot: PortfolioAppState, dateInput: string | Date): MinimumBalanceTrendTopContributorsReport {
+    const report = this.debugMinimumBalanceTrendForDate(snapshot, dateInput);
+    return {
+      ...report,
+      lots: [...report.lots]
+        .filter((lot) => !lot.skipped)
+        .sort((left, right) => this.debugImpactScore(right) - this.debugImpactScore(left))
+    };
+  }
+
+  debugMinimumBalanceTrendSuspiciousLots(snapshot: PortfolioAppState, dateInput: string | Date): MinimumBalanceTrendDateDebugReport {
+    const report = this.debugMinimumBalanceTrendForDate(snapshot, dateInput);
+    const suspiciousLots = report.lots.filter((lot) => {
+      const ratio = lot.investedAmount && lot.marketValue !== null ? lot.marketValue / lot.investedAmount : null;
+      return (
+        lot.skipReason === 'valuation-like-instrument' ||
+        lot.skipReason === 'suspicious-scale' ||
+        (ratio !== null && ratio > 100)
+      );
+    });
+
+    return {
+      ...report,
+      lots: suspiciousLots.sort((left, right) => {
+        const leftRatio = left.investedAmount && left.marketValue !== null ? left.marketValue / left.investedAmount : 0;
+        const rightRatio = right.investedAmount && right.marketValue !== null ? right.marketValue / right.investedAmount : 0;
+        return rightRatio - leftRatio;
+      })
+    };
+  }
+
   private buildHistoricalPoints(snapshot: PortfolioAppState): HistoricalPointBuildResult {
     const warnings: string[] = [];
     const dataset = snapshot.dataset;
@@ -109,7 +292,11 @@ export class PortfolioMinimumBalanceTrendService {
       };
     }
 
-    const lots = this.buildHistoricalLots(dataset.operations ?? [], dataset.sales ?? []);
+    const lots = this.buildHistoricalLots(
+      dataset.operations ?? [],
+      dataset.sales ?? [],
+      this.buildLotMetadataBySymbol(dataset.positions ?? [], dataset.classifications ?? [])
+    );
     const arsLots = lots.filter((lot) => lot.currency === 'ARS' && lot.buyDate !== null);
     if (!arsLots.length) {
       return {
@@ -172,6 +359,231 @@ export class PortfolioMinimumBalanceTrendService {
     };
   }
 
+  private buildDebugReportForDate(snapshot: PortfolioAppState, date: Date): MinimumBalanceTrendDateDebugReport {
+    const warnings: string[] = [];
+    const dataset = snapshot.dataset;
+
+    if (!dataset) {
+      return {
+        date: this.debugDateKey(date) ?? date.toISOString().slice(0, 10),
+        totals: {
+          comparableValueARS: 0,
+          minimumExpectedARS: 0,
+          balanceVsMinimumARS: 0,
+          balanceVsMinimumPercent: null,
+          includedLots: 0,
+          skippedLots: 0
+        },
+        lots: [],
+        warnings: ['No hay dataset disponible para el debug de Balance vs minimo ARS.']
+      };
+    }
+
+    const lots = this.buildHistoricalLots(
+      dataset.operations ?? [],
+      dataset.sales ?? [],
+      this.buildLotMetadataBySymbol(dataset.positions ?? [], dataset.classifications ?? [])
+    );
+    const benchmarkRows = this.indexBenchmarkRows(dataset.calendarBenchmarks ?? []);
+    const priceIndex = this.indexHistoricalPrices(dataset.historicalPrices ?? []);
+    const movementsIndex = this.indexMovements(dataset.investmentMovements ?? []);
+    const activeLots = lots.filter((lot) => lot.currency === 'ARS' && this.isLotActiveAtDate(lot, date));
+    const movementTotalsByLot = this.buildMovementTotalsByLot(activeLots, movementsIndex, date, warnings);
+
+    const rows = lots.map((lot) =>
+      this.buildDebugLotRowForDate({
+        lot,
+        date,
+        priceIndex,
+        benchmarkRows,
+        movementTotalsByLot,
+        warnings
+      })
+    );
+
+    const includedRows = rows.filter((row) => !row.skipped && row.minimumExpectedUsed !== null && row.comparableValue !== null);
+    const comparableValueARS = includedRows.reduce((sum, row) => sum + (row.comparableValue ?? 0), 0);
+    const minimumExpectedARS = includedRows.reduce((sum, row) => sum + (row.minimumExpectedUsed ?? 0), 0);
+    const balanceVsMinimumARS = comparableValueARS - minimumExpectedARS;
+    const balanceVsMinimumPercent = minimumExpectedARS > 0 ? ((comparableValueARS / minimumExpectedARS) - 1) * 100 : null;
+
+    return {
+      date: this.debugDateKey(date) ?? date.toISOString().slice(0, 10),
+      totals: {
+        comparableValueARS,
+        minimumExpectedARS,
+        balanceVsMinimumARS,
+        balanceVsMinimumPercent,
+        includedLots: includedRows.length,
+        skippedLots: rows.length - includedRows.length
+      },
+      lots: rows,
+      warnings: this.uniqueWarnings([
+        ...warnings,
+        ...this.buildTrend(snapshot).warnings
+      ])
+    };
+  }
+
+  private buildDebugLotRowForDate(args: {
+    lot: HistoricalLot;
+    date: Date;
+    priceIndex: Map<string, HistoricalPrice[]>;
+    benchmarkRows: CalendarBenchmarkRow[];
+    movementTotalsByLot: Map<string, HistoricalLotMovementTotals>;
+    warnings: string[];
+  }): MinimumBalanceTrendLotDebugRow {
+    const { lot, date, priceIndex, benchmarkRows, movementTotalsByLot, warnings } = args;
+    const emptyRow = {
+      lotId: lot.id,
+      sourceTable: lot.sourceTable,
+      symbol: lot.symbol,
+      currency: lot.currency,
+      positionType: lot.positionType,
+      assetType: lot.assetType,
+      buyDate: this.debugDateKey(lot.buyDate),
+      sellDate: this.debugDateKey(lot.sellDate),
+      quantity: lot.quantity,
+      investedAmount: lot.investedAmount,
+      historicalPrice: null,
+      historicalPriceDate: null,
+      marketValue: null,
+      benchmarkSource: null,
+      buyBenchmarkSource: null,
+      evalBenchmarkSource: null,
+      buyIndex: null,
+      buyIndexDate: null,
+      evalIndex: null,
+      evalIndexDate: null,
+      benchmarkRatio: null,
+      rawMinimumExpected: null,
+      adjustedMinimumExpected: null,
+      minimumExpectedUsed: null,
+      incomeAmount: 0,
+      capitalReturnedAmount: 0,
+      comparableValue: null,
+      balanceVsMinimum: null,
+      balanceVsMinimumPercent: null,
+      impactScore: 0,
+      movements: [] as MinimumBalanceTrendLotMovementDebug[],
+      skipped: true,
+      skipReason: null
+    } satisfies MinimumBalanceTrendLotDebugRow;
+
+    if (lot.currency !== 'ARS') {
+      return { ...emptyRow, skipReason: 'unsupported-currency' };
+    }
+
+    if (!this.isLotActiveAtDate(lot, date)) {
+      return { ...emptyRow, skipReason: 'lot-not-active-at-date' };
+    }
+
+    const historicalPriceInfo = this.priceAtOrBeforeInfo(priceIndex, lot.symbol, date);
+    if (historicalPriceInfo.price === null) {
+      warnings.push(`No hay precio historico disponible para ${lot.symbol} antes de ${this.formatDate(date)}. Lote omitido en ese punto.`);
+      return { ...emptyRow, skipReason: 'missing-historical-price' };
+    }
+
+    if (lot.investedAmount === null || lot.investedAmount <= 0 || !lot.buyDate) {
+      return { ...emptyRow, skipReason: 'missing-invested-amount' };
+    }
+
+    const marketValue = (lot.quantity ?? 0) * historicalPriceInfo.price;
+    const suspicious = this.shouldSkipHistoricalLot(lot, marketValue, lot.investedAmount);
+    if (suspicious.skip) {
+      if (suspicious.warning) {
+        warnings.push(suspicious.warning);
+      }
+      return {
+        ...emptyRow,
+        historicalPrice: historicalPriceInfo.price,
+        historicalPriceDate: this.debugDateKey(historicalPriceInfo.date),
+        marketValue,
+        skipReason: suspicious.reason
+      };
+    }
+
+    const benchmarkStart = this.benchmarkIndexInfo(benchmarkRows, lot.buyDate);
+    const benchmarkEnd = this.benchmarkIndexInfo(benchmarkRows, date);
+    if (benchmarkStart.index === null || benchmarkEnd.index === null || benchmarkStart.index <= 0 || benchmarkEnd.index <= 0) {
+      warnings.push(`No se pudo calcular el benchmark para ${lot.symbol} en ${this.formatDate(date)}.`);
+      return { ...emptyRow, skipReason: 'missing-benchmark-index' };
+    }
+
+    const lotMovements = movementTotalsByLot.get(lot.id) ?? {
+      incomeAmount: 0,
+      capitalReturnedAmount: 0,
+      amortizations: [],
+      appliedMovements: []
+    };
+
+    const comparableValue = marketValue + lotMovements.incomeAmount + lotMovements.capitalReturnedAmount;
+    const adjustedBenchmark = this.buildAmortizationAdjustedBenchmark(
+      lot.investedAmount,
+      benchmarkStart.index,
+      benchmarkEnd.index,
+      benchmarkRows,
+      lotMovements.amortizations,
+      warnings
+    );
+    const rawMinimumExpected = lot.investedAmount * (benchmarkEnd.index / benchmarkStart.index);
+    const minimumExpectedUsed = adjustedBenchmark.usesAdjustedBenchmark
+      ? adjustedBenchmark.minimumExpectedValueAdjusted
+      : rawMinimumExpected;
+
+    if (minimumExpectedUsed === null || !Number.isFinite(minimumExpectedUsed)) {
+      warnings.push(`No se pudo calcular el minimo esperado para ${lot.symbol} en ${this.formatDate(date)}.`);
+      return { ...emptyRow, skipReason: 'missing-minimum-expected' };
+    }
+
+    const balanceVsMinimum = comparableValue - minimumExpectedUsed;
+    const balanceVsMinimumPercent = minimumExpectedUsed > 0 ? ((comparableValue / minimumExpectedUsed) - 1) * 100 : null;
+    const impactScore = this.debugImpactScore({
+      balanceVsMinimum,
+      minimumExpectedUsed,
+      comparableValue,
+      marketValue,
+      capitalReturnedAmount: lotMovements.capitalReturnedAmount,
+      incomeAmount: lotMovements.incomeAmount
+    });
+
+    return {
+      ...emptyRow,
+      historicalPrice: historicalPriceInfo.price,
+      historicalPriceDate: this.debugDateKey(historicalPriceInfo.date),
+      marketValue,
+      benchmarkSource: this.debugBenchmarkSourceLabel(benchmarkStart.row, benchmarkEnd.row),
+      buyBenchmarkSource: benchmarkStart.row?.source ?? null,
+      evalBenchmarkSource: benchmarkEnd.row?.source ?? null,
+      buyIndex: benchmarkStart.index,
+      buyIndexDate: this.debugDateKey(benchmarkStart.row?.date ?? null),
+      evalIndex: benchmarkEnd.index,
+      evalIndexDate: this.debugDateKey(benchmarkEnd.row?.date ?? null),
+      benchmarkRatio: benchmarkStart.index && benchmarkEnd.index ? benchmarkEnd.index / benchmarkStart.index : null,
+      rawMinimumExpected,
+      adjustedMinimumExpected: adjustedBenchmark.usesAdjustedBenchmark ? adjustedBenchmark.minimumExpectedValueAdjusted : null,
+      minimumExpectedUsed,
+      incomeAmount: lotMovements.incomeAmount,
+      capitalReturnedAmount: lotMovements.capitalReturnedAmount,
+      comparableValue,
+      balanceVsMinimum,
+      balanceVsMinimumPercent,
+      impactScore,
+      movements: lotMovements.appliedMovements.map((movement) => ({
+        date: this.debugDateKey(movement.date) ?? '',
+        type: movement.type,
+        amount: movement.amount,
+        affectsPerformance: movement.affectsPerformance,
+        affectsInvestedCapital: movement.affectsInvestedCapital,
+        capitalEffect: movement.capitalEffect,
+        assignedAmount: movement.assignedAmount,
+        note: movement.note
+      })),
+      skipped: false,
+      skipReason: null
+    };
+  }
+
   private buildPointForDate(args: {
     date: Date;
     lots: HistoricalLot[];
@@ -203,6 +615,13 @@ export class PortfolioMinimumBalanceTrendService {
         continue;
       }
 
+      if (this.isValuationLikeLot(lot)) {
+        warnings.push(
+          `FCI/valor valorizado omitido en histórico: no hay fórmula confiable para reconstruir valor por cantidad * precio para ${lot.symbol}.`
+        );
+        continue;
+      }
+
       const benchmarkStart = this.benchmarkIndexInfo(benchmarkRows, buyDate);
       const benchmarkEnd = this.benchmarkIndexInfo(benchmarkRows, date);
       if (benchmarkStart.index === null || benchmarkEnd.index === null || benchmarkStart.index <= 0 || benchmarkEnd.index <= 0) {
@@ -213,10 +632,17 @@ export class PortfolioMinimumBalanceTrendService {
       const lotMovements = movementTotalsByLot.get(lot.id) ?? {
         incomeAmount: 0,
         capitalReturnedAmount: 0,
-        amortizations: []
+        amortizations: [],
+        appliedMovements: []
       };
 
       const marketValue = (lot.quantity ?? 0) * historicalPrice;
+      if (investedAmount > 0 && marketValue > investedAmount * 100) {
+        warnings.push(
+          `Valor histórico sospechoso para ${lot.symbol}: marketValue muy superior al capital invertido. Revisar escala de precio/cantidad.`
+        );
+        continue;
+      }
       const comparableValue = marketValue + lotMovements.incomeAmount + lotMovements.capitalReturnedAmount;
       const adjustedBenchmark = this.buildAmortizationAdjustedBenchmark(
         investedAmount,
@@ -259,9 +685,9 @@ export class PortfolioMinimumBalanceTrendService {
   private benchmarkIndexInfo(
     rows: CalendarBenchmarkRow[],
     date: Date
-  ): { index: number | null; beforeStart: boolean; afterEnd: boolean } {
+  ): { index: number | null; row: CalendarBenchmarkRow | null; beforeStart: boolean; afterEnd: boolean } {
     if (!rows.length) {
-      return { index: null, beforeStart: false, afterEnd: false };
+      return { index: null, row: null, beforeStart: false, afterEnd: false };
     }
 
     const target = date.getTime();
@@ -269,11 +695,11 @@ export class PortfolioMinimumBalanceTrendService {
     const last = rows[rows.length - 1];
 
     if (target < first.date.getTime()) {
-      return { index: first.index, beforeStart: true, afterEnd: false };
+      return { index: first.index, row: first, beforeStart: true, afterEnd: false };
     }
 
     if (target > last.date.getTime()) {
-      return { index: last.index, beforeStart: false, afterEnd: true };
+      return { index: last.index, row: last, beforeStart: false, afterEnd: true };
     }
 
     let candidate = first;
@@ -285,7 +711,7 @@ export class PortfolioMinimumBalanceTrendService {
       break;
     }
 
-    return { index: candidate.index, beforeStart: false, afterEnd: false };
+    return { index: candidate.index, row: candidate, beforeStart: false, afterEnd: false };
   }
 
   private buildMovementTotalsByLot(
@@ -332,8 +758,20 @@ export class PortfolioMinimumBalanceTrendService {
           const bucket = totals.get(lot.id) ?? {
             incomeAmount: 0,
             capitalReturnedAmount: 0,
-            amortizations: []
+            amortizations: [],
+            appliedMovements: []
           };
+
+          bucket.appliedMovements.push({
+            date: movementDate,
+            type: movement.type,
+            amount: movementAmount,
+            affectsPerformance: movement.affectsPerformance,
+            affectsInvestedCapital: movement.affectsInvestedCapital,
+            capitalEffect: movement.capitalEffect,
+            assignedAmount,
+            note: movement.note
+          });
 
           if (movement.affectsPerformance) {
             bucket.incomeAmount += assignedAmount;
@@ -409,14 +847,22 @@ export class PortfolioMinimumBalanceTrendService {
     };
   }
 
-  private buildHistoricalLots(operations: InvestmentOperation[], sales: InvestmentSale[]): HistoricalLot[] {
+  private buildHistoricalLots(
+    operations: InvestmentOperation[],
+    sales: InvestmentSale[],
+    metadataBySymbol: Map<string, { positionType: string | null; assetType: string | null }>
+  ): HistoricalLot[] {
     const lots: HistoricalLot[] = [];
 
     for (const operation of operations) {
+      const symbol = String(operation.symbol ?? '').trim().toUpperCase();
+      const metadata = metadataBySymbol.get(symbol) ?? { positionType: null, assetType: null };
       lots.push({
         id: `op-${operation.id}`,
-        symbol: String(operation.symbol ?? '').trim().toUpperCase(),
+        symbol,
         currency: this.normalizeCurrency(operation.currency),
+        positionType: metadata.positionType,
+        assetType: metadata.assetType,
         buyDate: this.asDate(operation.date),
         sellDate: null,
         quantity: this.asNumber(operation.quantity),
@@ -426,10 +872,14 @@ export class PortfolioMinimumBalanceTrendService {
     }
 
     for (const sale of sales) {
+      const symbol = String(sale.symbol ?? '').trim().toUpperCase();
+      const metadata = metadataBySymbol.get(symbol) ?? { positionType: null, assetType: null };
       lots.push({
         id: `sale-${sale.id}`,
-        symbol: String(sale.symbol ?? '').trim().toUpperCase(),
+        symbol,
         currency: this.normalizeCurrency(sale.currency),
+        positionType: metadata.positionType,
+        assetType: metadata.assetType,
         buyDate: this.asDate(sale.buyDate),
         sellDate: this.asDate(sale.sellDate),
         quantity: this.asNumber(sale.quantity),
@@ -447,6 +897,41 @@ export class PortfolioMinimumBalanceTrendService {
         lot.investedAmount !== null &&
         lot.investedAmount > 0
     );
+  }
+
+  private buildLotMetadataBySymbol(
+    positions: PortfolioPosition[],
+    classifications: AssetClassification[]
+  ): Map<string, { positionType: string | null; assetType: string | null }> {
+    const metadata = new Map<string, { positionType: string | null; assetType: string | null }>();
+    const classificationBySymbol = new Map(
+      classifications.map((item) => [String(item.symbol ?? '').trim().toUpperCase(), item])
+    );
+
+    for (const position of positions) {
+      const symbol = String(position.symbol ?? '').trim().toUpperCase();
+      if (!symbol) {
+        continue;
+      }
+      const classification = classificationBySymbol.get(symbol) ?? null;
+      metadata.set(symbol, {
+        positionType: String(position.positionType ?? classification?.type ?? '').trim() || null,
+        assetType: String(position.assetType ?? classification?.type ?? '').trim() || null
+      });
+    }
+
+    for (const classification of classifications) {
+      const symbol = String(classification.symbol ?? '').trim().toUpperCase();
+      if (!symbol || metadata.has(symbol)) {
+        continue;
+      }
+      metadata.set(symbol, {
+        positionType: String(classification.type ?? '').trim() || null,
+        assetType: String(classification.type ?? '').trim() || null
+      });
+    }
+
+    return metadata;
   }
 
   private buildMonthlyEvaluationDates(monthlySummary: MonthlyInvestmentSummary[]): Date[] {
@@ -583,9 +1068,17 @@ export class PortfolioMinimumBalanceTrendService {
   }
 
   private priceAtOrBefore(priceIndex: Map<string, HistoricalPrice[]>, symbol: string, date: Date): number | null {
+    return this.priceAtOrBeforeInfo(priceIndex, symbol, date).price;
+  }
+
+  private priceAtOrBeforeInfo(
+    priceIndex: Map<string, HistoricalPrice[]>,
+    symbol: string,
+    date: Date
+  ): { price: number | null; date: Date | null } {
     const prices = priceIndex.get(symbol) ?? [];
     if (!prices.length) {
-      return null;
+      return { price: null, date: null };
     }
 
     let candidate: HistoricalPrice | null = null;
@@ -600,7 +1093,10 @@ export class PortfolioMinimumBalanceTrendService {
       break;
     }
 
-    return candidate?.price ?? null;
+    return {
+      price: candidate?.price ?? null,
+      date: candidate?.date ? new Date(candidate.date) : null
+    };
   }
 
   private isLotActiveAtDate(lot: HistoricalLot, date: Date): boolean {
@@ -788,6 +1284,80 @@ export class PortfolioMinimumBalanceTrendService {
   private dateValue(value: Date | string | null | undefined): number {
     const date = this.asDate(value);
     return date ? date.getTime() : 0;
+  }
+
+  private debugDateKey(value: Date | string | null | undefined): string | null {
+    const date = this.asDate(value);
+    return date ? date.toISOString().slice(0, 10) : null;
+  }
+
+  private debugBenchmarkSourceLabel(
+    buyRow: CalendarBenchmarkRow | null,
+    evalRow: CalendarBenchmarkRow | null
+  ): string | null {
+    const buySource = buyRow?.source ?? null;
+    const evalSource = evalRow?.source ?? null;
+    if (!buySource && !evalSource) {
+      return null;
+    }
+    if (buySource === evalSource) {
+      return buySource;
+    }
+    return [buySource ?? 'N/D', evalSource ?? 'N/D'].join(' -> ');
+  }
+
+  private debugImpactScore(values: {
+    balanceVsMinimum: number | null;
+    minimumExpectedUsed: number | null;
+    comparableValue: number | null;
+    marketValue: number | null;
+    capitalReturnedAmount: number;
+    incomeAmount: number;
+  }): number {
+    const candidates = [
+      values.balanceVsMinimum,
+      values.minimumExpectedUsed,
+      values.comparableValue,
+      values.marketValue,
+      values.capitalReturnedAmount,
+      values.incomeAmount
+    ];
+    return Math.max(...candidates.map((value) => Math.abs(value ?? 0)));
+  }
+
+  private isValuationLikeLot(lot: HistoricalLot): boolean {
+    const combined = `${lot.assetType ?? ''} ${lot.positionType ?? ''}`.toUpperCase();
+    return (
+      combined.includes('FCI') ||
+      combined.includes('VALORIZADO') ||
+      combined.includes('MONEY MARKET') ||
+      ['IOLCAMA', 'IOLCADO', 'IOLDOLD', 'PRPEDOB'].includes(lot.symbol.toUpperCase())
+    );
+  }
+
+  private shouldSkipHistoricalLot(
+    lot: HistoricalLot,
+    marketValue: number | null,
+    investedAmount: number | null
+  ): { skip: boolean; reason: string | null; warning: string | null } {
+    if (lot.currency !== 'ARS') {
+      return { skip: true, reason: 'unsupported-currency', warning: null };
+    }
+    if (this.isValuationLikeLot(lot)) {
+      return {
+        skip: true,
+        reason: 'valuation-like-instrument',
+        warning: `FCI/valor valorizado omitido en histórico: no hay fórmula confiable para reconstruir valor por cantidad * precio para ${lot.symbol}.`
+      };
+    }
+    if (marketValue !== null && investedAmount !== null && investedAmount > 0 && marketValue > investedAmount * 100) {
+      return {
+        skip: true,
+        reason: 'suspicious-scale',
+        warning: `Valor histórico sospechoso para ${lot.symbol}: marketValue muy superior al capital invertido. Revisar escala de precio/cantidad.`
+      };
+    }
+    return { skip: false, reason: null, warning: null };
   }
 
   private formatDate(value: Date): string {

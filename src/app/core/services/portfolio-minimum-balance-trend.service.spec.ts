@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 
 import { MinimumPerformanceBySymbol, MinimumPerformanceSummary } from '../models/minimum-performance.model';
-import { buildMonthlySummary, buildPortfolioAppState } from '../testing/portfolio-test-builders';
+import { buildClassification, buildMonthlySummary, buildPortfolioAppState, buildPortfolioPosition } from '../testing/portfolio-test-builders';
 import { MinimumPerformanceService } from './minimum-performance.service';
 import { PortfolioMinimumBalanceTrendService } from './portfolio-minimum-balance-trend.service';
 
@@ -305,5 +305,233 @@ describe('PortfolioMinimumBalanceTrendService', () => {
     expect(trend.points.length).toBe(1);
     expect(trend.points[0].date instanceof Date).toBeTrue();
     expect(trend.points[0].balanceVsMinimumARS).toBe(200);
+  });
+
+  it('omits valuation-like FCI lots from the historical series and exposes them in debug', () => {
+    minimumPerformance.buildMinimumPerformanceSummary.and.returnValue({
+      currency: 'ARS',
+      comparableLotsCount: 1,
+      currentComparableArs: 200,
+      minimumExpectedArs: 180,
+      balanceVsMinimumArs: 20,
+      balanceVsMinimumPercentArs: 11.1111111111,
+      status: 'positive',
+      description: 'ok',
+      notes: []
+    });
+    minimumPerformance.buildMinimumPerformanceBySymbol.and.returnValue([]);
+
+    const snapshot = buildPortfolioAppState({
+      dataset: {
+        operations: [
+          {
+            id: '1',
+            date: '2025-01-01',
+            symbol: 'AAA',
+            currency: 'ARS',
+            quantity: 2,
+            buyPrice: 90,
+            total: 180,
+            currentPrice: 100,
+            currentValue: 200,
+            variation: null,
+            remVariation: null,
+            remValue: null,
+            amount: null,
+            monthlyRate: null,
+            annualRate: null,
+            top: null,
+            trend: null
+          },
+          {
+            id: '2',
+            date: '2025-01-01',
+            symbol: 'IOLCAMA',
+            currency: 'ARS',
+            quantity: 26924.72,
+            buyPrice: 10,
+            total: 295245.403019649,
+            currentPrice: 10,
+            currentValue: 295245.403019649,
+            variation: null,
+            remVariation: null,
+            remValue: null,
+            amount: null,
+            monthlyRate: null,
+            annualRate: null,
+            top: null,
+            trend: null
+          }
+        ],
+        sales: [],
+        investmentMovements: [],
+        positions: [
+          buildPortfolioPosition({
+            symbol: 'AAA',
+            currency: 'ARS',
+            positionType: 'Accion',
+            assetType: 'Accion',
+            quantity: 2,
+            totalInvested: 180,
+            currentValue: 200
+          }),
+          buildPortfolioPosition({
+            symbol: 'IOLCAMA',
+            currency: 'ARS',
+            positionType: 'Valorizado',
+            assetType: 'FCI',
+            quantity: 26924.72,
+            totalInvested: 295245.403019649,
+            currentValue: 295245.403019649
+          })
+        ],
+        historicalPrices: [
+          { date: '2025-01-31', month: 'ene-25', symbol: 'AAA', price: 100 },
+          { date: '2025-01-31', month: 'ene-25', symbol: 'IOLCAMA', price: 1298834.747902916 }
+        ],
+        dailyBalances: [],
+        classifications: [
+          buildClassification({ symbol: 'AAA', type: 'Accion' }),
+          buildClassification({ symbol: 'IOLCAMA', type: 'FCI' })
+        ],
+        manualAlerts: [],
+        calculatedAlerts: [],
+        signals: [],
+        monthlySummary: [buildMonthlySummary({ month: 'ene-25', year: 2025 })],
+        annualSummary: [],
+        monthlyPerformance: [],
+        strategicSplit: [],
+        platformDistribution: [],
+        calendarBenchmarks: [
+          { date: new Date(Date.UTC(2025, 0, 1)), tna: 10, dailyReturnPercent: 0.01, index: 100, source: 'TablaCalendario' },
+          { date: new Date(Date.UTC(2025, 0, 31)), tna: 10, dailyReturnPercent: 0.01, index: 100, source: 'TablaCalendario' }
+        ]
+      },
+      summary: null,
+      workbook: null
+    });
+
+    const trend = service.buildTrend(snapshot);
+    const debug = service.debugMinimumBalanceTrendForDate(snapshot, '2025-01-31');
+    const suspicious = service.debugMinimumBalanceTrendSuspiciousLots(snapshot, '2025-01-31');
+
+    expect(trend.points.length).toBe(1);
+    expect(trend.points[0].comparableValueARS).toBe(200);
+    expect(trend.points[0].minimumExpectedARS).toBe(180);
+    expect(trend.warnings.some((warning) => warning.includes('FCI/valor valorizado omitido en hist'))).toBeTrue();
+    expect(debug.lots.some((lot) => lot.symbol === 'IOLCAMA' && lot.skipReason === 'valuation-like-instrument')).toBeTrue();
+    expect(suspicious.lots.some((lot) => lot.symbol === 'IOLCAMA')).toBeTrue();
+  });
+
+  it('keeps USD lots excluded from the ARS historical series', () => {
+    minimumPerformance.buildMinimumPerformanceSummary.and.returnValue({
+      currency: 'ARS',
+      comparableLotsCount: 1,
+      currentComparableArs: 200,
+      minimumExpectedArs: 180,
+      balanceVsMinimumArs: 20,
+      balanceVsMinimumPercentArs: 11.1111111111,
+      status: 'positive',
+      description: 'ok',
+      notes: []
+    });
+    minimumPerformance.buildMinimumPerformanceBySymbol.and.returnValue([]);
+
+    const snapshot = buildPortfolioAppState({
+      dataset: {
+        operations: [
+          {
+            id: '1',
+            date: '2025-01-01',
+            symbol: 'BTC',
+            currency: 'USD',
+            quantity: 1,
+            buyPrice: 100,
+            total: 100,
+            currentPrice: 100,
+            currentValue: 100,
+            variation: null,
+            remVariation: null,
+            remValue: null,
+            amount: null,
+            monthlyRate: null,
+            annualRate: null,
+            top: null,
+            trend: null
+          },
+          {
+            id: '2',
+            date: '2025-01-01',
+            symbol: 'AAA',
+            currency: 'ARS',
+            quantity: 2,
+            buyPrice: 90,
+            total: 180,
+            currentPrice: 100,
+            currentValue: 200,
+            variation: null,
+            remVariation: null,
+            remValue: null,
+            amount: null,
+            monthlyRate: null,
+            annualRate: null,
+            top: null,
+            trend: null
+          }
+        ],
+        sales: [],
+        investmentMovements: [],
+        positions: [
+          buildPortfolioPosition({
+            symbol: 'BTC',
+            currency: 'USD',
+            positionType: 'Cripto',
+            assetType: 'Cripto',
+            quantity: 1,
+            totalInvested: 100,
+            currentValue: 100
+          }),
+          buildPortfolioPosition({
+            symbol: 'AAA',
+            currency: 'ARS',
+            positionType: 'Accion',
+            assetType: 'Accion',
+            quantity: 2,
+            totalInvested: 180,
+            currentValue: 200
+          })
+        ],
+        historicalPrices: [
+          { date: '2025-01-31', month: 'ene-25', symbol: 'BTC', price: 100 },
+          { date: '2025-01-31', month: 'ene-25', symbol: 'AAA', price: 100 }
+        ],
+        dailyBalances: [],
+        classifications: [
+          buildClassification({ symbol: 'BTC', type: 'Cripto' }),
+          buildClassification({ symbol: 'AAA', type: 'Accion' })
+        ],
+        manualAlerts: [],
+        calculatedAlerts: [],
+        signals: [],
+        monthlySummary: [buildMonthlySummary({ month: 'ene-25', year: 2025 })],
+        annualSummary: [],
+        monthlyPerformance: [],
+        strategicSplit: [],
+        platformDistribution: [],
+        calendarBenchmarks: [
+          { date: new Date(Date.UTC(2025, 0, 1)), tna: 10, dailyReturnPercent: 0.01, index: 100, source: 'TablaCalendario' },
+          { date: new Date(Date.UTC(2025, 0, 31)), tna: 10, dailyReturnPercent: 0.01, index: 100, source: 'TablaCalendario' }
+        ]
+      },
+      summary: null,
+      workbook: null
+    });
+
+    const trend = service.buildTrend(snapshot);
+    const debug = service.debugMinimumBalanceTrendForDate(snapshot, '2025-01-31');
+
+    expect(trend.points.length).toBe(1);
+    expect(trend.points[0].comparableValueARS).toBe(200);
+    expect(debug.lots.some((lot) => lot.symbol === 'BTC' && lot.skipReason === 'unsupported-currency')).toBeTrue();
   });
 });
