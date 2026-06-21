@@ -217,6 +217,7 @@ export class PortfolioStage3DiagnosticService {
       const multiplicativeValue = directValue !== null ? quantity * directValue : null;
       const consolidatedFromLotIds = includedRows.map((row) => row.lotId);
       const ignoredSaleLotIds = ignoredSaleRows.map((row) => row.lotId);
+      const fciCapitalEvents = (representativeRow?.fciCapitalEvents ?? []).map((event) => ({ ...event }));
       return {
         symbol,
         dateEvaluated: dateInput,
@@ -255,6 +256,7 @@ export class PortfolioStage3DiagnosticService {
         valorHistoricoSiMultiplicaCantidadPorPrecio: multiplicativeValue,
         diferenciaEntreAmbos: directValue !== null && multiplicativeValue !== null ? multiplicativeValue - directValue : null,
         possibleBaseMismatch: representativeRow?.possibleBaseMismatch ?? false,
+        fciCapitalEvents,
         included: includedRows.length > 0,
         skipReason: includedRows.length > 0 ? null : 'fci-sale-without-active-position'
       };

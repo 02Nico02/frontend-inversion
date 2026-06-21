@@ -20,6 +20,7 @@ type DetailTab = 'summary' | 'operations' | 'alerts' | 'history' | 'classificati
 type SortDirection = 'asc' | 'desc';
 type PageSize = 10 | 25 | 50 | 'all';
 type Period = 'ALL' | '1M' | '3M' | '6M' | 'YTD' | '1Y';
+type MinimumBalanceTrendViewMode = 'monthly' | 'daily';
 
 @Component({
   standalone: true,
@@ -33,6 +34,7 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
   operationPageSize: PageSize = 25;
   operationPageIndex = 0;
   historyPeriod: Period = 'ALL';
+  minimumBalanceTrendView: MinimumBalanceTrendViewMode = 'monthly';
   showAdvancedColumns = false;
 
   detail: AssetDetailViewModel | null = null;
@@ -86,6 +88,11 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
 
   setHistoryPeriod(period: Period): void {
     this.historyPeriod = period;
+    this.refreshHistory();
+  }
+
+  setMinimumBalanceTrendView(view: MinimumBalanceTrendViewMode): void {
+    this.minimumBalanceTrendView = view;
     this.refreshHistory();
   }
 
@@ -443,14 +450,21 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
 
     const state = snapshot ?? this.state.snapshot;
     if (state?.dataset) {
-      this.minimumBalanceTrendReport = this.minimumBalanceTrendService.buildTrendBySymbol(state, this.detail.symbol, 'monthly');
-      this.minimumBalanceTrendSeries = this.minimumBalanceTrendReport.points;
+      this.minimumBalanceTrendReport = this.minimumBalanceTrendService.buildTrendBySymbol(state, this.detail.symbol, this.minimumBalanceTrendView);
+      this.minimumBalanceTrendSeries = this.filterMinimumBalanceTrendSeriesByView(this.minimumBalanceTrendReport.points, this.minimumBalanceTrendView);
       this.minimumBalanceTrendStats = this.buildMinimumBalanceTrendStats(this.minimumBalanceTrendSeries);
     } else {
       this.minimumBalanceTrendReport = null;
       this.minimumBalanceTrendSeries = [];
       this.minimumBalanceTrendStats = null;
     }
+  }
+
+  private filterMinimumBalanceTrendSeriesByView(
+    points: MinimumBalanceTrendSymbolPoint[],
+    view: MinimumBalanceTrendViewMode
+  ): MinimumBalanceTrendSymbolPoint[] {
+    return view === 'daily' ? [...points] : points;
   }
 
   private buildMinimumBalanceTrendStats(points: MinimumBalanceTrendSymbolPoint[]): {

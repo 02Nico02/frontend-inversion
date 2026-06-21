@@ -1,4 +1,4 @@
-<section class="page" *ngIf="detail as asset; else emptyState">
+﻿<section class="page" *ngIf="detail as asset; else emptyState">
   <header class="page-header">
     <div class="breadcrumbs">
       <button type="button" class="back" (click)="back()">Volver a posiciones</button>
@@ -50,14 +50,14 @@
             <span>{{ hasMovementAdjustments(asset) ? 'Resultado ajustado' : 'Resultado efectivo' }}</span>
             <strong class="metric-value">
               <span class="metric-value__text">{{ formatMoney(summaryResultAmount(asset), asset.position.currency) }}</span>
-              <span *ngIf="hasMovementAdjustments(asset)" class="adjusted-info" [attr.title]="movementTooltip(asset) || undefined" aria-label="Resultado ajustado por movimientos de inversión">i</span>
+            <span *ngIf="hasMovementAdjustments(asset)" class="adjusted-info" [attr.title]="movementTooltip(asset) || undefined" aria-label="Resultado ajustado por movimientos de inversión">i</span>
             </strong>
           </div>
           <div>
             <span>{{ hasMovementAdjustments(asset) ? 'Resultado ajustado %' : 'Resultado efectivo %' }}</span>
             <strong class="metric-value">
               <span class="metric-value__text">{{ formatPercent(summaryResultPercent(asset)) }}</span>
-              <span *ngIf="hasMovementAdjustments(asset)" class="adjusted-info" [attr.title]="movementTooltip(asset) || undefined" aria-label="Resultado ajustado por movimientos de inversión">i</span>
+            <span *ngIf="hasMovementAdjustments(asset)" class="adjusted-info" [attr.title]="movementTooltip(asset) || undefined" aria-label="Resultado ajustado por movimientos de inversión">i</span>
             </strong>
           </div>
           <div><span>Cantidad</span><strong>{{ formatNumber(asset.summaryMetrics.quantity) }}</strong></div>
@@ -222,11 +222,19 @@
           <h2>Evolución contra el benchmark mínimo</h2>
           <p class="lead">Compara esta especie contra el mínimo esperado a lo largo del tiempo.</p>
         </div>
+        <div class="minimum-balance-toolbar">
+          <label class="minimum-balance-mode">
+            <span>Vista</span>
+            <select [(ngModel)]="minimumBalanceTrendView" (ngModelChange)="setMinimumBalanceTrendView($event)">
+              <option value="monthly">Mensual</option>
+              <option value="daily">Diario</option>
+            </select>
+          </label>
+            <button type="button" class="toggle diagnostic-button" (click)="exportMinimumBalanceTrendDiagnostic()">
+            Exportar diagnóstico
+          </button>
+        </div>
       </div>
-
-        <button type="button" class="toggle diagnostic-button" (click)="exportMinimumBalanceTrendDiagnostic()">
-          Exportar diagnóstico
-        </button>
 
       <ng-container *ngIf="minimumBalanceTrendSeries.length; else minimumVsMinimumEmpty">
         <app-simple-chart
@@ -326,13 +334,13 @@
             <td class="num">
               <span class="result-cell">
                 <span>{{ formatMoney(lotResultAmount(operation, asset), asset.position.currency) }}</span>
-                <span *ngIf="lotResultAdjusted(operation, asset)" class="adjusted-info" [attr.title]="movementTooltip(asset) || undefined" aria-label="Resultado ajustado por movimientos de inversión">i</span>
+              <span *ngIf="lotResultAdjusted(operation, asset)" class="adjusted-info" [attr.title]="movementTooltip(asset) || undefined" aria-label="Resultado ajustado por movimientos de inversión">i</span>
               </span>
             </td>
             <td class="num">
               <span class="result-cell">
                 <span>{{ formatPercent(lotResultPercent(operation, asset)) }}</span>
-                <span *ngIf="lotResultAdjusted(operation, asset)" class="adjusted-info" [attr.title]="movementTooltip(asset) || undefined" aria-label="Resultado ajustado por movimientos de inversión">i</span>
+              <span *ngIf="lotResultAdjusted(operation, asset)" class="adjusted-info" [attr.title]="movementTooltip(asset) || undefined" aria-label="Resultado ajustado por movimientos de inversión">i</span>
               </span>
             </td>
             <td class="num">{{ formatPercent(lotWeight(operation, asset)) }}</td>
@@ -512,3 +520,4 @@
     <button type="button" class="back-button" (click)="back()">Volver a posiciones</button>
   </article>
 </ng-template>
+
