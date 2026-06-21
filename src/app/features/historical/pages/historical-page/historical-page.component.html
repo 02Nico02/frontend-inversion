@@ -4,6 +4,15 @@
       <p class="eyebrow">Histórico</p>
       <h2>Precio histórico y evolución diaria</h2>
       <p class="lead">Elegí una especie para revisar su serie y comparar contra la evolución diaria del workbook.</p>
+      <div class="diagnostic-toolbar">
+        <label class="period diagnostic-date">
+          <span>Fecha diagnóstico</span>
+          <input type="date" [(ngModel)]="stage3DiagnosticDate" />
+        </label>
+        <button type="button" class="toggle-button diagnostic-button" (click)="exportStage3Diagnostic(snapshot)">
+          Exportar diagnóstico Etapa 3
+        </button>
+      </div>
     </div>
   </header>
 

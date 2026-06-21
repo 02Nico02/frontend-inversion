@@ -6,10 +6,12 @@ import { SimpleChartComponent } from '../../../../shared/components/simple-chart
 import { PortfolioStateService } from '../../../../core/services/portfolio-state.service';
 import { PortfolioCalculatorService } from '../../../../core/services/portfolio-calculator.service';
 import { ChartDataService } from '../../../../core/services/chart-data.service';
+import { FileDownloadService } from '../../../../core/services/file-download.service';
 import { CurrencyMapperService } from '../../../../core/services/currency-mapper.service';
 import { PortfolioAppState } from '../../../../core/services/portfolio-state.service';
 import { PortfolioMilestonesService } from '../../../../core/services/portfolio-milestones.service';
 import { PortfolioMinimumBalanceTrendService } from '../../../../core/services/portfolio-minimum-balance-trend.service';
+import { PortfolioStage3DiagnosticService } from '../../../../core/services/portfolio-stage3-diagnostic.service';
 import {
   PortfolioMilestone,
   PortfolioMilestoneBuildResult,
@@ -60,6 +62,7 @@ export class HistoricalPageComponent implements OnInit, OnDestroy {
   balanceRangeStart = '';
   balanceRangeEnd = '';
   minimumBalanceTrendView: MinimumBalanceTrendViewMode = 'monthly';
+  stage3DiagnosticDate = '2026-06-19';
 
   private cachedPriceSeriesKey = '';
   private cachedPriceSeries: ReturnType<ChartDataService['priceSeries']> = [];
@@ -105,6 +108,8 @@ export class HistoricalPageComponent implements OnInit, OnDestroy {
     private readonly currencyMapper: CurrencyMapperService,
     private readonly milestonesService: PortfolioMilestonesService,
     private readonly minimumBalanceTrendService: PortfolioMinimumBalanceTrendService,
+    private readonly diagnosticService: PortfolioStage3DiagnosticService,
+    private readonly downloader: FileDownloadService,
     public readonly privacyMode: PrivacyModeService
   ) {}
 
@@ -304,6 +309,13 @@ export class HistoricalPageComponent implements OnInit, OnDestroy {
 
   minimumBalanceTrendViewLabel(): string {
     return this.minimumBalanceTrendView === 'daily' ? 'Diario' : 'Mensual';
+  }
+
+  exportStage3Diagnostic(snapshot: PortfolioAppState): void {
+    const report = this.diagnosticService.buildReport(snapshot, this.stage3DiagnosticDate);
+    const json = JSON.stringify(report, null, 2);
+    const filename = `diagnostico-etapa-3-${report.dateEvaluated}.json`;
+    this.downloader.downloadText(filename, json, 'application/json;charset=utf-8');
   }
 
   onMinimumBalanceTrendViewChange(value: MinimumBalanceTrendViewMode): void {
