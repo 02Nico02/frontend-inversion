@@ -52,6 +52,8 @@ interface HistoricalLotMovementTotals {
 interface HistoricalPointBuildResult {
   points: MinimumBalanceTrendPoint[];
   warnings: string[];
+  benchmarkSourceSelected: CalendarBenchmarkRow['source'] | null;
+  benchmarkSourcesAvailable: CalendarBenchmarkRow['source'][];
 }
 
 export interface MinimumBalanceTrendLotMovementDebug {
@@ -117,6 +119,8 @@ export interface MinimumBalanceTrendPointDebugRow {
 
 export interface MinimumBalanceTrendDateDebugReport {
   date: string;
+  benchmarkSourceSelected: CalendarBenchmarkRow['source'] | null;
+  benchmarkSourcesAvailable: CalendarBenchmarkRow['source'][];
   totals: {
     comparableValueARS: number;
     minimumExpectedARS: number;
@@ -144,6 +148,8 @@ export interface MinimumBalanceTrendSkippedLotsReport {
 }
 
 export interface MinimumBalanceTrendCurrentComparisonReport {
+  benchmarkSourceActual: CalendarBenchmarkRow['source'] | null;
+  benchmarkSourceHistorical: CalendarBenchmarkRow['source'] | null;
   current: {
     comparableValueARS: number | null;
     minimumExpectedARS: number | null;
@@ -252,6 +258,8 @@ export class PortfolioMinimumBalanceTrendService {
     if (!date) {
       return {
         date: String(dateInput ?? ''),
+        benchmarkSourceSelected: null,
+        benchmarkSourcesAvailable: [],
         totals: {
           comparableValueARS: 0,
           minimumExpectedARS: 0,
@@ -318,7 +326,9 @@ export class PortfolioMinimumBalanceTrendService {
 
   debugMinimumBalanceTrendCurrentComparison(snapshot: PortfolioAppState): MinimumBalanceTrendCurrentComparisonReport {
     const currentSummary = this.minimumPerformance.buildMinimumPerformanceSummary(snapshot);
+    const currentBenchmarkSelection = this.resolveBenchmarkRows(snapshot.dataset?.calendarBenchmarks ?? []);
     const trend = this.buildTrend(snapshot);
+    const historicalBenchmarkSelection = this.resolveBenchmarkRows(snapshot.dataset?.calendarBenchmarks ?? []);
     const lastHistoricalPoint = trend.points.at(-1) ?? null;
     const skippedReport = lastHistoricalPoint ? this.debugMinimumBalanceTrendSkippedLots(snapshot, lastHistoricalPoint.date) : null;
 
@@ -365,12 +375,17 @@ export class PortfolioMinimumBalanceTrendService {
     };
 
     return {
+      benchmarkSourceActual: currentBenchmarkSelection.source,
+      benchmarkSourceHistorical: historicalBenchmarkSelection.source,
       current,
       lastHistoricalPoint: historical,
       difference,
       omittedByReason: skippedReport?.skippedByReason ?? {},
       warnings: this.uniqueWarnings([
         ...trend.warnings,
+        ...(currentBenchmarkSelection.source !== historicalBenchmarkSelection.source
+          ? ['El histórico usa una fuente de benchmark distinta al cálculo actual.']
+          : []),
         ...(skippedReport?.warnings ?? [])
       ])
     };
@@ -384,6 +399,8 @@ export class PortfolioMinimumBalanceTrendService {
     if (!dataset) {
       return {
         points: [],
+        benchmarkSourceSelected: null,
+        benchmarkSourcesAvailable: [],
         warnings: [
           'No hay serie histórica confiable de Balance vs mínimo ARS.',
           'No hay dataset disponible para construir la serie histórica de Balance vs mínimo ARS.'
@@ -397,6 +414,8 @@ export class PortfolioMinimumBalanceTrendService {
     if (!evaluationDates.length) {
       return {
         points: [],
+        benchmarkSourceSelected: null,
+        benchmarkSourcesAvailable: [],
         warnings: [
           'No hay serie histórica confiable de Balance vs mínimo ARS.',
           viewMode === 'daily'
@@ -415,6 +434,8 @@ export class PortfolioMinimumBalanceTrendService {
     if (!arsLots.length) {
       return {
         points: [],
+        benchmarkSourceSelected: null,
+        benchmarkSourcesAvailable: [],
         warnings: [
           'No hay serie histórica confiable de Balance vs mínimo ARS.',
           'No hay lotes ARS suficientes para construir la serie histórica de Balance vs mínimo ARS.'
@@ -423,10 +444,13 @@ export class PortfolioMinimumBalanceTrendService {
     }
 
     const priceIndex = this.indexHistoricalPrices(dataset.historicalPrices ?? []);
-    const benchmarkRows = this.indexBenchmarkRows(dataset.calendarBenchmarks ?? []);
+    const benchmarkSelection = this.resolveBenchmarkRows(dataset.calendarBenchmarks ?? []);
+    const benchmarkRows = benchmarkSelection.rows;
     if (!benchmarkRows.length) {
       return {
         points: [],
+        benchmarkSourceSelected: benchmarkSelection.source,
+        benchmarkSourcesAvailable: benchmarkSelection.availableSources,
         warnings: [
           'No hay serie histórica confiable de Balance vs mínimo ARS.',
           'No hay benchmark mínimo suficiente para construir la serie histórica de Balance vs mínimo ARS.'
@@ -479,7 +503,12 @@ export class PortfolioMinimumBalanceTrendService {
 
     return {
       points,
-      warnings: this.uniqueWarnings(warnings)
+      warnings: this.uniqueWarnings([
+        ...benchmarkSelection.notes,
+        ...warnings
+      ]),
+      benchmarkSourceSelected: benchmarkSelection.source,
+      benchmarkSourcesAvailable: benchmarkSelection.availableSources
     };
   }
 
@@ -491,6 +520,8 @@ export class PortfolioMinimumBalanceTrendService {
     if (!dataset) {
       return {
         date: this.debugDateKey(date) ?? date.toISOString().slice(0, 10),
+        benchmarkSourceSelected: null,
+        benchmarkSourcesAvailable: [],
         totals: {
           comparableValueARS: 0,
           minimumExpectedARS: 0,
@@ -509,7 +540,8 @@ export class PortfolioMinimumBalanceTrendService {
       dataset.sales ?? [],
       this.buildLotMetadataBySymbol(dataset.positions ?? [], dataset.classifications ?? [])
     );
-    const benchmarkRows = this.indexBenchmarkRows(dataset.calendarBenchmarks ?? []);
+    const benchmarkSelection = this.resolveBenchmarkRows(dataset.calendarBenchmarks ?? []);
+    const benchmarkRows = benchmarkSelection.rows;
     const priceIndex = this.indexHistoricalPrices(dataset.historicalPrices ?? []);
     const movementsIndex = this.indexMovements(dataset.investmentMovements ?? []);
     const activeLots = lots.filter((lot) => lot.currency === 'ARS' && this.isLotActiveAtDate(lot, date));
@@ -535,6 +567,8 @@ export class PortfolioMinimumBalanceTrendService {
 
     return {
       date: this.debugDateKey(date) ?? date.toISOString().slice(0, 10),
+      benchmarkSourceSelected: benchmarkSelection.source,
+      benchmarkSourcesAvailable: benchmarkSelection.availableSources,
       totals: {
         comparableValueARS,
         minimumExpectedARS,
@@ -545,6 +579,7 @@ export class PortfolioMinimumBalanceTrendService {
       },
       lots: rows,
       warnings: this.uniqueWarnings([
+        ...benchmarkSelection.notes,
         ...warnings,
         ...this.buildTrend(snapshot).warnings
       ])
@@ -1198,6 +1233,40 @@ export class PortfolioMinimumBalanceTrendService {
     }
 
     return bucket;
+  }
+
+  private resolveBenchmarkRows(rows: CalendarBenchmarkRow[]): {
+    rows: CalendarBenchmarkRow[];
+    source: CalendarBenchmarkRow['source'] | null;
+    availableSources: CalendarBenchmarkRow['source'][];
+    notes: string[];
+  } {
+    const availableSources = Array.from(
+      new Set(rows.map((row) => row.source).filter((source): source is CalendarBenchmarkRow['source'] => Boolean(source)))
+    );
+    const priority: CalendarBenchmarkRow['source'][] = ['TablaCalendario', 'TablaCalendarioRem', 'TablaCalendarioInf'];
+
+    for (const source of priority) {
+      const selected = rows
+        .filter((row) => row.source === source && row.index !== null)
+        .sort((left, right) => left.date.getTime() - right.date.getTime());
+
+      if (selected.length) {
+        return {
+          rows: selected,
+          source,
+          availableSources,
+          notes: source === 'TablaCalendario' ? [] : [`Se utilizo ${source} como respaldo de calendario.`]
+        };
+      }
+    }
+
+    return {
+      rows: [],
+      source: null,
+      availableSources,
+      notes: ['No se encontraron filas de calendario para calcular el minimo esperado.']
+    };
   }
 
   private indexBenchmarkRows(rows: CalendarBenchmarkRow[]): CalendarBenchmarkRow[] {

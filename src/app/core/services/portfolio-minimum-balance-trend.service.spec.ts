@@ -235,6 +235,206 @@ describe('PortfolioMinimumBalanceTrendService', () => {
     expect(trend.trendStatus).toBe('stable');
   });
 
+  it('prefers TablaCalendario over backup benchmark sources in historical debug reports', () => {
+    minimumPerformance.buildMinimumPerformanceSummary.and.returnValue({
+      currency: 'ARS',
+      comparableLotsCount: 1,
+      currentComparableArs: 1200,
+      minimumExpectedArs: 1000,
+      balanceVsMinimumArs: 200,
+      balanceVsMinimumPercentArs: 20,
+      status: 'positive',
+      description: 'ok',
+      notes: []
+    });
+    minimumPerformance.buildMinimumPerformanceBySymbol.and.returnValue([]);
+
+    const snapshot = buildPortfolioAppState({
+      dataset: {
+        operations: [
+          {
+            id: '1',
+            date: '2025-01-01',
+            symbol: 'AAA',
+            currency: 'ARS',
+            quantity: 10,
+            buyPrice: 100,
+            total: 1000,
+            currentPrice: 130,
+            currentValue: 1300,
+            variation: null,
+            remVariation: null,
+            remValue: null,
+            amount: null,
+            monthlyRate: null,
+            annualRate: null,
+            top: null,
+            trend: null
+          }
+        ],
+        sales: [],
+        investmentMovements: [],
+        positions: [
+          buildPortfolioPosition({
+            symbol: 'AAA',
+            currency: 'ARS',
+            positionType: 'Accion',
+            assetType: 'Accion',
+            quantity: 10,
+            totalInvested: 1000,
+            currentValue: 1300
+          })
+        ],
+        historicalPrices: [
+          { date: '2025-01-31', month: 'ene-25', symbol: 'AAA', price: 130 }
+        ],
+        dailyBalances: [],
+        classifications: [buildClassification({ symbol: 'AAA', type: 'Accion' })],
+        manualAlerts: [],
+        calculatedAlerts: [],
+        signals: [],
+        monthlySummary: [buildMonthlySummary({ month: 'ene-25', year: 2025 })],
+        annualSummary: [],
+        monthlyPerformance: [],
+        strategicSplit: [],
+        platformDistribution: [],
+        calendarBenchmarks: [
+          { date: new Date(Date.UTC(2025, 0, 1)), tna: 10, dailyReturnPercent: 0.01, index: 100, source: 'TablaCalendario' },
+          { date: new Date(Date.UTC(2025, 0, 31)), tna: 10, dailyReturnPercent: 0.01, index: 105, source: 'TablaCalendario' },
+          { date: new Date(Date.UTC(2025, 0, 1)), tna: 10, dailyReturnPercent: 0.01, index: 200, source: 'TablaCalendarioRem' },
+          { date: new Date(Date.UTC(2025, 0, 31)), tna: 10, dailyReturnPercent: 0.01, index: 210, source: 'TablaCalendarioRem' },
+          { date: new Date(Date.UTC(2025, 0, 1)), tna: 10, dailyReturnPercent: 0.01, index: 300, source: 'TablaCalendarioInf' },
+          { date: new Date(Date.UTC(2025, 0, 31)), tna: 10, dailyReturnPercent: 0.01, index: 310, source: 'TablaCalendarioInf' }
+        ]
+      },
+      summary: null,
+      workbook: null
+    });
+
+    const trend = service.buildTrend(snapshot);
+    const debug = service.debugMinimumBalanceTrendForDate(snapshot, '2025-01-31');
+
+    expect(trend.points.length).toBe(1);
+    expect(debug.benchmarkSourceSelected).toBe('TablaCalendario');
+    expect(debug.benchmarkSourcesAvailable).toEqual(jasmine.arrayContaining(['TablaCalendario', 'TablaCalendarioRem', 'TablaCalendarioInf']));
+    expect(trend.warnings.some((warning) => warning.includes('respaldo de calendario'))).toBeFalse();
+  });
+
+  it('falls back to TablaCalendarioRem and TablaCalendarioInf when TablaCalendario is missing', () => {
+    minimumPerformance.buildMinimumPerformanceSummary.and.returnValue({
+      currency: 'ARS',
+      comparableLotsCount: 1,
+      currentComparableArs: 1200,
+      minimumExpectedArs: 1000,
+      balanceVsMinimumArs: 200,
+      balanceVsMinimumPercentArs: 20,
+      status: 'positive',
+      description: 'ok',
+      notes: []
+    });
+    minimumPerformance.buildMinimumPerformanceBySymbol.and.returnValue([]);
+
+    const remSnapshot = buildPortfolioAppState({
+      dataset: {
+        operations: [
+          {
+            id: '1',
+            date: '2025-01-01',
+            symbol: 'AAA',
+            currency: 'ARS',
+            quantity: 10,
+            buyPrice: 100,
+            total: 1000,
+            currentPrice: 130,
+            currentValue: 1300,
+            variation: null,
+            remVariation: null,
+            remValue: null,
+            amount: null,
+            monthlyRate: null,
+            annualRate: null,
+            top: null,
+            trend: null
+          }
+        ],
+        sales: [],
+        investmentMovements: [],
+        positions: [
+          buildPortfolioPosition({
+            symbol: 'AAA',
+            currency: 'ARS',
+            positionType: 'Accion',
+            assetType: 'Accion',
+            quantity: 10,
+            totalInvested: 1000,
+            currentValue: 1300
+          })
+        ],
+        historicalPrices: [
+          { date: '2025-01-31', month: 'ene-25', symbol: 'AAA', price: 130 }
+        ],
+        dailyBalances: [],
+        classifications: [buildClassification({ symbol: 'AAA', type: 'Accion' })],
+        manualAlerts: [],
+        calculatedAlerts: [],
+        signals: [],
+        monthlySummary: [buildMonthlySummary({ month: 'ene-25', year: 2025 })],
+        annualSummary: [],
+        monthlyPerformance: [],
+        strategicSplit: [],
+        platformDistribution: [],
+        calendarBenchmarks: [
+          { date: new Date(Date.UTC(2025, 0, 1)), tna: 10, dailyReturnPercent: 0.01, index: 200, source: 'TablaCalendarioRem' },
+          { date: new Date(Date.UTC(2025, 0, 31)), tna: 10, dailyReturnPercent: 0.01, index: 210, source: 'TablaCalendarioRem' },
+          { date: new Date(Date.UTC(2025, 0, 1)), tna: 10, dailyReturnPercent: 0.01, index: 300, source: 'TablaCalendarioInf' },
+          { date: new Date(Date.UTC(2025, 0, 31)), tna: 10, dailyReturnPercent: 0.01, index: 310, source: 'TablaCalendarioInf' }
+        ]
+      },
+      summary: null,
+      workbook: null
+    });
+
+    const remTrend = service.buildTrend(remSnapshot);
+    const remDebug = service.debugMinimumBalanceTrendForDate(remSnapshot, '2025-01-31');
+
+    expect(remTrend.points.length).toBe(1);
+    expect(remDebug.benchmarkSourceSelected).toBe('TablaCalendarioRem');
+    expect(remTrend.warnings.some((warning) => warning.includes('TablaCalendarioRem como respaldo'))).toBeTrue();
+
+    const infSnapshot = buildPortfolioAppState({
+      dataset: {
+        operations: remSnapshot.dataset?.operations ?? [],
+        sales: [],
+        investmentMovements: [],
+        positions: remSnapshot.dataset?.positions ?? [],
+        historicalPrices: remSnapshot.dataset?.historicalPrices ?? [],
+        dailyBalances: [],
+        classifications: remSnapshot.dataset?.classifications ?? [],
+        manualAlerts: [],
+        calculatedAlerts: [],
+        signals: [],
+        monthlySummary: remSnapshot.dataset?.monthlySummary ?? [],
+        annualSummary: [],
+        monthlyPerformance: [],
+        strategicSplit: [],
+        platformDistribution: [],
+        calendarBenchmarks: [
+          { date: new Date(Date.UTC(2025, 0, 1)), tna: 10, dailyReturnPercent: 0.01, index: 300, source: 'TablaCalendarioInf' },
+          { date: new Date(Date.UTC(2025, 0, 31)), tna: 10, dailyReturnPercent: 0.01, index: 310, source: 'TablaCalendarioInf' }
+        ]
+      },
+      summary: null,
+      workbook: null
+    });
+
+    const infTrend = service.buildTrend(infSnapshot);
+    const infDebug = service.debugMinimumBalanceTrendForDate(infSnapshot, '2025-01-31');
+
+    expect(infTrend.points.length).toBe(1);
+    expect(infDebug.benchmarkSourceSelected).toBe('TablaCalendarioInf');
+    expect(infTrend.warnings.some((warning) => warning.includes('TablaCalendarioInf como respaldo'))).toBeTrue();
+  });
+
   it('includes sold lots only until their sale date', () => {
     minimumPerformance.buildMinimumPerformanceSummary.and.returnValue({
       currency: 'ARS',
@@ -851,5 +1051,108 @@ describe('PortfolioMinimumBalanceTrendService', () => {
     expect(report.difference.balanceVsMinimumARS).toBe(0);
     expect(report.omittedByReason['unsupported-currency']).toBe(1);
     expect(report.warnings.length).toBeGreaterThanOrEqual(0);
+  });
+
+  it('warns when the historical benchmark source differs from the current one', () => {
+    minimumPerformance.buildMinimumPerformanceSummary.and.returnValue({
+      currency: 'ARS',
+      comparableLotsCount: 1,
+      currentComparableArs: 200,
+      minimumExpectedArs: 180,
+      balanceVsMinimumArs: 20,
+      balanceVsMinimumPercentArs: 11.1111111111,
+      status: 'positive',
+      description: 'ok',
+      notes: []
+    });
+    minimumPerformance.buildMinimumPerformanceBySymbol.and.returnValue([]);
+
+    const snapshot = buildPortfolioAppState({
+      dataset: {
+        operations: [
+          {
+            id: '1',
+            date: '2025-01-01',
+            symbol: 'AAA',
+            currency: 'ARS',
+            quantity: 2,
+            buyPrice: 90,
+            total: 180,
+            currentPrice: 100,
+            currentValue: 200,
+            variation: null,
+            remVariation: null,
+            remValue: null,
+            amount: null,
+            monthlyRate: null,
+            annualRate: null,
+            top: null,
+            trend: null
+          }
+        ],
+        sales: [],
+        investmentMovements: [],
+        positions: [
+          buildPortfolioPosition({
+            symbol: 'AAA',
+            currency: 'ARS',
+            positionType: 'Accion',
+            assetType: 'Accion',
+            quantity: 2,
+            totalInvested: 180,
+            currentValue: 200
+          })
+        ],
+        historicalPrices: [
+          { date: '2025-01-31', month: 'ene-25', symbol: 'AAA', price: 100 }
+        ],
+        dailyBalances: [],
+        classifications: [buildClassification({ symbol: 'AAA', type: 'Accion' })],
+        manualAlerts: [],
+        calculatedAlerts: [],
+        signals: [],
+        monthlySummary: [buildMonthlySummary({ month: 'ene-25', year: 2025 })],
+        annualSummary: [],
+        monthlyPerformance: [],
+        strategicSplit: [],
+        platformDistribution: [],
+        calendarBenchmarks: [
+          { date: new Date(Date.UTC(2025, 0, 1)), tna: 10, dailyReturnPercent: 0.01, index: 100, source: 'TablaCalendario' },
+          { date: new Date(Date.UTC(2025, 0, 31)), tna: 10, dailyReturnPercent: 0.01, index: 100, source: 'TablaCalendario' }
+        ]
+      },
+      summary: null,
+      workbook: null
+    });
+
+    let resolveCallCount = 0;
+    spyOn<any>(service as any, 'resolveBenchmarkRows').and.callFake(() => {
+      resolveCallCount += 1;
+      if (resolveCallCount <= 2) {
+        return {
+          rows: [
+            { date: new Date(Date.UTC(2025, 0, 31)), tna: 10, dailyReturnPercent: 0.01, index: 100, source: 'TablaCalendario' }
+          ],
+          source: 'TablaCalendario',
+          availableSources: ['TablaCalendario', 'TablaCalendarioRem'],
+          notes: []
+        };
+      }
+
+      return {
+        rows: [
+          { date: new Date(Date.UTC(2025, 0, 31)), tna: 10, dailyReturnPercent: 0.01, index: 100, source: 'TablaCalendarioRem' }
+        ],
+        source: 'TablaCalendarioRem',
+        availableSources: ['TablaCalendario', 'TablaCalendarioRem'],
+        notes: ['Se utilizo TablaCalendarioRem como respaldo de calendario.']
+      };
+    });
+
+    const report = service.debugMinimumBalanceTrendCurrentComparison(snapshot);
+
+    expect(report.benchmarkSourceActual).toBe('TablaCalendario');
+    expect(report.benchmarkSourceHistorical).toBe('TablaCalendarioRem');
+    expect(report.warnings).toContain('El histórico usa una fuente de benchmark distinta al cálculo actual.');
   });
 });

@@ -503,6 +503,10 @@ export class HistoricalPageComponent implements OnInit, OnDestroy {
         const report = this.minimumBalanceTrendService.debugMinimumBalanceTrendForDate(this.state.snapshot, date);
         console.groupCollapsed(`[portfolio-debug] minimumBalanceTrendForDate ${report.date}`);
         console.log(report);
+        console.log('[portfolio-debug] benchmark sources', {
+          selected: report.benchmarkSourceSelected,
+          available: report.benchmarkSourcesAvailable
+        });
         console.table(report.lots.map((lot) => ({
           lotId: lot.lotId,
           sourceTable: lot.sourceTable,
@@ -610,6 +614,11 @@ export class HistoricalPageComponent implements OnInit, OnDestroy {
         console.groupCollapsed('[portfolio-debug] minimumBalanceTrendCurrentComparison');
         console.log(report);
         console.table([
+          {
+            scope: 'benchmarkSource',
+            benchmarkSourceActual: report.benchmarkSourceActual,
+            benchmarkSourceHistorical: report.benchmarkSourceHistorical
+          },
           {
             scope: 'current',
             comparableValueARS: report.current.comparableValueARS,
