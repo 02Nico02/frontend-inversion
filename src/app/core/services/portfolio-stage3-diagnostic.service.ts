@@ -202,28 +202,30 @@ export class PortfolioStage3DiagnosticService {
     return symbols.map((symbol) => {
       const currentPosition = currentBySymbol.get(symbol) ?? null;
       const rows = historicalRowsBySymbol.get(symbol) ?? [];
-      const includedRows = rows.filter((row) => !row.skipped && row.sourceTable === 'Tabla6');
+      const includedRows = rows.filter((row) => !row.skipped);
       const ignoredSaleRows = rows.filter(
         (row) => row.skipped && row.sourceTable === 'Tabla13' && row.skipReason === 'fci-sale-ignored-when-fci-active'
       );
+      const representativeRow = includedRows[0] ?? rows[0] ?? null;
       const tabla11Rows = tabla11?.rows ?? [];
       const tabla11Row = tabla11Rows.find(
         (row) => String(this.pickRowValue(row, ['Fondos com. Inv.', 'Fondos com Inv']) ?? '').trim().toUpperCase() === symbol
       ) ?? null;
       const quantity = includedRows.reduce((sum, row) => sum + Math.max(0, Number(row.quantity ?? 0)), 0);
-      const baseCapital = includedRows.reduce((sum, row) => sum + Math.max(0, Number(row.investedAmount ?? 0)), 0);
-      const directValue = includedRows[0]?.historicalPrice ?? currentPosition?.position.currentValue ?? null;
+      const baseCapital = representativeRow?.baseCapitalUsed ?? representativeRow?.investedAmount ?? null;
+      const directValue = representativeRow?.marketValue ?? representativeRow?.historicalPrice ?? currentPosition?.position.currentValue ?? null;
       const multiplicativeValue = directValue !== null ? quantity * directValue : null;
       const consolidatedFromLotIds = includedRows.map((row) => row.lotId);
       const ignoredSaleLotIds = ignoredSaleRows.map((row) => row.lotId);
       return {
         symbol,
+        dateEvaluated: dateInput,
         isFci: true,
         isConsolidatedFci: includedRows.length > 0,
         fciConsolidationKey: symbol,
         consolidatedFromLotIds,
         ignoredSaleLotIds,
-        marketValueRule: 'fci-direct-value',
+        marketValueRule: representativeRow?.baseCapitalRule ?? 'fci-direct-value',
         apareceEnTabla11: Boolean(tabla11Row),
         apareceEnTabla5: this.hasSymbolInTable(tables, ['Tabla5'], symbol),
         apareceEnTabla6: this.hasSymbolInTable(tables, ['Tabla6'], symbol),
@@ -239,11 +241,20 @@ export class PortfolioStage3DiagnosticService {
         valorCalculadoActual: currentPosition?.position.currentValue ?? null,
         marketValue: directValue,
         baseCapital,
-        minimumExpectedUsed: currentPosition?.minimumExpectedValue ?? null,
-        balanceVsMinimum: currentPosition?.minimumValueVsAmount ?? null,
+        baseCapitalFci: baseCapital,
+        baseCapitalSource: representativeRow?.baseCapitalSource ?? null,
+        baseCapitalPurchaseAmount: representativeRow?.baseCapitalPurchaseAmount ?? null,
+        baseCapitalSoldAmount: representativeRow?.baseCapitalSoldAmount ?? null,
+        baseCapitalNetAmount: representativeRow?.baseCapitalNetAmount ?? null,
+        baseDate: representativeRow?.baseDate ?? null,
+        benchmarkRatio: representativeRow?.benchmarkRatio ?? null,
+        minimumExpectedUsed: representativeRow?.minimumExpectedUsed ?? currentPosition?.minimumExpectedValue ?? null,
+        balanceVsMinimum: representativeRow?.balanceVsMinimum ?? currentPosition?.minimumValueVsAmount ?? null,
+        balanceVsMinimumPercent: representativeRow?.balanceVsMinimumPercent ?? currentPosition?.minimumValueVsPercent ?? null,
         valorHistoricoSiUsaTabla5PrecioDirecto: directValue,
         valorHistoricoSiMultiplicaCantidadPorPrecio: multiplicativeValue,
         diferenciaEntreAmbos: directValue !== null && multiplicativeValue !== null ? multiplicativeValue - directValue : null,
+        possibleBaseMismatch: representativeRow?.possibleBaseMismatch ?? false,
         included: includedRows.length > 0,
         skipReason: includedRows.length > 0 ? null : 'fci-sale-without-active-position'
       };
