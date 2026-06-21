@@ -152,8 +152,8 @@
 
       <ng-template #minimumBalanceNoHistory>
         <div class="minimum-balance-empty">
-          <strong>Todavía no hay historial suficiente para graficar la evolución del Balance vs mínimo.</strong>
-          <p>Se muestra el estado actual y el cálculo por posiciones.</p>
+          <strong>Todavía no hay una serie histórica confiable para graficar la evolución del Balance vs mínimo.</strong>
+          <p>Se muestra el estado actual calculado por posiciones.</p>
           <small *ngIf="minimumBalanceTrendWarnings(snapshot).length">{{ minimumBalanceTrendWarnings(snapshot)[0] }}</small>
         </div>
       </ng-template>

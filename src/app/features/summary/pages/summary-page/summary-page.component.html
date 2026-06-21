@@ -59,6 +59,7 @@
         <div>
           <p class="eyebrow">Balance vs mínimo ARS</p>
           <h3>Evolución del balance contra el benchmark mínimo</h3>
+          <p class="benchmark-note">Estado actual del portafolio frente al mínimo esperado.</p>
         </div>
         <strong class="badge">{{ trend.trendLabel }}</strong>
       </div>
@@ -83,7 +84,10 @@
       </div>
 
       <p class="benchmark-note" *ngIf="!trend.points.length">
-        Todavía no hay historial suficiente para graficar la evolución del Balance vs mínimo. Se muestra el estado actual.
+        Sin historial suficiente para tendencia.
+      </p>
+      <p class="benchmark-note" *ngIf="trend.warnings.length">
+        {{ trend.warnings[0] }}
       </p>
     </article>
 
