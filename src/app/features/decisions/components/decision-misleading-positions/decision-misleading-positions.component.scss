@@ -1,0 +1,31 @@
+@use '../decision-shared' as *;
+
+.summary-box {
+  border-radius: 14px;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid rgba(80, 227, 164, 0.18);
+  background: rgba(255, 255, 255, 0.03);
+  display: grid;
+  gap: 0.35rem;
+}
+
+.summary-box--empty {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.summary-box strong {
+  font-size: 1rem;
+}
+
+.summary-box p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.table .positive {
+  color: #50e3a4;
+}
+
+.table .negative {
+  color: #ff7676;
+}

@@ -1,0 +1,52 @@
+<section class="panel" *ngIf="review as vm">
+  <div class="section-head">
+    <div>
+      <p class="eyebrow">Decisiones</p>
+      <h3>Posiciones engañosas</h3>
+      <p class="lead">Activos que muestran ganancia nominal, pero todavía no superan tu mínimo esperado.</p>
+    </div>
+  </div>
+
+  <div class="summary-box" *ngIf="vm.items.length; else emptyState">
+    <strong>{{ vm.total }} posiciones parecen positivas, pero siguen por debajo del mínimo esperado.</strong>
+    <p>{{ vm.note }}</p>
+  </div>
+
+  <ng-template #emptyState>
+    <div class="summary-box summary-box--empty">
+      <strong>No se detectaron posiciones con ganancia nominal que estén por debajo del mínimo esperado.</strong>
+      <p>{{ vm.note }}</p>
+    </div>
+  </ng-template>
+
+  <div class="table-wrap" *ngIf="vm.items.length">
+    <table class="table compact">
+      <thead>
+        <tr>
+          <th>Especie</th>
+          <th class="num">Resultado nominal %</th>
+          <th class="num">Vs mínimo %</th>
+          <th class="num">Vs mínimo $</th>
+          <th class="num">Valor actual</th>
+          <th class="num">Mínimo esperado</th>
+          <th>Lectura</th>
+          <th>Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let item of vm.items; trackBy: trackByItem">
+          <td><strong>{{ item.symbol }}</strong></td>
+          <td class="num positive">{{ formatPercent(item.nominalResultPercent) }}</td>
+          <td class="num negative">{{ formatPercent(item.valueVsMinimumPercent) }}</td>
+          <td class="num negative">{{ formatMoney(item.valueVsMinimumAmount, item.currency) }}</td>
+          <td class="num">{{ formatMoney(item.currentValue, item.currency) }}</td>
+          <td class="num">{{ formatMoney(item.minimumExpectedValue, item.currency) }}</td>
+          <td>{{ item.note }}</td>
+          <td>
+            <a class="secondary-link" [routerLink]="['/posiciones', item.symbol]">Ver detalle</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>

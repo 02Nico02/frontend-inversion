@@ -7,6 +7,7 @@ import { PrivacyModeService } from '../../../../core/services/privacy-mode.servi
 import { DecisionActivatedAlertsComponent } from '../../components/decision-activated-alerts/decision-activated-alerts.component';
 import { DecisionExportPanelComponent } from '../../components/decision-export-panel/decision-export-panel.component';
 import { DecisionLiquidityPanelComponent } from '../../components/decision-liquidity-panel/decision-liquidity-panel.component';
+import { DecisionMisleadingPositionsComponent } from '../../components/decision-misleading-positions/decision-misleading-positions.component';
 import { DecisionMinimumBenchmarkReviewComponent } from '../../components/decision-minimum-benchmark-review/decision-minimum-benchmark-review.component';
 import { DecisionMovementsPanelComponent } from '../../components/decision-movements-panel/decision-movements-panel.component';
 import { DecisionPerformancePanelComponent } from '../../components/decision-performance-panel/decision-performance-panel.component';
@@ -31,7 +32,8 @@ import { MovementDateRange, MovementDateRangeService, MovementRangePreset } from
     DecisionSimulatorPanelComponent,
     DecisionPerformancePanelComponent,
     DecisionExportPanelComponent,
-    DecisionSignalsSummaryComponent
+    DecisionSignalsSummaryComponent,
+    DecisionMisleadingPositionsComponent
   ],
   templateUrl: './decisions-page.component.html',
   styleUrls: ['./decisions-page.component.scss']

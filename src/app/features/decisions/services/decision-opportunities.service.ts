@@ -4,6 +4,7 @@ import { CombinedAlert } from '../../../core/services/alert-mapper.service';
 import { CurrencyMapperService } from '../../../core/services/currency-mapper.service';
 import { MinimumPerformanceService } from '../../../core/services/minimum-performance.service';
 import { PortfolioAppState } from '../../../core/services/portfolio-state.service';
+import { EffectivePortfolioPosition, PositionEffectiveMetricsService } from '../../../core/services/position-effective-metrics.service';
 
 export interface MinimumBenchmarkReviewItem {
   symbol: string;
@@ -37,9 +38,30 @@ export interface DecisionActivatedAlerts {
   items: ActivatedAlertItem[];
 }
 
+export interface MisleadingPositionItem {
+  symbol: string;
+  currency: string;
+  currentValue: number;
+  investedAmount: number;
+  nominalResultAmount: number;
+  nominalResultPercent: number;
+  minimumExpectedValue: number;
+  comparableValue: number;
+  valueVsMinimumAmount: number;
+  valueVsMinimumPercent: number;
+  note: string;
+}
+
+export interface DecisionMisleadingPositionsReview {
+  total: number;
+  items: MisleadingPositionItem[];
+  note: string;
+}
+
 export interface DecisionOpportunitiesViewModel {
   minimumBenchmarkReview: DecisionMinimumBenchmarkReview;
   activatedAlerts: DecisionActivatedAlerts;
+  misleadingPositions: DecisionMisleadingPositionsReview;
 }
 
 const MINIMUM_BENCHMARK_REVIEW_PERCENT_THRESHOLD = -5;
@@ -49,16 +71,19 @@ const MINIMUM_BENCHMARK_REVIEW_AMOUNT_THRESHOLD = -10000;
 export class DecisionOpportunitiesService {
   constructor(
     private readonly minimumPerformanceService: MinimumPerformanceService,
-    private readonly currencyMapper: CurrencyMapperService
+    private readonly currencyMapper: CurrencyMapperService,
+    private readonly effectiveMetrics: PositionEffectiveMetricsService
   ) {}
 
   build(snapshot: PortfolioAppState): DecisionOpportunitiesViewModel {
     const minimumReview = this.buildMinimumBenchmarkReview(snapshot);
     const activatedAlerts = this.buildActivatedAlerts(snapshot.combinedAlerts ?? []);
+    const misleadingPositions = this.buildMisleadingPositions(snapshot);
 
     return {
       minimumBenchmarkReview: minimumReview,
-      activatedAlerts
+      activatedAlerts,
+      misleadingPositions
     };
   }
 
@@ -120,6 +145,39 @@ export class DecisionOpportunitiesService {
     };
   }
 
+  private buildMisleadingPositions(snapshot: PortfolioAppState): DecisionMisleadingPositionsReview {
+    const positions = snapshot.dataset ? this.effectiveMetrics.buildEffectivePositions(snapshot) : [];
+    const items = positions
+      .filter((item) => this.isMisleadingPosition(item))
+      .sort((a, b) => {
+        const percentDiff = (a.minimumValueVsPercent ?? a.minimumValueVsAmount ?? 0) - (b.minimumValueVsPercent ?? b.minimumValueVsAmount ?? 0);
+        if (percentDiff !== 0) {
+          return percentDiff;
+        }
+        return (a.minimumValueVsAmount ?? 0) - (b.minimumValueVsAmount ?? 0);
+      })
+      .slice(0, 5)
+      .map((item) => ({
+        symbol: item.symbol,
+        currency: item.currency,
+        currentValue: item.position.currentValue,
+        investedAmount: item.position.totalInvested,
+        nominalResultAmount: item.nominalResultAmount ?? 0,
+        nominalResultPercent: item.nominalResultPercent ?? 0,
+        minimumExpectedValue: item.minimumExpectedValue ?? 0,
+        comparableValue: item.minimumPerformance?.comparableValue ?? item.position.currentValue,
+        valueVsMinimumAmount: item.minimumValueVsAmount ?? 0,
+        valueVsMinimumPercent: item.minimumValueVsPercent ?? 0,
+        note: this.misleadingPositionNote(item)
+      }));
+
+    return {
+      total: items.length,
+      items,
+      note: 'Esta se\u00f1al no implica vender. Sirve para revisar activos que ganan nominalmente, pero pierden contra el costo de oportunidad.'
+    };
+  }
+
   private isReviewableMinimum(item: MinimumPerformanceBySymbol): boolean {
     if (item.currency !== 'ARS') {
       return false;
@@ -141,9 +199,55 @@ export class DecisionOpportunitiesService {
     const percent = this.currencyMapper.formatPercentage(item.valueVsMinimumPercent);
     const amount = this.currencyMapper.formatCurrency(item.valueVsMinimumAmount, item.currency);
     if (item.usesAmortizationAdjustedBenchmark) {
-      return `Está por debajo del benchmark ajustado (${percent} | ${amount}).`;
+      return `Est\u00e1 por debajo del benchmark ajustado (${percent} | ${amount}).`;
     }
-    return `Está por debajo del benchmark mínimo (${percent} | ${amount}).`;
+    return `Est\u00e1 por debajo del benchmark m\u00ednimo (${percent} | ${amount}).`;
+  }
+
+  private isMisleadingPosition(item: EffectivePortfolioPosition): boolean {
+    if (item.currency !== 'ARS') {
+      return false;
+    }
+    if ((item.nominalResultAmount ?? 0) <= 0) {
+      return false;
+    }
+    if (item.minimumPerformance === null || item.minimumExpectedValue === null) {
+      return false;
+    }
+    if ((item.minimumValueVsAmount ?? 0) >= 0) {
+      return false;
+    }
+    if (item.minimumValueVsPercent === null) {
+      return false;
+    }
+    if (item.minimumPerformance.status !== 'below-minimum') {
+      return false;
+    }
+
+    return this.isComparablePositionType(item);
+  }
+
+  private isComparablePositionType(item: EffectivePortfolioPosition): boolean {
+    const normalized = `${item.position.positionType ?? ''} ${item.position.assetType ?? ''}`.toUpperCase();
+    const symbol = String(item.symbol ?? '').trim().toUpperCase();
+    const excludedSymbols = new Set(['CAUCION', 'CAUCI\u00d3N COLOCADORA', 'ADRDOLA', 'PRFAHOB', 'IOLCAMA', 'IOLCADO', 'IOLDOLD']);
+
+    if (excludedSymbols.has(symbol)) {
+      return false;
+    }
+
+    return !(
+      normalized.includes('FCI') ||
+      normalized.includes('VALORIZADO') ||
+      normalized.includes('MONEY MARKET') ||
+      normalized.includes('CAUCION')
+    );
+  }
+
+  private misleadingPositionNote(item: EffectivePortfolioPosition): string {
+    const nominal = this.currencyMapper.formatPercentage(item.nominalResultPercent);
+    const vsMinimum = this.currencyMapper.formatPercentage(item.minimumValueVsPercent);
+    return `Resultado nominal ${nominal} pero vs m\u00ednimo ${vsMinimum}.`;
   }
 
   private isActivatedAlert(alert: CombinedAlert): boolean {
