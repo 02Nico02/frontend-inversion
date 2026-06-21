@@ -68,8 +68,8 @@ describe('PortfolioUpcomingMilestonesService', () => {
 
     expect(strategy?.breakdown?.length).toBe(2);
     expect(strategy?.breakdown?.[0].currency).toBe('ARS');
-    expect(strategy?.breakdown?.[0].currentPercent).toBeCloseTo(56.4, 1);
-    expect(strategy?.breakdown?.[0].targetPercent).toBeCloseTo(43.6, 1);
+    expect(strategy?.breakdown?.[0].retirementPercent).toBeCloseTo(56.4, 1);
+    expect(strategy?.breakdown?.[0].savingsPercent).toBeCloseTo(43.6, 1);
   });
 
   it('skips duplicated manual goals when they match the next million target', () => {
@@ -114,5 +114,162 @@ describe('PortfolioUpcomingMilestonesService', () => {
 
     expect(goals.map((goal) => goal.id)).not.toContain('manual-goal-10000000');
     expect(goals.length).toBe(3);
+  });
+
+  it('moves to the next million when the current value is already an exact multiple', () => {
+    const snapshot = buildPortfolioAppState({
+      summary: buildPortfolioSummary({
+        byCurrency: [
+          { currency: 'ARS', totalCurrentValue: 9000000, totalInvested: 0, totalResult: 0, totalResultPercent: 0, speciesCount: 0 }
+        ]
+      }),
+      dataset: {
+        operations: [],
+        sales: [],
+        investmentMovements: [],
+        positions: [],
+        historicalPrices: [],
+        dailyBalances: [],
+        classifications: [],
+        manualAlerts: [],
+        calculatedAlerts: [],
+        signals: [],
+        monthlySummary: [
+          buildMonthlySummary({ month: 'jun-26', year: 2026, endValue: 9000000 })
+        ],
+        annualSummary: [],
+        monthlyPerformance: [],
+        strategicSplit: [],
+        platformDistribution: [],
+        calendarBenchmarks: []
+      },
+      workbook: null
+    });
+
+    const goals = service.buildUpcomingMilestones(snapshot, null);
+
+    expect(goals[0].targetValue).toBe(10000000);
+    expect(goals[0].remainingAmount).toBe(1000000);
+    expect(goals.find((goal) => goal.id === 'manual-goal-10000000')).toBeUndefined();
+  });
+
+  it('marks historical recovery as reached when the current value beats the monthly maximum', () => {
+    const snapshot = buildPortfolioAppState({
+      summary: buildPortfolioSummary({
+        byCurrency: [
+          { currency: 'ARS', totalCurrentValue: 9200000, totalInvested: 0, totalResult: 0, totalResultPercent: 0, speciesCount: 0 }
+        ]
+      }),
+      dataset: {
+        operations: [],
+        sales: [],
+        investmentMovements: [],
+        positions: [],
+        historicalPrices: [],
+        dailyBalances: [],
+        classifications: [],
+        manualAlerts: [],
+        calculatedAlerts: [],
+        signals: [],
+        monthlySummary: [
+          buildMonthlySummary({ month: 'jun-26', year: 2026, endValue: 9116850.18 })
+        ],
+        annualSummary: [],
+        monthlyPerformance: [],
+        strategicSplit: [],
+        platformDistribution: [],
+        calendarBenchmarks: []
+      },
+      workbook: null
+    });
+
+    const historicalRecovery = service.buildUpcomingMilestones(snapshot, 0).find((goal) => goal.id === 'recover-monthly-max');
+
+    expect(historicalRecovery?.status).toBe('reached');
+    expect(historicalRecovery?.remainingAmount).toBe(0);
+    expect(historicalRecovery?.remainingPercent).toBe(0);
+    expect(historicalRecovery?.estimatedMonths).toBeNull();
+  });
+
+  it('uses the strategy split references without hardcoding a 50/50 split', () => {
+    const snapshot = buildPortfolioAppState({
+      summary: buildPortfolioSummary({
+        byCurrency: [
+          { currency: 'ARS', totalCurrentValue: 1000000, totalInvested: 0, totalResult: 0, totalResultPercent: 0, speciesCount: 0 },
+          { currency: 'USD', totalCurrentValue: 100000, totalInvested: 0, totalResult: 0, totalResultPercent: 0, speciesCount: 0 }
+        ]
+      }),
+      dataset: {
+        operations: [],
+        sales: [],
+        investmentMovements: [],
+        positions: [],
+        historicalPrices: [],
+        dailyBalances: [],
+        classifications: [],
+        manualAlerts: [],
+        calculatedAlerts: [],
+        signals: [],
+        monthlySummary: [],
+        annualSummary: [],
+        monthlyPerformance: [],
+        strategicSplit: [
+          buildStrategicSplit({
+            date: '2026-06-15',
+            retirementAmountARS: 1000,
+            savingsAmountARS: 500,
+            retirementAmountUSD: 100,
+            savingsAmountUSD: 100
+          })
+        ],
+        platformDistribution: [],
+        calendarBenchmarks: []
+      },
+      workbook: null
+    });
+
+    const strategy = service.buildUpcomingMilestones(snapshot, null).find((goal) => goal.id === 'strategy-balance-guidance');
+
+    expect(strategy?.breakdown?.length).toBe(2);
+    expect(strategy?.breakdown?.find((item) => item.currency === 'ARS')?.retirementPercent).toBeCloseTo(66.67, 2);
+    expect(strategy?.breakdown?.find((item) => item.currency === 'ARS')?.savingsPercent).toBeCloseTo(33.33, 2);
+    expect(strategy?.breakdown?.find((item) => item.currency === 'USD')?.retirementPercent).toBeCloseTo(50, 2);
+    expect(strategy?.breakdown?.find((item) => item.currency === 'USD')?.savingsPercent).toBeCloseTo(50, 2);
+  });
+
+  it('does not estimate months when the monthly contribution is zero or missing', () => {
+    const snapshot = buildPortfolioAppState({
+      summary: buildPortfolioSummary({
+        byCurrency: [
+          { currency: 'ARS', totalCurrentValue: 8779805.03, totalInvested: 0, totalResult: 0, totalResultPercent: 0, speciesCount: 0 }
+        ]
+      }),
+      dataset: {
+        operations: [],
+        sales: [],
+        investmentMovements: [],
+        positions: [],
+        historicalPrices: [],
+        dailyBalances: [],
+        classifications: [],
+        manualAlerts: [],
+        calculatedAlerts: [],
+        signals: [],
+        monthlySummary: [
+          buildMonthlySummary({ month: 'jun-26', year: 2026, endValue: 9116850.18 })
+        ],
+        annualSummary: [],
+        monthlyPerformance: [],
+        strategicSplit: [],
+        platformDistribution: [],
+        calendarBenchmarks: []
+      },
+      workbook: null
+    });
+
+    const goals = service.buildUpcomingMilestones(snapshot, 0);
+
+    expect(goals[0].estimatedMonths).toBeNull();
+    expect(goals[1].estimatedMonths).toBeNull();
   });
 });

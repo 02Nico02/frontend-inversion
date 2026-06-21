@@ -8,15 +8,11 @@ export type UpcomingMilestoneStatus = 'pending' | 'reached' | 'not-available';
 
 export interface PortfolioUpcomingMilestoneBreakdown {
   currency: 'ARS' | 'USD';
-  currentPercent: number | null;
-  targetPercent: number;
+  retirementPercent: number | null;
+  savingsPercent: number | null;
   gapPercent: number | null;
-  retirementPercent?: number | null;
-  savingsPercent?: number | null;
   retirementAmount?: number | null;
   savingsAmount?: number | null;
-  currentAmount: number | null;
-  targetAmount: number | null;
   remainingAmount: number | null;
   estimatedMonths: number | null;
 }

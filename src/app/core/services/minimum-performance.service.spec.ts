@@ -157,4 +157,109 @@ describe('MinimumPerformanceService', () => {
     expect(bySymbol[0].currentValue).toBe(500);
     expect(bySymbol[0].marketCurrentValue).toBe(500);
   });
+
+  it('returns controlled missing data for zero benchmark or unsupported currencies', () => {
+    const snapshot = buildPortfolioAppState({
+      dataset: {
+        operations: [
+          {
+            id: '1',
+            date: '2025-01-02',
+            symbol: 'TX26',
+            currency: 'USD',
+            quantity: 10,
+            buyPrice: 100,
+            total: 1000,
+            currentPrice: 120,
+            currentValue: 1200,
+            variation: null,
+            remVariation: null,
+            remValue: null,
+            amount: null,
+            monthlyRate: null,
+            annualRate: null,
+            top: null,
+            trend: null
+          }
+        ],
+        sales: [],
+        investmentMovements: [],
+        positions: [],
+        historicalPrices: [],
+        dailyBalances: [],
+        classifications: [],
+        manualAlerts: [],
+        calculatedAlerts: [],
+        signals: [],
+        monthlySummary: [],
+        annualSummary: [],
+        monthlyPerformance: [],
+        strategicSplit: [],
+        platformDistribution: [],
+        calendarBenchmarks: []
+      },
+      summary: null,
+      workbook: null
+    });
+
+    const summary = service.buildMinimumPerformanceSummary(snapshot);
+    const bySymbol = service.buildMinimumPerformanceBySymbol(snapshot);
+
+    expect(summary.status).toBe('missing');
+    expect(summary.minimumExpectedArs).toBeNull();
+    expect(summary.balanceVsMinimumPercentArs).toBeNull();
+    expect(bySymbol[0].status).toBe('not-applicable');
+    expect(bySymbol[0].minimumExpectedValue).toBeNull();
+  });
+
+  it('returns missing calendar status when no benchmark rows are available', () => {
+    const snapshot = buildPortfolioAppState({
+      dataset: {
+        operations: [
+          {
+            id: '1',
+            date: '2025-01-02',
+            symbol: 'TX26',
+            currency: 'ARS',
+            quantity: 10,
+            buyPrice: 100,
+            total: 1000,
+            currentPrice: 120,
+            currentValue: 1200,
+            variation: null,
+            remVariation: null,
+            remValue: null,
+            amount: null,
+            monthlyRate: null,
+            annualRate: null,
+            top: null,
+            trend: null
+          }
+        ],
+        sales: [],
+        investmentMovements: [],
+        positions: [],
+        historicalPrices: [],
+        dailyBalances: [],
+        classifications: [],
+        manualAlerts: [],
+        calculatedAlerts: [],
+        signals: [],
+        monthlySummary: [],
+        annualSummary: [],
+        monthlyPerformance: [],
+        strategicSplit: [],
+        platformDistribution: [],
+        calendarBenchmarks: []
+      },
+      summary: null,
+      workbook: null
+    });
+
+    const summary = service.buildMinimumPerformanceSummary(snapshot);
+    const bySymbol = service.buildMinimumPerformanceBySymbol(snapshot);
+
+    expect(summary.status).toBe('missing');
+    expect(bySymbol[0].status).toBe('missing-calendar');
+  });
 });

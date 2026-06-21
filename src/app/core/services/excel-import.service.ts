@@ -1,10 +1,10 @@
-import { Injectable } from '@angular/core';
+﻿import { Injectable } from '@angular/core';
 import JSZip from 'jszip';
 import { DataNormalizationService } from './data-normalization.service';
 import { WorkbookMappingService } from './workbook-mapping.service';
 import { columnIndexToName, parseTableRef } from '../utils/excel.utils';
 import { excelSerialToDate, parseExcelDate } from '../utils/value-parsing.utils';
-import { DetectedTableInfo, TableValidationFinding, WorkbookSnapshot, WorkbookTableData, WorkbookValidationReport, ValidationSeverity } from '../models/workbook.models';
+import { DetectedTableInfo, TableValidationFinding, WorkbookSnapshot, WorkbookTableData, WorkbookValidationReport } from '../models/workbook.models';
 
 type ZipEntryMap = Record<string, JSZip.JSZipObject>;
 
@@ -359,34 +359,7 @@ export class ExcelImportService {
     tables: WorkbookTableData[],
     invalidDates: string[]
   ): WorkbookValidationReport {
-    const findings: TableValidationFinding[] = this.mapping.expectations.map((expectation) => {
-      const match = detectedTables.find(
-        (table) => expectation.aliases.includes(table.name) || expectation.aliases.includes(table.displayName)
-      );
-      const detectedColumns = match?.columns ?? [];
-      const missingColumns = expectation.expectedColumns.filter(
-        (column) =>
-          !detectedColumns.some((found) => this.normalization.normalizeHeader(found) === this.normalization.normalizeHeader(column))
-      );
-      const severity: ValidationSeverity = !match && expectation.critical ? 'error' : missingColumns.length ? 'warning' : 'info';
-
-      return {
-        key: expectation.key,
-        name: expectation.primaryName,
-        sheetName: match?.sheetName ?? null,
-        found: Boolean(match),
-        critical: expectation.critical,
-        rowCount: match?.rowCount ?? null,
-        detectedColumns,
-        missingColumns,
-        severity,
-        notes: !match
-          ? [expectation.critical ? 'Tabla critica ausente' : 'Tabla opcional ausente']
-          : missingColumns.length
-            ? ['Hay columnas faltantes respecto del mapeo esperado']
-            : ['Tabla encontrada y compatible con el mapeo base']
-      };
-    });
+    const findings: TableValidationFinding[] = this.mapping.buildValidationFindings(detectedTables);
 
     const invalidNumbers: string[] = [];
     const currencyCounter = new Map<string, number>();
@@ -473,3 +446,4 @@ export class ExcelImportService {
     return Array.from(new Set(values.filter(Boolean)));
   }
 }
+

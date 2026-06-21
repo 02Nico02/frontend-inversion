@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+﻿import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -184,9 +184,9 @@ export class SummaryPageComponent {
 
     return goal.breakdown
       .map((item) => {
-        const retirement = this.goalPercent(item.retirementPercent ?? item.currentPercent);
-        const savings = this.goalPercent(item.savingsPercent ?? (item.currentPercent !== null && item.currentPercent !== undefined ? 100 - item.currentPercent : null));
-        return `${item.currency}: Jubilación ${retirement} / Ahorro ${savings}`;
+        const retirement = this.goalPercent(item.retirementPercent);
+        const savings = this.goalPercent(item.savingsPercent);
+        return `Jubilación ${retirement} / Ahorro ${savings}`;
       })
       .join(' · ');
   }
@@ -199,9 +199,9 @@ export class SummaryPageComponent {
   }
 
   strategyBreakdownLabel(item: PortfolioUpcomingMilestoneBreakdown): string {
-    const retirement = this.goalPercent(item.retirementPercent ?? item.currentPercent);
-    const savings = this.goalPercent(item.savingsPercent ?? (item.currentPercent !== null && item.currentPercent !== undefined ? 100 - item.currentPercent : null));
-    return `${item.currency}: Jubilación ${retirement} / Ahorro ${savings}`;
+    const retirement = this.goalPercent(item.retirementPercent);
+    const savings = this.goalPercent(item.savingsPercent);
+    return `Jubilación ${retirement} / Ahorro ${savings}`;
   }
 
   strategySavingsPercent(breakdown: PortfolioUpcomingMilestoneBreakdown): string {
@@ -233,3 +233,6 @@ export class SummaryPageComponent {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
   }
 }
+
+
+

@@ -210,4 +210,94 @@ describe('PortfolioCalculatorService', () => {
     expect(summary.worstPosition?.symbol).toBe('AMD');
     expect(summary.speciesCount).toBe(2);
   });
+
+  it('calculates portfolio weights and keeps zero totals stable', () => {
+    const enriched = service.enrichPositions([
+      buildPortfolioPosition({
+        symbol: 'AAA',
+        currency: 'ARS',
+        currentValue: 700,
+        totalInvested: 500,
+        resultAmount: 200,
+        resultPercent: 40
+      }),
+      buildPortfolioPosition({
+        symbol: 'BBB',
+        currency: 'ARS',
+        currentValue: 300,
+        totalInvested: 250,
+        resultAmount: 50,
+        resultPercent: 20
+      }),
+      buildPortfolioPosition({
+        symbol: 'CCC',
+        currency: 'USD',
+        currentValue: 0,
+        totalInvested: 0,
+        resultAmount: 0,
+        resultPercent: 0
+      })
+    ], []);
+
+    expect(enriched[0].portfolioWeight).toBeCloseTo(70, 2);
+    expect(enriched[1].portfolioWeight).toBeCloseTo(30, 2);
+    expect(enriched[2].portfolioWeight).toBeCloseTo(0, 2);
+  });
+
+  it('keeps summary percentages finite when invested capital is zero', () => {
+    const dataset = service.buildDataset([
+      buildWorkbookTable({
+        name: 'TablaPosiciones',
+        displayName: 'TablaPosiciones',
+        rows: [
+          {
+            ESPECIE: 'AAA',
+            MONEDA: 'ARS',
+            TIPO: 'Accion',
+            CANTIDAD: 10,
+            'TOTAL INV': 0,
+            'PRECIO ACT': 100,
+            'TOTAL ACTUAL': 1000,
+            'RESULTADO $': 1000,
+            'RESULTADO %': 0,
+            'PRECIO PROM': 0
+          }
+        ]
+      })
+    ]);
+
+    const summary = service.buildSummary(dataset);
+
+    expect(summary.totalInvested).toBe(0);
+    expect(summary.totalResultPercent).toBe(0);
+    expect(Number.isFinite(summary.totalResultPercent)).toBeTrue();
+  });
+
+  it('keeps negative results as negative percentages', () => {
+    const dataset = service.buildDataset([
+      buildWorkbookTable({
+        name: 'TablaPosiciones',
+        displayName: 'TablaPosiciones',
+        rows: [
+          {
+            ESPECIE: 'AAA',
+            MONEDA: 'ARS',
+            TIPO: 'Accion',
+            CANTIDAD: 10,
+            'TOTAL INV': 1000,
+            'PRECIO ACT': 80,
+            'TOTAL ACTUAL': 800,
+            'RESULTADO $': -200,
+            'RESULTADO %': -20,
+            'PRECIO PROM': 100
+          }
+        ]
+      })
+    ]);
+
+    const summary = service.buildSummary(dataset);
+
+    expect(summary.totalResult).toBe(-200);
+    expect(summary.totalResultPercent).toBeCloseTo(-20, 2);
+  });
 });

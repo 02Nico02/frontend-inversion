@@ -206,15 +206,11 @@ export class PortfolioUpcomingMilestonesService {
 
     return {
       currency,
-      currentPercent: retirementPercent,
-      targetPercent: savingsPercent,
-      gapPercent: retirementPercent - savingsPercent,
       retirementPercent,
       savingsPercent,
+      gapPercent: retirementPercent - savingsPercent,
       retirementAmount,
       savingsAmount,
-      currentAmount: retirementAmount,
-      targetAmount: savingsAmount,
       remainingAmount: Math.abs(retirementAmount - savingsAmount),
       estimatedMonths: null
     };

@@ -33,4 +33,46 @@ describe('WorkbookMappingService', () => {
     expect(strategicSplit?.expectedColumns).toContain('MONTO JUB. AR');
     expect(strategicSplit?.expectedColumns).toContain('MONTO AHOR. USD');
   });
+
+  it('reports validation findings for critical and optional tables', () => {
+    const findings = service.buildValidationFindings([
+      {
+        name: 'Tabla6',
+        displayName: 'Tabla6',
+        sheetName: 'Hoja1',
+        sheetIndex: 1,
+        ref: 'A1',
+        columns: ['ID', 'Fecha', 'ESPECIE', 'MONEDA'],
+        rowCount: 10
+      },
+      {
+        name: 'TablaPosiciones',
+        displayName: 'TablaPosiciones',
+        sheetName: 'Hoja2',
+        sheetIndex: 2,
+        ref: 'A1',
+        columns: ['ESPECIE', 'MONEDA', 'TIPO', 'CANTIDAD', 'TOTAL INV', 'PRECIO ACT', 'TOTAL ACTUAL', 'RESULTADO $', 'RESULTADO %', 'PRECIO PROM'],
+        rowCount: 0
+      }
+    ]);
+
+    const operations = findings.find((item) => item.key === 'operations');
+    const positions = findings.find((item) => item.key === 'positions');
+    const history = findings.find((item) => item.key === 'history');
+
+    expect(operations?.found).toBeTrue();
+    expect(operations?.severity).toBe('warning');
+    expect(positions?.found).toBeTrue();
+    expect(positions?.rowCount).toBe(0);
+    expect(history?.found).toBeFalse();
+    expect(history?.severity).toBe('error');
+  });
+
+  it('handles an empty workbook with controlled findings', () => {
+    const findings = service.buildValidationFindings([]);
+    const criticals = findings.filter((item) => item.critical);
+
+    expect(criticals.every((item) => item.severity === 'error')).toBeTrue();
+    expect(findings.some((item) => item.key === 'operations' && item.found)).toBeFalse();
+  });
 });
