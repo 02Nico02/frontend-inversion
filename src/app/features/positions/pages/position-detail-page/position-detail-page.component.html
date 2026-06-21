@@ -224,6 +224,10 @@
         </div>
       </div>
 
+        <button type="button" class="toggle diagnostic-button" (click)="exportMinimumBalanceTrendDiagnostic()">
+          Exportar diagnóstico
+        </button>
+
       <ng-container *ngIf="minimumBalanceTrendSeries.length; else minimumVsMinimumEmpty">
         <app-simple-chart
           title="Vs mínimo histórico"

@@ -507,7 +507,7 @@ describe('PortfolioMinimumBalanceTrendService', () => {
     expect(trend.points[0].balanceVsMinimumARS).toBe(200);
   });
 
-  it('omits valuation-like FCI lots from the historical series and exposes them in debug', () => {
+  it('includes FCI lots using Tabla5 direct value and segment base', () => {
     minimumPerformance.buildMinimumPerformanceSummary.and.returnValue({
       currency: 'ARS',
       comparableLotsCount: 1,
@@ -616,11 +616,209 @@ describe('PortfolioMinimumBalanceTrendService', () => {
     const suspicious = service.debugMinimumBalanceTrendSuspiciousLots(snapshot, '2025-01-31');
 
     expect(trend.points.length).toBe(1);
-    expect(trend.points[0].comparableValueARS).toBe(200);
-    expect(trend.points[0].minimumExpectedARS).toBe(180);
-    expect(trend.warnings.some((warning) => warning.includes('FCI/valor valorizado omitido en hist'))).toBeTrue();
-    expect(debug.lots.some((lot) => lot.symbol === 'IOLCAMA' && lot.skipReason === 'valuation-like-instrument')).toBeTrue();
-    expect(suspicious.lots.some((lot) => lot.symbol === 'IOLCAMA')).toBeTrue();
+    expect(trend.points[0].comparableValueARS).toBeGreaterThan(200);
+    expect(trend.points[0].minimumExpectedARS).toBeGreaterThan(180);
+    expect(debug.lots.some((lot) => lot.symbol === 'IOLCAMA' && !lot.skipped)).toBeTrue();
+    expect(debug.lots.some((lot) => lot.symbol === 'IOLCAMA' && lot.marketValueRule === 'fci-direct-value')).toBeTrue();
+    expect(debug.lots.some((lot) => lot.symbol === 'IOLCAMA' && lot.skipReason === 'missing-invested-amount')).toBeFalse();
+    expect(suspicious.lots.some((lot) => lot.symbol === 'IOLCAMA')).toBeFalse();
+  });
+
+  it('keeps an FCI included even when Tabla6/Tabla13 net capital is zero by using the Tabla5 segment base', () => {
+    minimumPerformance.buildMinimumPerformanceSummary.and.returnValue({
+      currency: 'ARS',
+      comparableLotsCount: 1,
+      currentComparableArs: 806791.91,
+      minimumExpectedArs: 806791.91,
+      balanceVsMinimumArs: 0,
+      balanceVsMinimumPercentArs: 0,
+      status: 'positive',
+      description: 'ok',
+      notes: []
+    });
+    minimumPerformance.buildMinimumPerformanceBySymbol.and.returnValue([]);
+
+    const snapshot = buildPortfolioAppState({
+      workbook: buildWorkbookSnapshot({
+        tables: [
+          buildWorkbookTable({
+            name: 'Tabla11',
+            displayName: 'Tabla11',
+            rows: [{ 'Fondos com. Inv.': 'IOLCAMA' }],
+            columns: ['Fondos com. Inv.'],
+            rowCount: 1
+          })
+        ]
+      }),
+      dataset: {
+        operations: [
+          {
+            id: 'op-182',
+            date: '2026-06-01',
+            symbol: 'IOLCAMA',
+            currency: 'ARS',
+            quantity: 26924.72,
+            buyPrice: 10,
+            total: 295245.403019649,
+            currentPrice: 806791.91,
+            currentValue: 806791.91,
+            variation: null,
+            remVariation: null,
+            remValue: null,
+            amount: null,
+            monthlyRate: null,
+            annualRate: null,
+            top: null,
+            trend: null
+          }
+        ],
+        sales: [
+          {
+            id: 'sale-67',
+            buyDate: '2026-06-01',
+            sellDate: '2026-06-30',
+            symbol: 'IOLCAMA',
+            currency: 'ARS',
+            quantity: 26924.72,
+            buyPrice: 10,
+            total: 295245.403019649,
+            sellPrice: 10,
+            totalSold: 295245.403019649,
+            amount: 0,
+            price: 10,
+            currentPrice: 10
+          }
+        ],
+        investmentMovements: [],
+        positions: [
+          buildPortfolioPosition({
+            symbol: 'IOLCAMA',
+            currency: 'ARS',
+            positionType: 'Valorizado',
+            assetType: 'FCI',
+            quantity: 26924.72,
+            totalInvested: 295245.403019649,
+            currentValue: 806791.91
+          })
+        ],
+        historicalPrices: [{ date: '2026-06-09', month: 'jun-26', symbol: 'IOLCAMA', price: 806791.91 }],
+        dailyBalances: [{ date: '2026-06-09', month: 'jun-26', balance: 0 }],
+        classifications: [buildClassification({ symbol: 'IOLCAMA', type: 'FCI' })],
+        manualAlerts: [],
+        calculatedAlerts: [],
+        signals: [],
+        monthlySummary: [buildMonthlySummary({ month: 'jun-26', year: 2026 })],
+        annualSummary: [],
+        monthlyPerformance: [],
+        strategicSplit: [],
+        platformDistribution: [],
+        calendarBenchmarks: [
+          { date: new Date(Date.UTC(2026, 5, 1)), tna: 10, dailyReturnPercent: 0.01, index: 100, source: 'TablaCalendario' },
+          { date: new Date(Date.UTC(2026, 5, 9)), tna: 10, dailyReturnPercent: 0.01, index: 100, source: 'TablaCalendario' }
+        ]
+      },
+      summary: null,
+      workbook: null
+    });
+
+    const report = service.buildTrendBySymbol(snapshot, 'IOLCAMA', 'daily');
+    const debug = service.debugMinimumBalanceTrendForSymbolAtDate(snapshot, 'IOLCAMA', '2026-06-09');
+
+    expect(report.points.length).toBe(1);
+    expect(report.points[0].meta?.included).toBeTrue();
+    expect(report.points[0].meta?.marketValue).toBeCloseTo(806791.91, 2);
+    expect(report.points[0].meta?.minimumExpectedARS).toBeCloseTo(806791.91, 2);
+    expect(debug.included).toBeTrue();
+    expect(debug.marketValue).toBeCloseTo(806791.91, 2);
+    expect(debug.minimumExpectedUsed).toBeCloseTo(806791.91, 2);
+    expect(debug.baseCapitalSource).toBe('Tabla5 segmento histórico');
+    expect(debug.skipReason).toBeNull();
+  });
+
+  it('skips an FCI with no Tabla5 historical price', () => {
+    minimumPerformance.buildMinimumPerformanceSummary.and.returnValue({
+      currency: 'ARS',
+      comparableLotsCount: 1,
+      currentComparableArs: 0,
+      minimumExpectedArs: 0,
+      balanceVsMinimumArs: 0,
+      balanceVsMinimumPercentArs: 0,
+      status: 'missing',
+      description: 'missing',
+      notes: []
+    });
+    minimumPerformance.buildMinimumPerformanceBySymbol.and.returnValue([]);
+
+    const snapshot = buildPortfolioAppState({
+      workbook: buildWorkbookSnapshot({
+        tables: [
+          buildWorkbookTable({
+            name: 'Tabla11',
+            displayName: 'Tabla11',
+            rows: [{ 'Fondos com. Inv.': 'IOLCAMA' }],
+            columns: ['Fondos com. Inv.'],
+            rowCount: 1
+          })
+        ]
+      }),
+      dataset: {
+        operations: [
+          {
+            id: 'op-182',
+            date: '2026-06-01',
+            symbol: 'IOLCAMA',
+            currency: 'ARS',
+            quantity: 26924.72,
+            buyPrice: 10,
+            total: 295245.403019649,
+            currentPrice: 0,
+            currentValue: 0,
+            variation: null,
+            remVariation: null,
+            remValue: null,
+            amount: null,
+            monthlyRate: null,
+            annualRate: null,
+            top: null,
+            trend: null
+          }
+        ],
+        sales: [],
+        investmentMovements: [],
+        positions: [
+          buildPortfolioPosition({
+            symbol: 'IOLCAMA',
+            currency: 'ARS',
+            positionType: 'Valorizado',
+            assetType: 'FCI',
+            quantity: 26924.72,
+            totalInvested: 295245.403019649,
+            currentValue: 0
+          })
+        ],
+        historicalPrices: [],
+        dailyBalances: [{ date: '2026-06-09', month: 'jun-26', balance: 0 }],
+        classifications: [buildClassification({ symbol: 'IOLCAMA', type: 'FCI' })],
+        manualAlerts: [],
+        calculatedAlerts: [],
+        signals: [],
+        monthlySummary: [buildMonthlySummary({ month: 'jun-26', year: 2026 })],
+        annualSummary: [],
+        monthlyPerformance: [],
+        strategicSplit: [],
+        platformDistribution: [],
+        calendarBenchmarks: [
+          { date: new Date(Date.UTC(2026, 5, 1)), tna: 10, dailyReturnPercent: 0.01, index: 100, source: 'TablaCalendario' }
+        ]
+      },
+      summary: null,
+      workbook: null
+    });
+
+    const debug = service.debugMinimumBalanceTrendForDate(snapshot, '2026-06-09');
+
+    expect(debug.lots.some((lot) => lot.symbol === 'IOLCAMA' && lot.skipReason === 'missing-fci-historical-price')).toBeTrue();
+    expect(debug.lots.some((lot) => lot.symbol === 'IOLCAMA' && !lot.skipped)).toBeFalse();
   });
 
   it('keeps USD lots excluded from the ARS historical series', () => {

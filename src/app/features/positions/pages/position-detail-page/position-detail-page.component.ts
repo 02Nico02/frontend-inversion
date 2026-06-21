@@ -3,6 +3,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription, combineLatest } from 'rxjs';
+import { FileDownloadService } from '../../../../core/services/file-download.service';
 import { SimpleChartComponent } from '../../../../shared/components/simple-chart/simple-chart.component';
 import { PortfolioAppState, PortfolioStateService } from '../../../../core/services/portfolio-state.service';
 import { AssetDetailService, AssetDetailViewModel, AssetHistoryStats } from '../../../asset-detail/services/asset-detail.service';
@@ -61,7 +62,8 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
     private readonly route: ActivatedRoute,
     private readonly assetDetail: AssetDetailService,
     private readonly minimumPerformanceService: MinimumPerformanceService,
-    private readonly minimumBalanceTrendService: PortfolioMinimumBalanceTrendService
+    private readonly minimumBalanceTrendService: PortfolioMinimumBalanceTrendService,
+    private readonly fileDownloadService: FileDownloadService
   ) {}
 
   ngOnInit(): void {
@@ -373,6 +375,57 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
 
   trackByOperationId(index: number, operation: AssetDetailViewModel['operations'][number]): string {
     return operation.id || `${index}`;
+  }
+
+  exportMinimumBalanceTrendDiagnostic(): void {
+    const snapshot = this.state.snapshot;
+    if (!this.detail || !snapshot.dataset) {
+      return;
+    }
+
+    const latestPoint = this.minimumBalanceTrendSeries.at(-1) ?? null;
+    const latestPointDate = latestPoint?.date ?? null;
+    const latestDateDebug = latestPointDate
+      ? this.minimumBalanceTrendService.debugMinimumBalanceTrendForDate(snapshot, latestPointDate)
+      : null;
+    const latestSymbolDateDebug = latestDateDebug
+      ? {
+          ...latestDateDebug,
+          lots: latestDateDebug.lots.filter((lot) => lot.symbol.trim().toUpperCase() === this.symbol)
+        }
+      : null;
+
+    const report = {
+      generatedAt: new Date().toISOString(),
+      symbol: this.symbol,
+      currency: this.detail.position.currency,
+      detail: {
+        symbol: this.detail.symbol,
+        headerSummary: this.detail.headerSummary,
+        position: this.detail.position,
+        summaryMetrics: this.detail.summaryMetrics,
+        movementSummary: this.detail.movementSummary,
+        classificationReview: this.detail.classificationReview,
+        manualAlerts: this.detail.manualAlerts,
+        calculatedAlerts: this.detail.calculatedAlerts,
+        signalAlerts: this.detail.signalAlerts,
+        movementEntries: this.detail.movementEntries
+      },
+      minimumPerformance: this.minimumPerformance,
+      minimumPerformanceLots: this.minimumPerformanceLots,
+      minimumBalanceTrend: {
+        report: this.minimumBalanceTrendReport,
+        series: this.minimumBalanceTrendSeries,
+        stats: this.minimumBalanceTrendStats
+      },
+      latestHistoricalPointDebug: latestSymbolDateDebug,
+      currentComparison: snapshot.dataset
+        ? this.minimumPerformanceService.buildMinimumPerformanceSummary(snapshot)
+        : null
+    };
+
+    const filename = `diagnostico-vs-minimo-${this.symbol.toLowerCase()}-${latestPointDate ?? new Date().toISOString().slice(0, 10)}.json`;
+    this.fileDownloadService.downloadText(filename, JSON.stringify(report, null, 2), 'application/json;charset=utf-8');
   }
 
   private refreshHistory(snapshot?: PortfolioAppState): void {

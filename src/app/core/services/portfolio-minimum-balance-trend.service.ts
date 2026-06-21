@@ -53,6 +53,7 @@ interface HistoricalLotMovementTotals {
 }
 
 interface HistoricalLotContribution {
+  marketValueRule: 'standard' | 'fci-direct-value' | 'caucion-quantity';
   historicalPrice: number | null;
   historicalPriceDate: Date | null;
   marketValue: number | null;
@@ -84,7 +85,23 @@ interface HistoricalLotContribution {
   possibleBaseMismatch: boolean;
   skipped: boolean;
   skipReason: string | null;
+  fciSegmentStartDate: Date | null;
+  fciSegmentBaseCapital: number | null;
+  fciSegmentResetReason: string | null;
+  fciSegmentThreshold: number | null;
 }
+
+interface FciHistoricalSegmentContext {
+  symbol: string;
+  baseDate: Date | null;
+  baseCapital: number | null;
+  resetReason: string | null;
+  threshold: number | null;
+  marketValue: number | null;
+  marketValueDate: Date | null;
+}
+
+const FCI_EXPOSURE_RESET_THRESHOLD = 0.25;
 
 interface FciCapitalBaseInfo {
   purchaseAmount: number;
@@ -120,6 +137,7 @@ export interface MinimumBalanceTrendLotDebugRow {
   currency: CanonicalCurrency | 'UNKNOWN';
   positionType: string | null;
   assetType: string | null;
+  marketValueRule: 'standard' | 'fci-direct-value' | 'caucion-quantity';
   buyDate: string | null;
   sellDate: string | null;
   quantity: number | null;
@@ -153,6 +171,10 @@ export interface MinimumBalanceTrendLotDebugRow {
   baseCapitalNetAmount: number | null;
   baseDate: string | null;
   possibleBaseMismatch: boolean;
+  fciSegmentStartDate: string | null;
+  fciSegmentBaseCapital: number | null;
+  fciSegmentResetReason: string | null;
+  fciSegmentThreshold: number | null;
   skipped: boolean;
   skipReason: string | null;
 }
@@ -826,6 +848,7 @@ export class PortfolioMinimumBalanceTrendService {
     const priceIndex = this.indexHistoricalPrices(dataset.historicalPrices ?? []);
     const movementsIndex = this.indexMovements(dataset.investmentMovements ?? []);
     const fciCapitalBaseBySymbol = this.buildFciCapitalBaseBySymbol(dataset.operations ?? [], dataset.sales ?? [], date, fciSymbols);
+    const fciSegmentBySymbol = this.buildFciHistoricalSegmentContextBySymbol(priceIndex, date, fciSymbols);
     const activeLots = lots.filter((lot) => lot.currency === 'ARS' && this.isLotActiveAtDate(lot, date));
     const movementTotalsByLot = this.buildMovementTotalsByLot(activeLots, movementsIndex, date, warnings);
     const activeSymbolBaseLots = new Map<string, HistoricalLot[]>();
@@ -846,6 +869,7 @@ export class PortfolioMinimumBalanceTrendService {
           currency: lot.currency,
           positionType: lot.positionType,
           assetType: lot.assetType,
+          marketValueRule: 'fci-direct-value',
           buyDate: this.debugDateKey(lot.buyDate),
           sellDate: this.debugDateKey(lot.sellDate),
           quantity: lot.quantity,
@@ -878,6 +902,10 @@ export class PortfolioMinimumBalanceTrendService {
           baseCapitalSoldAmount: null,
           baseCapitalNetAmount: null,
           baseDate: null,
+          fciSegmentStartDate: null,
+          fciSegmentBaseCapital: null,
+          fciSegmentResetReason: null,
+          fciSegmentThreshold: null,
           possibleBaseMismatch: false,
           skipped: true,
           skipReason: lot.instrumentKind === 'fci' ? 'fci-consolidated-duplicate' : 'caucion-consolidated-duplicate'
@@ -893,6 +921,7 @@ export class PortfolioMinimumBalanceTrendService {
           currency: lot.currency,
           positionType: lot.positionType,
           assetType: lot.assetType,
+          marketValueRule: 'fci-direct-value',
           buyDate: this.debugDateKey(lot.buyDate),
           sellDate: this.debugDateKey(lot.sellDate),
           quantity: lot.quantity,
@@ -925,6 +954,10 @@ export class PortfolioMinimumBalanceTrendService {
           baseCapitalSoldAmount: null,
           baseCapitalNetAmount: null,
           baseDate: null,
+          fciSegmentStartDate: null,
+          fciSegmentBaseCapital: null,
+          fciSegmentResetReason: null,
+          fciSegmentThreshold: null,
           possibleBaseMismatch: false,
           skipped: true,
           skipReason: hasActiveBase ? 'fci-sale-ignored-when-fci-active' : 'fci-sale-without-active-position'
@@ -939,6 +972,7 @@ export class PortfolioMinimumBalanceTrendService {
           currency: lot.currency,
           positionType: lot.positionType,
           assetType: lot.assetType,
+          marketValueRule: 'caucion-quantity',
           buyDate: this.debugDateKey(lot.buyDate),
           sellDate: this.debugDateKey(lot.sellDate),
           quantity: lot.quantity,
@@ -971,6 +1005,10 @@ export class PortfolioMinimumBalanceTrendService {
           baseCapitalSoldAmount: null,
           baseCapitalNetAmount: null,
           baseDate: null,
+          fciSegmentStartDate: null,
+          fciSegmentBaseCapital: null,
+          fciSegmentResetReason: null,
+          fciSegmentThreshold: null,
           possibleBaseMismatch: false,
           skipped: true,
           skipReason: 'caucion-sale-ignored-when-active-base-exists'
@@ -981,6 +1019,7 @@ export class PortfolioMinimumBalanceTrendService {
         const symbolLots = lots.filter((item) => item.symbol === lot.symbol);
         const instrumentKind = this.resolveHistoricalInstrumentKind(symbolLots, fciSymbols);
         const baseInfo = instrumentKind === 'fci' ? fciCapitalBaseBySymbol.get(symbol) ?? null : null;
+        const segmentInfo = instrumentKind === 'fci' ? fciSegmentBySymbol.get(symbol) ?? null : null;
         const consolidated = this.buildConsolidatedHistoricalLot(symbolLots, date, instrumentKind as 'fci' | 'caucion');
         if (!consolidated) {
           return {
@@ -989,8 +1028,9 @@ export class PortfolioMinimumBalanceTrendService {
             symbol: lot.symbol,
             currency: lot.currency,
             positionType: lot.positionType,
-            assetType: lot.assetType,
-            buyDate: this.debugDateKey(lot.buyDate),
+          assetType: lot.assetType,
+          marketValueRule: instrumentKind === 'fci' ? 'fci-direct-value' : 'caucion-quantity',
+          buyDate: this.debugDateKey(lot.buyDate),
             sellDate: this.debugDateKey(lot.sellDate),
             quantity: lot.quantity,
             investedAmount: lot.investedAmount,
@@ -1018,25 +1058,38 @@ export class PortfolioMinimumBalanceTrendService {
             baseCapitalUsed: null,
             baseCapitalRule: null,
             baseCapitalSource: null,
-            baseCapitalPurchaseAmount: null,
-            baseCapitalSoldAmount: null,
-            baseCapitalNetAmount: null,
-            baseDate: null,
-            possibleBaseMismatch: false,
-            skipped: true,
-            skipReason:
+          baseCapitalPurchaseAmount: null,
+          baseCapitalSoldAmount: null,
+          baseCapitalNetAmount: null,
+          baseDate: null,
+          fciSegmentStartDate: null,
+          fciSegmentBaseCapital: null,
+          fciSegmentResetReason: null,
+          fciSegmentThreshold: null,
+          possibleBaseMismatch: false,
+          skipped: true,
+          skipReason:
               instrumentKind === 'fci'
                 ? 'fci-sale-without-active-position'
                 : 'caucion-sale-ignored-when-active-base-exists'
           } satisfies MinimumBalanceTrendLotDebugRow;
         }
 
+        const resolvedFciBaseCapital =
+          instrumentKind === 'fci'
+            ? (segmentInfo?.baseCapital && segmentInfo.baseCapital > 0
+                ? segmentInfo.baseCapital
+                : baseInfo?.netAmount && baseInfo.netAmount > 0
+                  ? baseInfo.netAmount
+                  : this.priceAtOrBeforeInfo(priceIndex, consolidated.symbol, date).price)
+            : null;
+
         const contribution = this.buildHistoricalLotContribution({
           lot:
-            instrumentKind === 'fci' && baseInfo
+            instrumentKind === 'fci' && (resolvedFciBaseCapital ?? 0) > 0
               ? {
                   ...consolidated,
-                  investedAmount: baseInfo.netAmount
+                  investedAmount: resolvedFciBaseCapital
                 }
               : consolidated,
           date,
@@ -1045,8 +1098,9 @@ export class PortfolioMinimumBalanceTrendService {
           movementTotalsByLot,
           warnings,
           marketValueRule: instrumentKind === 'fci' ? 'fci-direct-value' : 'caucion-quantity',
-          investedAmountOverride: instrumentKind === 'fci' && baseInfo ? baseInfo.netAmount : undefined,
-          baseCapitalInfo: instrumentKind === 'fci' ? baseInfo : null
+          investedAmountOverride: instrumentKind === 'fci' ? resolvedFciBaseCapital ?? undefined : undefined,
+          baseCapitalInfo: instrumentKind === 'fci' ? baseInfo : null,
+          fciSegmentContext: instrumentKind === 'fci' ? segmentInfo : null
         });
 
         processedSpecialSymbols.add(symbol);
@@ -1058,6 +1112,7 @@ export class PortfolioMinimumBalanceTrendService {
           currency: consolidated.currency,
           positionType: consolidated.positionType,
           assetType: consolidated.assetType,
+          marketValueRule: contribution.marketValueRule,
           buyDate: this.debugDateKey(consolidated.buyDate),
           sellDate: this.debugDateKey(consolidated.sellDate),
           quantity: consolidated.quantity,
@@ -1099,6 +1154,10 @@ export class PortfolioMinimumBalanceTrendService {
           baseCapitalSoldAmount: contribution.baseCapitalSoldAmount,
           baseCapitalNetAmount: contribution.baseCapitalNetAmount,
           baseDate: this.debugDateKey(contribution.baseDate),
+          fciSegmentStartDate: this.debugDateKey(contribution.fciSegmentStartDate),
+          fciSegmentBaseCapital: contribution.fciSegmentBaseCapital,
+          fciSegmentResetReason: contribution.fciSegmentResetReason,
+          fciSegmentThreshold: contribution.fciSegmentThreshold,
           possibleBaseMismatch: contribution.possibleBaseMismatch,
           skipped: contribution.skipped,
           skipReason: contribution.skipReason
@@ -1122,6 +1181,7 @@ export class PortfolioMinimumBalanceTrendService {
         currency: lot.currency,
         positionType: lot.positionType,
         assetType: lot.assetType,
+        marketValueRule: contribution.marketValueRule,
         buyDate: this.debugDateKey(lot.buyDate),
         sellDate: this.debugDateKey(lot.sellDate),
         quantity: lot.quantity,
@@ -1163,6 +1223,10 @@ export class PortfolioMinimumBalanceTrendService {
         baseCapitalSoldAmount: contribution.baseCapitalSoldAmount,
         baseCapitalNetAmount: contribution.baseCapitalNetAmount,
         baseDate: this.debugDateKey(contribution.baseDate),
+        fciSegmentStartDate: this.debugDateKey(contribution.fciSegmentStartDate),
+        fciSegmentBaseCapital: contribution.fciSegmentBaseCapital,
+        fciSegmentResetReason: contribution.fciSegmentResetReason,
+        fciSegmentThreshold: contribution.fciSegmentThreshold,
         possibleBaseMismatch: contribution.possibleBaseMismatch,
         skipped: contribution.skipped,
         skipReason: contribution.skipReason
@@ -1211,6 +1275,7 @@ export class PortfolioMinimumBalanceTrendService {
 
     const movementTotalsByLot = this.buildMovementTotalsByLot(activeLots, movementsIndex, date, warnings);
     const fciCapitalBaseBySymbol = this.buildFciCapitalBaseBySymbol(operations, sales, date, fciSymbols);
+    const fciSegmentBySymbol = this.buildFciHistoricalSegmentContextBySymbol(priceIndex, date, fciSymbols);
     const activeLotsBySymbol = new Map<string, HistoricalLot[]>();
     for (const lot of activeLots) {
       const bucket = activeLotsBySymbol.get(lot.symbol) ?? [];
@@ -1226,6 +1291,7 @@ export class PortfolioMinimumBalanceTrendService {
       const instrumentKind = this.resolveHistoricalInstrumentKind(symbolLots, fciSymbols);
       if (instrumentKind === 'fci' || instrumentKind === 'caucion') {
         const baseInfo = instrumentKind === 'fci' ? fciCapitalBaseBySymbol.get(symbolLots[0]?.symbol ?? '') ?? null : null;
+        const segmentInfo = instrumentKind === 'fci' ? fciSegmentBySymbol.get(symbolLots[0]?.symbol ?? '') ?? null : null;
         const consolidated = this.buildConsolidatedHistoricalLot(symbolLots, date, instrumentKind as 'fci' | 'caucion');
         if (!consolidated) {
           warnings.push(
@@ -1236,12 +1302,21 @@ export class PortfolioMinimumBalanceTrendService {
           continue;
         }
 
+        const resolvedFciBaseCapital =
+          instrumentKind === 'fci'
+            ? (segmentInfo?.baseCapital && segmentInfo.baseCapital > 0
+                ? segmentInfo.baseCapital
+                : baseInfo?.netAmount && baseInfo.netAmount > 0
+                  ? baseInfo.netAmount
+                  : this.priceAtOrBeforeInfo(priceIndex, consolidated.symbol, date).price)
+            : null;
+
         const contribution = this.buildHistoricalLotContribution({
           lot:
-            instrumentKind === 'fci' && baseInfo
+            instrumentKind === 'fci' && (resolvedFciBaseCapital ?? 0) > 0
               ? {
                   ...consolidated,
-                  investedAmount: baseInfo.netAmount
+                  investedAmount: resolvedFciBaseCapital
                 }
               : consolidated,
           date,
@@ -1250,8 +1325,9 @@ export class PortfolioMinimumBalanceTrendService {
           movementTotalsByLot,
           warnings,
           marketValueRule: instrumentKind === 'fci' ? 'fci-direct-value' : 'caucion-quantity',
-          investedAmountOverride: instrumentKind === 'fci' && baseInfo ? baseInfo.netAmount : undefined,
-          baseCapitalInfo: instrumentKind === 'fci' ? baseInfo : null
+          investedAmountOverride: instrumentKind === 'fci' ? resolvedFciBaseCapital ?? undefined : undefined,
+          baseCapitalInfo: instrumentKind === 'fci' ? baseInfo : null,
+          fciSegmentContext: instrumentKind === 'fci' ? segmentInfo : null
         });
 
         if (!contribution || contribution.skipped || contribution.minimumExpectedUsed === null || contribution.comparableValue === null) {
@@ -1422,10 +1498,12 @@ export class PortfolioMinimumBalanceTrendService {
     marketValueRule: 'standard' | 'fci-direct-value' | 'caucion-quantity';
     investedAmountOverride?: number | null;
     baseCapitalInfo?: FciCapitalBaseInfo | null;
+    fciSegmentContext?: FciHistoricalSegmentContext | null;
   }): HistoricalLotContribution {
-    const { lot, date, priceIndex, benchmarkRows, movementTotalsByLot, warnings, marketValueRule, investedAmountOverride, baseCapitalInfo } = args;
+    const { lot, date, priceIndex, benchmarkRows, movementTotalsByLot, warnings, marketValueRule, investedAmountOverride, baseCapitalInfo, fciSegmentContext } = args;
 
     const emptyResult = (skipReason: string, historicalPrice: number | null = null, marketValue: number | null = null): HistoricalLotContribution => ({
+      marketValueRule,
       historicalPrice,
       historicalPriceDate: null,
       marketValue,
@@ -1455,6 +1533,10 @@ export class PortfolioMinimumBalanceTrendService {
       baseCapitalNetAmount: null,
       baseDate: null,
       possibleBaseMismatch: false,
+      fciSegmentStartDate: null,
+      fciSegmentBaseCapital: null,
+      fciSegmentResetReason: null,
+      fciSegmentThreshold: null,
       skipped: true,
       skipReason
     });
@@ -1477,8 +1559,15 @@ export class PortfolioMinimumBalanceTrendService {
       warnings.push(`No hay precio historico disponible para ${lot.symbol} antes de ${this.formatDate(date)}. Lote omitido en ese punto.`);
       return emptyResult('missing-historical-price');
     }
+    if (marketValueRule === 'fci-direct-value' && historicalPriceInfo.price === null) {
+      warnings.push(`No hay valor historico disponible en Tabla5 para ${lot.symbol} antes de ${this.formatDate(date)}. FCI omitido en ese punto.`);
+      return emptyResult('missing-fci-historical-price');
+    }
 
-    const benchmarkStartDate = baseCapitalInfo?.baseDate ?? lot.buyDate ?? date;
+    const benchmarkStartDate =
+      marketValueRule === 'fci-direct-value'
+        ? (fciSegmentContext?.baseDate ?? baseCapitalInfo?.baseDate ?? lot.buyDate ?? date)
+        : (baseCapitalInfo?.baseDate ?? lot.buyDate ?? date);
     const benchmarkStart = this.benchmarkIndexInfo(benchmarkRows, benchmarkStartDate);
     const benchmarkEnd = this.benchmarkIndexInfo(benchmarkRows, date);
     if (benchmarkStart.index === null || benchmarkEnd.index === null || benchmarkStart.index <= 0 || benchmarkEnd.index <= 0) {
@@ -1529,7 +1618,17 @@ export class PortfolioMinimumBalanceTrendService {
       };
     }
 
-    const investedAmount = investedAmountOverride ?? lot.investedAmount ?? lot.quantity ?? null;
+    const resolvedInvestedAmount =
+      marketValueRule === 'fci-direct-value'
+        ? (fciSegmentContext?.baseCapital && fciSegmentContext.baseCapital > 0
+            ? fciSegmentContext.baseCapital
+            : investedAmountOverride && investedAmountOverride > 0
+              ? investedAmountOverride
+              : lot.investedAmount && lot.investedAmount > 0
+                ? lot.investedAmount
+                : historicalPriceInfo.price)
+        : investedAmountOverride ?? lot.investedAmount ?? lot.quantity ?? null;
+    const investedAmount = resolvedInvestedAmount;
     if (investedAmount === null || investedAmount <= 0) {
       return {
         ...emptyResult('missing-invested-amount', historicalPriceInfo.price, marketValue),
@@ -1570,13 +1669,33 @@ export class PortfolioMinimumBalanceTrendService {
         capitalReturnedAmount: lotMovements.capitalReturnedAmount,
         comparableValue,
         baseCapitalUsed: investedAmount,
-        baseCapitalRule: baseCapitalInfo ? 'fci-net-historical-capital' : marketValueRule === 'caucion-quantity' ? 'caucion-quantity' : 'lot-invested-amount',
-        baseCapitalSource: baseCapitalInfo ? 'Tabla6+Tabla13 neto histórico' : marketValueRule === 'caucion-quantity' ? 'cantidad' : 'lote',
+        baseCapitalRule: marketValueRule === 'fci-direct-value'
+          ? fciSegmentContext
+            ? 'fci-historical-segment-base'
+            : baseCapitalInfo
+              ? 'fci-net-historical-capital'
+              : 'fci-fallback-market-value'
+          : marketValueRule === 'caucion-quantity'
+            ? 'caucion-quantity'
+            : 'lot-invested-amount',
+        baseCapitalSource: marketValueRule === 'fci-direct-value'
+          ? fciSegmentContext
+            ? 'Tabla5 segmento histórico'
+            : baseCapitalInfo
+              ? 'Tabla6+Tabla13 neto histórico'
+              : 'Tabla5 valor histórico'
+          : marketValueRule === 'caucion-quantity'
+            ? 'cantidad'
+            : 'lote',
         baseCapitalPurchaseAmount: baseCapitalInfo?.purchaseAmount ?? null,
         baseCapitalSoldAmount: baseCapitalInfo?.soldAmount ?? null,
         baseCapitalNetAmount: baseCapitalInfo?.netAmount ?? null,
-        baseDate: benchmarkStartDate,
-        possibleBaseMismatch: false
+        baseDate: marketValueRule === 'fci-direct-value' ? (fciSegmentContext?.baseDate ?? benchmarkStartDate) : benchmarkStartDate,
+        possibleBaseMismatch: false,
+        fciSegmentStartDate: fciSegmentContext?.baseDate ?? null,
+        fciSegmentBaseCapital: fciSegmentContext?.baseCapital ?? null,
+        fciSegmentResetReason: fciSegmentContext?.resetReason ?? null,
+        fciSegmentThreshold: fciSegmentContext?.threshold ?? null
       };
     }
 
@@ -1600,6 +1719,7 @@ export class PortfolioMinimumBalanceTrendService {
     }
 
     return {
+      marketValueRule,
       historicalPrice: historicalPriceInfo.price,
       historicalPriceDate: historicalPriceInfo.date,
       marketValue,
@@ -1622,13 +1742,33 @@ export class PortfolioMinimumBalanceTrendService {
       impactScore,
       movements: lotMovements.appliedMovements,
       baseCapitalUsed: investedAmount,
-      baseCapitalRule: baseCapitalInfo ? 'fci-net-historical-capital' : marketValueRule === 'caucion-quantity' ? 'caucion-quantity' : 'lot-invested-amount',
-      baseCapitalSource: baseCapitalInfo ? 'Tabla6+Tabla13 neto histórico' : marketValueRule === 'caucion-quantity' ? 'cantidad' : 'lote',
+      baseCapitalRule: marketValueRule === 'fci-direct-value'
+        ? fciSegmentContext
+          ? 'fci-historical-segment-base'
+          : baseCapitalInfo
+            ? 'fci-net-historical-capital'
+            : 'fci-fallback-market-value'
+        : marketValueRule === 'caucion-quantity'
+          ? 'caucion-quantity'
+          : 'lot-invested-amount',
+      baseCapitalSource: marketValueRule === 'fci-direct-value'
+        ? fciSegmentContext
+          ? 'Tabla5 segmento histórico'
+          : baseCapitalInfo
+            ? 'Tabla6+Tabla13 neto histórico'
+            : 'Tabla5 valor histórico'
+        : marketValueRule === 'caucion-quantity'
+          ? 'cantidad'
+          : 'lote',
       baseCapitalPurchaseAmount: baseCapitalInfo?.purchaseAmount ?? null,
       baseCapitalSoldAmount: baseCapitalInfo?.soldAmount ?? null,
       baseCapitalNetAmount: baseCapitalInfo?.netAmount ?? null,
-      baseDate: benchmarkStartDate,
+      baseDate: marketValueRule === 'fci-direct-value' ? (fciSegmentContext?.baseDate ?? benchmarkStartDate) : benchmarkStartDate,
       possibleBaseMismatch,
+      fciSegmentStartDate: fciSegmentContext?.baseDate ?? null,
+      fciSegmentBaseCapital: fciSegmentContext?.baseCapital ?? null,
+      fciSegmentResetReason: fciSegmentContext?.resetReason ?? null,
+      fciSegmentThreshold: fciSegmentContext?.threshold ?? null,
       skipped: false,
       skipReason: null
     };
@@ -1758,6 +1898,60 @@ export class PortfolioMinimumBalanceTrendService {
     }
 
     return grouped;
+  }
+
+  private buildFciHistoricalSegmentContextBySymbol(
+    priceIndex: Map<string, HistoricalPrice[]>,
+    date: Date,
+    fciSymbols: Set<string>
+  ): Map<string, FciHistoricalSegmentContext> {
+    const result = new Map<string, FciHistoricalSegmentContext>();
+
+    for (const symbol of fciSymbols) {
+      const prices = (priceIndex.get(symbol) ?? [])
+        .map((price) => {
+          const priceDate = this.asDate(price.date);
+          const priceValue = typeof price.price === 'number' && Number.isFinite(price.price) ? price.price : null;
+          return priceDate && priceValue !== null ? { date: priceDate, price: priceValue } : null;
+        })
+        .filter((price): price is { date: Date; price: number } => !!price && price.date.getTime() <= date.getTime())
+        .sort((left, right) => left.date.getTime() - right.date.getTime());
+
+      if (!prices.length) {
+        continue;
+      }
+
+      let segmentStart = prices[0];
+      let resetReason: string | null = 'first-fci-value';
+      let currentMarketValue = prices[0].price;
+      let currentMarketValueDate = new Date(prices[0].date);
+
+      for (let index = 1; index < prices.length; index += 1) {
+        const previous = prices[index - 1];
+        const current = prices[index];
+        currentMarketValue = current.price;
+        currentMarketValueDate = new Date(current.date);
+
+        const previousPrice = Math.max(Math.abs(previous.price), 1);
+        const deltaRatio = Math.abs(current.price - previous.price) / previousPrice;
+        if (deltaRatio > FCI_EXPOSURE_RESET_THRESHOLD) {
+          segmentStart = current;
+          resetReason = current.price >= previous.price ? 'fci-exposure-reset-up' : 'fci-exposure-reset-down';
+        }
+      }
+
+      result.set(symbol, {
+        symbol,
+        baseDate: segmentStart.date ? new Date(segmentStart.date) : null,
+        baseCapital: Number.isFinite(segmentStart.price) ? segmentStart.price : null,
+        resetReason,
+        threshold: FCI_EXPOSURE_RESET_THRESHOLD,
+        marketValue: currentMarketValue,
+        marketValueDate: currentMarketValueDate
+      });
+    }
+
+    return result;
   }
 
   private resolveHistoricalInstrumentKind(lots: HistoricalLot[], fciSymbols: Set<string>): 'standard' | 'fci' | 'caucion' {
