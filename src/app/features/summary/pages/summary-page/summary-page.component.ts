@@ -124,6 +124,10 @@ export class SummaryPageComponent {
     }
   }
 
+  goalStatusBadge(goal: PortfolioUpcomingMilestone): string {
+    return goal.category === 'strategy-balance' ? 'Guía' : this.goalStatusLabel(goal.status);
+  }
+
   goalCategoryLabel(category: PortfolioUpcomingMilestone['category']): string {
     switch (category) {
       case 'portfolio-value':
@@ -173,27 +177,38 @@ export class SummaryPageComponent {
     return `${value} mes${value === 1 ? '' : 'es'}`;
   }
 
-  strategySavingsPercent(breakdown: PortfolioUpcomingMilestoneBreakdown): string {
-    if (this.privacyMode.enabled || breakdown.currentPercent === null || breakdown.currentPercent === undefined) {
-      return 'Oculto';
-    }
-    return this.currencyMapper.formatPercentage(100 - breakdown.currentPercent);
-  }
-
-  strategyPrimaryBreakdown(goal: PortfolioUpcomingMilestone): PortfolioUpcomingMilestoneBreakdown | null {
-    return goal.breakdown?.find((item) => item.currency === 'ARS') ?? goal.breakdown?.[0] ?? null;
-  }
-
-  strategyActualLabel(goal: PortfolioUpcomingMilestone): string {
-    const primary = this.strategyPrimaryBreakdown(goal);
-    if (!primary) {
+  strategyReferenceSummary(goal: PortfolioUpcomingMilestone): string {
+    if (!goal.breakdown?.length) {
       return 'N/D';
     }
-    return `Jubilación ${this.goalPercent(primary.currentPercent)} / Ahorro ${this.strategySavingsPercent(primary)}`;
+
+    return goal.breakdown
+      .map((item) => {
+        const retirement = this.goalPercent(item.retirementPercent ?? item.currentPercent);
+        const savings = this.goalPercent(item.savingsPercent ?? (item.currentPercent !== null && item.currentPercent !== undefined ? 100 - item.currentPercent : null));
+        return `${item.currency}: Jubilación ${retirement} / Ahorro ${savings}`;
+      })
+      .join(' · ');
   }
 
-  strategyTargetLabel(): string {
-    return '50% / 50%';
+  strategyReferenceDetail(goal: PortfolioUpcomingMilestone): string {
+    if (!goal.breakdown?.length) {
+      return 'No hay datos de distribución acumulada.';
+    }
+    return 'La referencia surge de los aportes y egresos acumulados en Tabla35. Sirve como guía para futuros aportes, no como obligación de rebalanceo por rendimiento.';
+  }
+
+  strategyBreakdownLabel(item: PortfolioUpcomingMilestoneBreakdown): string {
+    const retirement = this.goalPercent(item.retirementPercent ?? item.currentPercent);
+    const savings = this.goalPercent(item.savingsPercent ?? (item.currentPercent !== null && item.currentPercent !== undefined ? 100 - item.currentPercent : null));
+    return `${item.currency}: Jubilación ${retirement} / Ahorro ${savings}`;
+  }
+
+  strategySavingsPercent(breakdown: PortfolioUpcomingMilestoneBreakdown): string {
+    if (this.privacyMode.enabled || breakdown.savingsPercent === null || breakdown.savingsPercent === undefined) {
+      return 'Oculto';
+    }
+    return this.goalPercent(breakdown.savingsPercent);
   }
 
   persistUpcomingContribution(value: string | number | null): void {

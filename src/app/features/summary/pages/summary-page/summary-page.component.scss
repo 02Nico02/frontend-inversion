@@ -192,6 +192,9 @@
       grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
       gap: 0.55rem;
     }
+    .goal-metrics.strategy {
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
     .goal-metrics.unavailable {
       grid-template-columns: 1fr;
     }
@@ -211,6 +214,13 @@
     }
     .goal-metric strong {
       font-size: 0.95rem;
+    }
+    .goal-metric.wide {
+      grid-column: 1 / -1;
+    }
+    .goal-metric small {
+      color: var(--muted);
+      line-height: 1.45;
     }
     .goal-breakdown {
       display: grid;
@@ -236,6 +246,9 @@
       border-radius: 16px;
       padding: 1rem;
       color: var(--muted);
+    }
+    .contribution-field.privacy {
+      align-content: start;
     }
     .link {
       color: var(--brand);

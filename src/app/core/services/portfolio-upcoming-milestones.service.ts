@@ -27,13 +27,13 @@ export class PortfolioUpcomingMilestonesService {
       goals.push(historicalRecovery);
     }
 
-    const strategyBalance = this.buildStrategyBalanceGoal(snapshot, monthlyContributionArs);
+    const strategyBalance = this.buildStrategyGuidanceGoal(snapshot);
     if (strategyBalance) {
       goals.push(strategyBalance);
     }
 
     const manualGoal = this.buildManualGoal(snapshot, monthlyContributionArs);
-    if (manualGoal) {
+    if (manualGoal && !goals.some((goal) => goal.currency === manualGoal.currency && goal.targetValue === manualGoal.targetValue)) {
       goals.push(manualGoal);
     }
 
@@ -43,7 +43,12 @@ export class PortfolioUpcomingMilestonesService {
   private buildNextMillionGoal(snapshot: PortfolioAppState, monthlyContributionArs: number | null): PortfolioUpcomingMilestone | null {
     const currentValue = this.currentArsValue(snapshot);
     if (currentValue === null || currentValue < 0) {
-      return this.notAvailable('next-million-ars', 'Próximo millón ARS', 'No hay valor actual en ARS suficiente para calcular el próximo millón.', 'portfolio-value');
+      return this.notAvailable(
+        'next-million-ars',
+        'Próximo millón ARS',
+        'No hay valor actual en ARS suficiente para calcular el próximo millón.',
+        'portfolio-value'
+      );
     }
 
     const million = 1_000_000;
@@ -54,9 +59,10 @@ export class PortfolioUpcomingMilestonesService {
     return {
       id: 'next-million-ars',
       title: 'Próximo millón ARS',
-      description: remainingAmount <= 0
-        ? 'El portafolio ya alcanzó ese escalón. El próximo objetivo es el siguiente millón.'
-        : 'El próximo escalón de valor en ARS para el portafolio.',
+      description:
+        remainingAmount <= 0
+          ? 'El portafolio ya alcanzó ese escalón. El próximo objetivo es el siguiente millón.'
+          : 'El próximo escalón de valor en ARS para el portafolio.',
       category: 'portfolio-value',
       status: remainingAmount <= 0 ? 'reached' : 'pending',
       currentValue,
@@ -105,13 +111,13 @@ export class PortfolioUpcomingMilestonesService {
     };
   }
 
-  private buildStrategyBalanceGoal(snapshot: PortfolioAppState, monthlyContributionArs: number | null): PortfolioUpcomingMilestone | null {
+  private buildStrategyGuidanceGoal(snapshot: PortfolioAppState): PortfolioUpcomingMilestone | null {
     const rows = [...(snapshot.dataset?.strategicSplit ?? [])].sort((a, b) => this.dateValue(a.date) - this.dateValue(b.date));
     if (!rows.length) {
       return this.notAvailable(
-        'strategy-balance-50-50',
-        'Volver al equilibrio 50/50',
-        'No hay datos suficientes del split estratégico para calcular el equilibrio entre Jubilación y Ahorro.',
+        'strategy-balance-guidance',
+        'Distribución estratégica de aportes',
+        'No hay datos suficientes del split estratégico para calcular la distribución entre Jubilación y Ahorro.',
         'Tabla35'
       );
     }
@@ -126,41 +132,32 @@ export class PortfolioUpcomingMilestonesService {
       { retirementAmountARS: 0, savingsAmountARS: 0, retirementAmountUSD: 0, savingsAmountUSD: 0 }
     );
 
-    const breakdown: PortfolioUpcomingMilestoneBreakdown[] = [];
-    const arsBreakdown = this.strategyBreakdown('ARS', totals.retirementAmountARS, totals.savingsAmountARS, monthlyContributionArs);
-    const usdBreakdown = this.strategyBreakdown('USD', totals.retirementAmountUSD, totals.savingsAmountUSD, null);
-    if (arsBreakdown) breakdown.push(arsBreakdown);
-    if (usdBreakdown) breakdown.push(usdBreakdown);
+    const arsBreakdown = this.strategyBreakdown('ARS', totals.retirementAmountARS, totals.savingsAmountARS);
+    const usdBreakdown = this.strategyBreakdown('USD', totals.retirementAmountUSD, totals.savingsAmountUSD);
+    const breakdown = [arsBreakdown, usdBreakdown].filter((item): item is PortfolioUpcomingMilestoneBreakdown => Boolean(item));
 
     if (!breakdown.length) {
       return this.notAvailable(
-        'strategy-balance-50-50',
-        'Volver al equilibrio 50/50',
+        'strategy-balance-guidance',
+        'Distribución estratégica de aportes',
         'No hay montos válidos para Jubilación y Ahorro en ARS o USD.',
         'Tabla35'
       );
     }
 
-    const averageDeviation = breakdown.reduce((sum, item) => sum + Math.abs(item.gapPercent ?? 0), 0) / breakdown.length;
-    const isBalanced = breakdown.every((item) => {
-      const current = item.currentPercent ?? 0;
-      return current >= 48 && current <= 52;
-    });
-
     return {
-      id: 'strategy-balance-50-50',
-      title: 'Volver al equilibrio 50/50',
-      description: isBalanced
-        ? 'La estrategia está dentro del rango objetivo. Los tramos se encuentran prácticamente balanceados.'
-        : 'Dirigí los futuros aportes al tramo menor para acercarte al equilibrio sin vender.',
+      id: 'strategy-balance-guidance',
+      title: 'Distribución estratégica de aportes',
+      description:
+        'La referencia surge de los aportes y egresos acumulados. Sirve como guía para futuros aportes, no como obligación de rebalanceo por rendimiento.',
       category: 'strategy-balance',
-      status: isBalanced ? 'reached' : 'pending',
+      status: 'pending',
       currentValue: null,
       targetValue: null,
       remainingAmount: null,
-      remainingPercent: averageDeviation,
+      remainingPercent: null,
       currency: null,
-      monthlyContribution: monthlyContributionArs,
+      monthlyContribution: null,
       estimatedMonths: null,
       breakdown,
       source: 'Tabla35'
@@ -198,44 +195,35 @@ export class PortfolioUpcomingMilestonesService {
     };
   }
 
-  private strategyBreakdown(
-    currency: 'ARS' | 'USD',
-    retirementAmount: number,
-    savingsAmount: number,
-    monthlyContribution: number | null
-  ): PortfolioUpcomingMilestoneBreakdown | null {
+  private strategyBreakdown(currency: 'ARS' | 'USD', retirementAmount: number, savingsAmount: number): PortfolioUpcomingMilestoneBreakdown | null {
     const total = retirementAmount + savingsAmount;
     if (total <= 0) {
       return null;
     }
 
     const retirementPercent = (retirementAmount / total) * 100;
-    const targetPercent = 50;
-    const gapPercent = retirementPercent - targetPercent;
-    const currentPercent = retirementPercent;
-    const targetAmount = total / 2;
-    const remainingAmount = Math.abs(retirementAmount - savingsAmount);
-    const estimatedMonths = currency === 'ARS' ? this.estimatedMonths(remainingAmount, monthlyContribution) : null;
+    const savingsPercent = 100 - retirementPercent;
 
     return {
       currency,
-      currentPercent,
-      targetPercent,
-      gapPercent,
+      currentPercent: retirementPercent,
+      targetPercent: savingsPercent,
+      gapPercent: retirementPercent - savingsPercent,
+      retirementPercent,
+      savingsPercent,
+      retirementAmount,
+      savingsAmount,
       currentAmount: retirementAmount,
-      targetAmount,
-      remainingAmount,
-      estimatedMonths
+      targetAmount: savingsAmount,
+      remainingAmount: Math.abs(retirementAmount - savingsAmount),
+      estimatedMonths: null
     };
   }
 
   private currentArsValue(snapshot: PortfolioAppState): number | null {
     const byCurrency = snapshot.summary?.byCurrency ?? [];
     const ars = byCurrency.find((item) => String(item.currency).toUpperCase() === 'ARS');
-    if (ars) {
-      return ars.totalCurrentValue;
-    }
-    return null;
+    return ars ? ars.totalCurrentValue : null;
   }
 
   private maxMonthlyValue(snapshot: PortfolioAppState): number | null {
@@ -265,7 +253,11 @@ export class PortfolioUpcomingMilestonesService {
       id,
       title,
       description,
-      category: id.includes('strategy') ? 'strategy-balance' : id.includes('recover') ? 'historical-recovery' : 'portfolio-value',
+      category: id.includes('strategy')
+        ? 'strategy-balance'
+        : id.includes('recover')
+          ? 'historical-recovery'
+          : 'portfolio-value',
       status: 'not-available',
       currentValue: null,
       targetValue: null,

@@ -6,8 +6,6 @@ Fecha de análisis: 2026-06-17
 
 Definir cómo debería construirse la funcionalidad de **mínimo esperado de rendimiento** para el frontend `frontend-inversion`, usando el Excel real que importa la app en:
 
-`C:\Users\ika22\OneDrive\Documentos\Historial Sueldo.xlsm`
-
 Este documento **no implementa cambios**. Solo resume:
 
 - qué tablas existen realmente en el Excel,

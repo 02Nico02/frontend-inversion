@@ -11,6 +11,10 @@ export interface PortfolioUpcomingMilestoneBreakdown {
   currentPercent: number | null;
   targetPercent: number;
   gapPercent: number | null;
+  retirementPercent?: number | null;
+  savingsPercent?: number | null;
+  retirementAmount?: number | null;
+  savingsAmount?: number | null;
   currentAmount: number | null;
   targetAmount: number | null;
   remainingAmount: number | null;
