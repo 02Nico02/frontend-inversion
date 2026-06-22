@@ -25,6 +25,7 @@ describe('WorkbookMappingService', () => {
   it('includes the core tables and their expected columns', () => {
     const operations = service.expectations.find((item) => item.key === 'operations');
     const strategicSplit = service.expectations.find((item) => item.key === 'strategicSplit');
+    const pendingOrders = service.expectations.find((item) => item.key === 'pendingOrders');
 
     expect(operations?.primaryName).toBe('Tabla6');
     expect(operations?.expectedColumns).toContain('ESPECIE');
@@ -32,6 +33,9 @@ describe('WorkbookMappingService', () => {
     expect(strategicSplit?.primaryName).toBe('Tabla35');
     expect(strategicSplit?.expectedColumns).toContain('MONTO JUB. AR');
     expect(strategicSplit?.expectedColumns).toContain('MONTO AHOR. USD');
+    expect(pendingOrders?.primaryName).toBe('Tabla_OrdenesPendientes');
+    expect(pendingOrders?.critical).toBeFalse();
+    expect(pendingOrders?.expectedColumns).toEqual(['ESPECIE', 'Cant', 'PRECIO']);
   });
 
   it('reports validation findings for critical and optional tables', () => {
@@ -74,5 +78,14 @@ describe('WorkbookMappingService', () => {
 
     expect(criticals.every((item) => item.severity === 'error')).toBeTrue();
     expect(findings.some((item) => item.key === 'operations' && item.found)).toBeFalse();
+  });
+
+  it('reports optional pending orders table as non-critical when missing', () => {
+    const findings = service.buildValidationFindings([]);
+    const pendingOrders = findings.find((item) => item.key === 'pendingOrders');
+
+    expect(pendingOrders?.critical).toBeFalse();
+    expect(pendingOrders?.severity).toBe('warning');
+    expect(pendingOrders?.found).toBeFalse();
   });
 });

@@ -133,6 +133,15 @@ describe('PortfolioCalculatorService', () => {
         ]
       }),
       buildWorkbookTable({
+        name: 'Tabla_OrdenesPendientes',
+        displayName: 'Tabla_OrdenesPendientes',
+        rows: [
+          { ESPECIE: 'VIST', Cant: 2, PRECIO: 32000 },
+          { ESPECIE: 'META', Cant: 4, PRECIO: 34500 },
+          { ESPECIE: 'META', Cant: 4, PRECIO: 35500 }
+        ]
+      }),
+      buildWorkbookTable({
         name: 'TablaCalendario',
         displayName: 'TablaCalendario',
         rows: [
@@ -149,6 +158,44 @@ describe('PortfolioCalculatorService', () => {
     expect(dataset.historicalPrices.map((item) => item.date)).toEqual(['2025-01-01', '2025-01-03']);
     expect(dataset.dailyBalances.map((item) => item.balance)).toEqual([-50, 100]);
     expect(dataset.strategicSplit[0].retirementPercent).toBe(55);
+    expect(dataset.pendingOrders?.totalOrders).toBe(3);
+    expect(dataset.pendingOrders?.totalReservedARS).toBe(344000);
+    expect(dataset.pendingOrders?.summaryBySymbol.map((item) => item.symbol)).toEqual(['META', 'VIST']);
+  });
+
+  it('keeps pending orders separated from positions and current value', () => {
+    const dataset = service.buildDataset([
+      buildWorkbookTable({
+        name: 'TablaPosiciones',
+        displayName: 'TablaPosiciones',
+        rows: [
+          {
+            ESPECIE: 'AMD',
+            MONEDA: 'ARS',
+            TIPO: 'Accion',
+            CANTIDAD: 10,
+            'TOTAL INV': 1000,
+            'PRECIO ACT': 120,
+            'TOTAL ACTUAL': 1200,
+            'RESULTADO $': 200,
+            'RESULTADO %': 20,
+            'PRECIO PROM': 100
+          }
+        ]
+      }),
+      buildWorkbookTable({
+        name: 'Tabla_OrdenesPendientes',
+        displayName: 'Tabla_OrdenesPendientes',
+        rows: [{ ESPECIE: 'VIST', Cant: 2, PRECIO: 32000 }]
+      })
+    ]);
+
+    const summary = service.buildSummary(dataset);
+
+    expect(dataset.positions.length).toBe(1);
+    expect(dataset.pendingOrders?.totalReservedARS).toBe(64000);
+    expect(summary.totalCurrentValue).toBe(1200);
+    expect(summary.totalInvested).toBe(1000);
   });
 
   it('builds portfolio summary totals by currency', () => {

@@ -23,12 +23,14 @@ import { WorkbookTableData } from '../models/workbook.models';
 import { DataNormalizationService } from './data-normalization.service';
 import { CanonicalCurrency, CurrencyMapperService } from './currency-mapper.service';
 import { parseCalendarDailyPercent, parseCalendarIndex, parseCalendarTna } from '../utils/value-parsing.utils';
+import { PendingOrdersService } from './pending-orders.service';
 
 @Injectable({ providedIn: 'root' })
 export class PortfolioCalculatorService {
   constructor(
     private readonly normalization: DataNormalizationService,
-    private readonly currencyMapper: CurrencyMapperService
+    private readonly currencyMapper: CurrencyMapperService,
+    private readonly pendingOrdersService: PendingOrdersService
   ) {}
 
   buildDataset(tables: WorkbookTableData[]): PortfolioDataset {
@@ -55,6 +57,7 @@ export class PortfolioCalculatorService {
     const monthlyPerformance = this.mapMonthlyPerformance(this.findTable(tables, ['Tabla9']));
     const strategicSplit = this.mapStrategicSplit(this.findTable(tables, ['Tabla35']));
     const platformDistribution = this.mapPlatforms(this.findTable(tables, ['Tabla38']));
+    const pendingOrders = this.pendingOrdersService.buildSummary(this.findTable(tables, ['Tabla_OrdenesPendientes']));
     const calendarBenchmarks = [
       ...this.mapCalendarBenchmark(this.findTable(tables, ['TablaCalendario']), 'TablaCalendario'),
       ...this.mapCalendarBenchmark(this.findTable(tables, ['TablaCalendarioRem']), 'TablaCalendarioRem'),
@@ -77,7 +80,8 @@ export class PortfolioCalculatorService {
       monthlyPerformance,
       strategicSplit,
       platformDistribution,
-      calendarBenchmarks
+      calendarBenchmarks,
+      pendingOrders
     };
   }
 

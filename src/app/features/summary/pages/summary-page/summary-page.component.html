@@ -91,6 +91,11 @@
       </p>
     </article>
 
+    <app-pending-orders-panel
+      [summary]="pendingOrders(snapshot)"
+      [privacyEnabled]="privacyMode.enabled">
+    </app-pending-orders-panel>
+
     <section class="panel upcoming-panel">
       <div class="upcoming-header">
         <div>

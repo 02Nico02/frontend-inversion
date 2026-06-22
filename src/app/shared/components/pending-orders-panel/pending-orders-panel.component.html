@@ -1,0 +1,63 @@
+<article class="panel pending-orders-panel" *ngIf="summary; else emptyState">
+  <div class="panel-head">
+    <div>
+      <p class="eyebrow">Ordenes pendientes</p>
+      <h3>Capital ya reservado para compras cargadas en el broker</h3>
+      <p class="lead">Estas ordenes no son posiciones actuales. El capital ya fue apartado y no debe descontarse nuevamente del cash disponible.</p>
+    </div>
+    <span class="badge">{{ summary.totalOrders }} ordenes</span>
+  </div>
+
+  <div class="metric-grid compact">
+    <div class="metric-cell">
+      <span>Reservado total</span>
+      <strong>{{ formatMoney(summary.totalReservedARS) }}</strong>
+    </div>
+    <div class="metric-cell">
+      <span>Especies</span>
+      <strong>{{ summary.summaryBySymbol.length }}</strong>
+    </div>
+    <div class="metric-cell">
+      <span>Tratamiento</span>
+      <strong>Reservado no disponible</strong>
+    </div>
+    <div class="metric-cell">
+      <span>Cash disponible</span>
+      <strong>No descontado otra vez</strong>
+    </div>
+  </div>
+
+  <p class="note">
+    El capital reservado no forma parte del cash disponible informado. Si una orden se ejecuta, recien entonces pasara a Tabla6 / TablaPosiciones.
+  </p>
+
+  <div class="orders-list" *ngIf="summary.orders.length">
+    <article class="order-card" *ngFor="let order of summary.orders; trackBy: trackByOrder">
+      <div class="order-card__head">
+        <strong>{{ order.symbol }}</strong>
+        <span>{{ formatNumber(order.quantity) }} u.</span>
+      </div>
+      <div class="order-card__body">
+        <span>Limite: {{ formatMoney(order.limitPriceARS) }}</span>
+        <span>Reservado: {{ formatMoney(order.reservedAmountARS) }}</span>
+      </div>
+    </article>
+  </div>
+
+  <div class="symbol-summary" *ngIf="summary.summaryBySymbol.length">
+    <article class="symbol-summary__card" *ngFor="let item of summary.summaryBySymbol; trackBy: trackBySymbol">
+      <strong>{{ item.symbol }}</strong>
+      <span>{{ formatNumber(item.totalQuantity) }} u. · {{ formatMoney(item.totalReservedARS) }}</span>
+      <small>Precio promedio limite: {{ formatMoney(item.averageLimitPriceARS) }}</small>
+      <small>{{ item.ordersCount }} orden{{ item.ordersCount === 1 ? '' : 'es' }}</small>
+    </article>
+  </div>
+</article>
+
+<ng-template #emptyState>
+  <article class="panel pending-orders-panel">
+    <p class="eyebrow">Ordenes pendientes</p>
+    <h3>No hay ordenes pendientes cargadas</h3>
+    <p class="lead">Si el broker tiene ordenes no ejecutadas, apareceran aqui como capital ya reservado.</p>
+  </article>
+</ng-template>

@@ -1,4 +1,4 @@
-import { TestBed } from '@angular/core/testing';
+﻿import { TestBed } from '@angular/core/testing';
 
 import { MinimumPerformanceBySymbol, MinimumPerformanceSummary } from '../models/minimum-performance.model';
 import { buildClassification, buildMonthlySummary, buildPortfolioAppState, buildPortfolioPosition, buildWorkbookSnapshot, buildWorkbookTable } from '../testing/portfolio-test-builders';
@@ -624,7 +624,7 @@ describe('PortfolioMinimumBalanceTrendService', () => {
     expect(suspicious.lots.some((lot) => lot.symbol === 'IOLCAMA')).toBeFalse();
   });
 
-  it('keeps an FCI included even when Tabla6/Tabla13 net capital is zero by using the Tabla5 segment base', () => {
+  it('keeps an FCI included using the reconstructed capital when there are no sales before the evaluation date', () => {
     minimumPerformance.buildMinimumPerformanceSummary.and.returnValue({
       currency: 'ARS',
       comparableLotsCount: 1,
@@ -727,12 +727,126 @@ describe('PortfolioMinimumBalanceTrendService', () => {
     expect(report.points.length).toBe(1);
     expect(report.points[0].meta?.included).toBeTrue();
     expect(report.points[0].meta?.marketValue).toBeCloseTo(806791.91, 2);
-    expect(report.points[0].meta?.minimumExpectedARS).toBeCloseTo(806791.91, 2);
+    expect(report.points[0].meta?.minimumExpectedARS).toBeCloseTo(295245.403019649, 2);
     expect(debug.included).toBeTrue();
     expect(debug.marketValue).toBeCloseTo(806791.91, 2);
-    expect(debug.minimumExpectedUsed).toBeCloseTo(806791.91, 2);
-    expect(debug.baseCapitalSource).toBe('Tabla5 segmento histórico');
+    expect(debug.minimumExpectedUsed).toBeCloseTo(295245.403019649, 2);
+    expect(debug.baseCapitalSource).toBe('Tabla6+Tabla13 eventos históricos');
     expect(debug.skipReason).toBeNull();
+  });
+
+  it('reduces the benchmark balance proportionally when an FCI sale occurs before the evaluation date', () => {
+    minimumPerformance.buildMinimumPerformanceSummary.and.returnValue({
+      currency: 'ARS',
+      comparableLotsCount: 1,
+      currentComparableArs: 1560,
+      minimumExpectedArs: 1560,
+      balanceVsMinimumArs: 0,
+      balanceVsMinimumPercentArs: 0,
+      status: 'positive',
+      description: 'ok',
+      notes: []
+    });
+    minimumPerformance.buildMinimumPerformanceBySymbol.and.returnValue([]);
+
+    const snapshot = buildPortfolioAppState({
+      workbook: buildWorkbookSnapshot({
+        tables: [
+          buildWorkbookTable({
+            name: 'Tabla11',
+            displayName: 'Tabla11',
+            rows: [{ 'Fondos com. Inv.': 'IOLCAMA' }],
+            columns: ['Fondos com. Inv.'],
+            rowCount: 1
+          })
+        ]
+      }),
+      dataset: {
+        operations: [
+          {
+            id: 'op-1',
+            date: '2026-04-01',
+            symbol: 'IOLCAMA',
+            currency: 'ARS',
+            quantity: 1,
+            buyPrice: 1600,
+            total: 1600,
+            currentPrice: 1560,
+            currentValue: 1560,
+            variation: null,
+            remVariation: null,
+            remValue: null,
+            amount: null,
+            monthlyRate: null,
+            annualRate: null,
+            top: null,
+            trend: null
+          }
+        ],
+        sales: [
+          {
+            id: 'sale-1',
+            buyDate: '2026-04-01',
+            sellDate: '2026-05-01',
+            symbol: 'IOLCAMA',
+            currency: 'ARS',
+            quantity: 0.25,
+            buyPrice: 1600,
+            total: 400,
+            sellPrice: 1600,
+            totalSold: 400,
+            amount: 0,
+            price: 1600,
+            currentPrice: 400
+          }
+        ],
+        investmentMovements: [],
+        positions: [
+          buildPortfolioPosition({
+            symbol: 'IOLCAMA',
+            currency: 'ARS',
+            positionType: 'Valorizado',
+            assetType: 'FCI',
+            quantity: 1,
+            totalInvested: 1600,
+            currentValue: 1560
+          })
+        ],
+        historicalPrices: [{ date: '2026-06-01', month: 'jun-26', symbol: 'IOLCAMA', price: 1560 }],
+        dailyBalances: [{ date: '2026-06-01', month: 'jun-26', balance: 0 }],
+        classifications: [buildClassification({ symbol: 'IOLCAMA', type: 'FCI' })],
+        manualAlerts: [],
+        calculatedAlerts: [],
+        signals: [],
+        monthlySummary: [buildMonthlySummary({ month: 'jun-26', year: 2026 })],
+        annualSummary: [],
+        monthlyPerformance: [],
+        strategicSplit: [],
+        platformDistribution: [],
+        calendarBenchmarks: [
+          { date: new Date(Date.UTC(2026, 3, 1)), tna: 10, dailyReturnPercent: 0.01, index: 100, source: 'TablaCalendario' },
+          { date: new Date(Date.UTC(2026, 4, 1)), tna: 10, dailyReturnPercent: 0.01, index: 120, source: 'TablaCalendario' },
+          { date: new Date(Date.UTC(2026, 5, 1)), tna: 10, dailyReturnPercent: 0.01, index: 130, source: 'TablaCalendario' }
+        ]
+      },
+      summary: null,
+      workbook: null
+    });
+
+    const debug = service.debugMinimumBalanceTrendForSymbolAtDate(snapshot, 'IOLCAMA', '2026-06-01');
+    const saleEvent = debug.fciCapitalEvents?.find((event) => event.type === 'sell') ?? null;
+
+    expect(debug.included).toBeTrue();
+    expect(debug.capitalOriginalReconstruido).toBeCloseTo(1600, 2);
+    expect(debug.capitalExpuestoCosto).toBeCloseTo(1200, 2);
+    expect(saleEvent?.soldShare).toBeCloseTo(0.25, 2);
+    expect(saleEvent?.minimumExpectedRemoved).toBeCloseTo(480, 2);
+    expect(saleEvent?.benchmarkIndexBeforeEvent).toBeCloseTo(100, 2);
+    expect(saleEvent?.benchmarkIndexAtEvent).toBeCloseTo(120, 2);
+    expect(saleEvent?.benchmarkBalanceBeforeEvent).toBeCloseTo(1920, 2);
+    expect(saleEvent?.benchmarkBalanceAfterEvent).toBeCloseTo(1440, 2);
+    expect(debug.minimumExpectedUsed).toBeCloseTo(1560, 2);
+    expect(debug.balanceVsMinimum).toBeCloseTo(0, 2);
   });
 
   it('skips an FCI with no Tabla5 historical price', () => {

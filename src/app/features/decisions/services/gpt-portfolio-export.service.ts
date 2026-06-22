@@ -226,6 +226,29 @@ interface ExportBenchmarkMinimum {
   }>;
 }
 
+interface ExportPendingOrders {
+  description: string;
+  cashTreatment: 'reserved_not_available_cash';
+  includedInCurrentPositions: false;
+  includedInAvailableCash: false;
+  totalOrders: number;
+  totalReservedARS: number;
+  orders: Array<{
+    symbol: string;
+    quantity: number;
+    limitPriceARS: number;
+    reservedAmountARS: number;
+  }>;
+  summaryBySymbol: Array<{
+    symbol: string;
+    totalQuantity: number;
+    totalReservedARS: number;
+    averageLimitPriceARS: number;
+    ordersCount: number;
+  }>;
+  gptInstruction: string;
+}
+
 interface ExportRecentMovementCurrencySummary {
   currency: 'ALL' | 'ARS' | 'USD';
   purchasesGross: string;
@@ -340,6 +363,7 @@ interface GptPortfolioExport {
     warning: string | null;
   } | null;
   benchmarkMinimum: ExportBenchmarkMinimum;
+  pendingOrders: ExportPendingOrders;
   movementAdjustments: ExportMovementAdjustmentRow[];
   simulation: ExportSimulation | null;
 }
@@ -386,6 +410,7 @@ export class GptPortfolioExportService {
       'Contexto semanal de portafolio',
       `- Fecha: ${data.metadata.generatedAt}`,
       `- Balance vs minimo ARS: ${data.benchmarkMinimum.summary?.balanceVsMinimumArs ?? 'N/D'}`,
+      `- Órdenes pendientes: ${data.pendingOrders.totalOrders} / ${data.pendingOrders.totalReservedARS}`,
       `- Alertas activadas: ${this.activatedAlertSymbols(data).join(', ') || 'N/D'}`,
       `- Semaforo: ${data.decisionInsights.semaforo}`,
       `- Peor posicion: ${data.decisionInsights.peorPosicion?.symbol ?? 'N/D'}`,
@@ -415,6 +440,7 @@ export class GptPortfolioExportService {
     const simulation = this.buildSimulation(viewModel, options);
     const opportunities = this.opportunities.build(snapshot);
     const benchmarkMinimum = this.buildBenchmarkMinimum(opportunities);
+    const pendingOrders = this.buildPendingOrders(snapshot);
     const movementAdjustments = this.buildMovementAdjustments(movementSummaries);
     const decisionInsights = this.buildDecisionInsights(viewModel, enrichedPositions, concentration, alerts, movementSummaryBySymbol);
     const dataReview = this.buildDataReview(viewModel, healthReport?.findings ?? [], alerts, strategicSplit, monthlySummary, simulation, snapshot, options);
@@ -450,6 +476,7 @@ export class GptPortfolioExportService {
       annualSummary,
       strategicSplit,
       benchmarkMinimum,
+      pendingOrders,
       movementAdjustments,
       simulation
     };
@@ -1455,6 +1482,8 @@ export class GptPortfolioExportService {
     lines.push('');
     lines.push(this.latestBalanceMarkdown(exportData.summary.latestBalance));
     lines.push('');
+    lines.push(this.pendingOrdersMarkdown(exportData.pendingOrders), '');
+    lines.push('');
     lines.push(this.benchmarkMinimumMarkdown(exportData));
     lines.push('');
     lines.push(this.positionsMarkdown(exportData, options));
@@ -1668,6 +1697,76 @@ export class GptPortfolioExportService {
         { header: 'Motivo', key: 'motivo' }
       ]));
     }
+
+    return lines.join('\n');
+  }
+
+  private buildPendingOrders(snapshot: PortfolioAppState): ExportPendingOrders {
+    const summary = snapshot.dataset?.pendingOrders ?? {
+      orders: [],
+      summaryBySymbol: [],
+      totalOrders: 0,
+      totalReservedARS: 0,
+      cashTreatment: 'reserved_not_available_cash' as const,
+      includedInCurrentPositions: false as const,
+      includedInAvailableCash: false as const,
+      warnings: []
+    };
+
+    return {
+      description: 'Órdenes pendientes de compra. El capital ya fue reservado y no forma parte del cash disponible declarado.',
+      cashTreatment: summary.cashTreatment,
+      includedInCurrentPositions: summary.includedInCurrentPositions,
+      includedInAvailableCash: summary.includedInAvailableCash,
+      totalOrders: summary.totalOrders,
+      totalReservedARS: summary.totalReservedARS,
+      orders: summary.orders.map((order) => ({
+        symbol: order.symbol,
+        quantity: order.quantity,
+        limitPriceARS: order.limitPriceARS,
+        reservedAmountARS: order.reservedAmountARS
+      })),
+      summaryBySymbol: summary.summaryBySymbol.map((item) => ({
+        symbol: item.symbol,
+        totalQuantity: item.totalQuantity,
+        totalReservedARS: item.totalReservedARS,
+        averageLimitPriceARS: item.averageLimitPriceARS,
+        ordersCount: item.ordersCount
+      })),
+      gptInstruction:
+        'Estas órdenes no son posiciones actuales. No sumarlas al valor actual del portafolio. No descontar su capital del cash disponible porque ese capital ya fue apartado. Considerarlas solo como exposición futura probable.'
+    };
+  }
+
+  private pendingOrdersMarkdown(pendingOrders: ExportPendingOrders): string {
+    const lines = [
+      '## Órdenes pendientes de compra, capital ya reservado',
+      'Estas órdenes fueron cargadas en el broker pero todavía no están ejecutadas. No forman parte de las posiciones actuales y no deben sumarse al valor actual del portafolio. El capital necesario para ejecutarlas ya fue apartado, por lo que tampoco debe descontarse nuevamente del cash disponible informado.',
+      `- Total órdenes: ${pendingOrders.totalOrders}`,
+      `- Total reservado ARS: ${this.formatMoney(pendingOrders.totalReservedARS, 'ARS')}`,
+      `- Tratamiento de cash: ${pendingOrders.cashTreatment}`,
+      `- Incluidas en posiciones actuales: ${pendingOrders.includedInCurrentPositions ? 'Si' : 'No'}`,
+      `- Incluidas en cash disponible: ${pendingOrders.includedInAvailableCash ? 'Si' : 'No'}`,
+      '',
+      '### Detalle',
+      this.tableFromRows(pendingOrders.orders, [
+        { header: 'Especie', key: 'symbol' },
+        { header: 'Cantidad', key: 'quantity' },
+        { header: 'Precio límite ARS', key: 'limitPriceARS' },
+        { header: 'Reservado ARS', key: 'reservedAmountARS' }
+      ]),
+      '',
+      '### Resumen por especie',
+      this.tableFromRows(pendingOrders.summaryBySymbol, [
+        { header: 'Especie', key: 'symbol' },
+        { header: 'Cantidad total', key: 'totalQuantity' },
+        { header: 'Reservado ARS', key: 'totalReservedARS' },
+        { header: 'Precio promedio límite ARS', key: 'averageLimitPriceARS' },
+        { header: 'Órdenes', key: 'ordersCount' }
+      ]),
+      '',
+      `- Aclaración GPT: ${pendingOrders.gptInstruction}`
+    ];
 
     return lines.join('\n');
   }

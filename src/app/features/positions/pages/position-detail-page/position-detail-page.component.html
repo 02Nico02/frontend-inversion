@@ -215,56 +215,6 @@
       </table>
     </div>
 
-    <div class="minimum-vs-benchmark">
-      <div class="section-head section-head--compact">
-        <div>
-          <p class="eyebrow">Vs mínimo histórico</p>
-          <h2>Evolución contra el benchmark mínimo</h2>
-          <p class="lead">Compara esta especie contra el mínimo esperado a lo largo del tiempo.</p>
-        </div>
-        <div class="minimum-balance-toolbar">
-          <label class="minimum-balance-mode">
-            <span>Vista</span>
-            <select [(ngModel)]="minimumBalanceTrendView" (ngModelChange)="setMinimumBalanceTrendView($event)">
-              <option value="monthly">Mensual</option>
-              <option value="daily">Diario</option>
-            </select>
-          </label>
-            <button type="button" class="toggle diagnostic-button" (click)="exportMinimumBalanceTrendDiagnostic()">
-            Exportar diagnóstico
-          </button>
-        </div>
-      </div>
-
-      <ng-container *ngIf="minimumBalanceTrendSeries.length; else minimumVsMinimumEmpty">
-        <app-simple-chart
-          title="Vs mínimo histórico"
-          subtitle="Evolución del resultado de esta especie contra el benchmark mínimo."
-          mode="line"
-          [points]="minimumBalanceTrendSeries"
-          [currency]="asset.position.currency"
-          valueKind="money"
-          [showZeroLine]="true"
-          [showAverage]="false">
-        </app-simple-chart>
-
-        <div class="summary-strip" *ngIf="minimumBalanceTrendStats as stats">
-          <span>Inicial: {{ formatMoney(stats.initial, asset.position.currency) }}</span>
-          <span>Final: {{ formatMoney(stats.final, asset.position.currency) }}</span>
-          <span>Máx: {{ formatMoney(stats.max, asset.position.currency) }}</span>
-          <span>Mín: {{ formatMoney(stats.min, asset.position.currency) }}</span>
-          <span>Último: {{ formatMoney(stats.latest, asset.position.currency) }} ({{ stats.latestDate || 'N/D' }})</span>
-          <span>Var vs mínimo: {{ formatMoney(stats.variationAmount, asset.position.currency) }}</span>
-          <span>Var %: {{ formatPercent(stats.variationPercent) }}</span>
-        </div>
-      </ng-container>
-
-      <ng-template #minimumVsMinimumEmpty>
-        <div class="empty-inline">
-          {{ minimumBalanceTrendReport?.emptyMessage || 'No hay datos suficientes para reconstruir el vs mínimo histórico de esta especie.' }}
-        </div>
-      </ng-template>
-    </div>
   </section>
 
   <section class="panel" *ngIf="tab === 'operations'">
@@ -481,6 +431,57 @@
     </div>
 
     <app-simple-chart title="Precio histórico" [subtitle]="asset.symbol" mode="line" [points]="historyChartSeries" [currency]="asset.position.currency" valueKind="money"></app-simple-chart>
+
+    <div class="minimum-vs-benchmark">
+      <div class="section-head section-head--compact">
+        <div>
+          <p class="eyebrow">Vs mínimo histórico</p>
+          <h2>Evolución contra el benchmark mínimo</h2>
+          <p class="lead">Compara esta especie contra el mínimo esperado a lo largo del tiempo.</p>
+        </div>
+        <div class="minimum-balance-toolbar">
+          <label class="minimum-balance-mode">
+            <span>Vista</span>
+            <select [(ngModel)]="minimumBalanceTrendView" (ngModelChange)="setMinimumBalanceTrendView($event)">
+              <option value="monthly">Mensual</option>
+              <option value="daily">Diario</option>
+            </select>
+          </label>
+          <button type="button" class="toggle diagnostic-button" (click)="exportMinimumBalanceTrendDiagnostic()">
+            Exportar diagnóstico
+          </button>
+        </div>
+      </div>
+
+      <ng-container *ngIf="minimumBalanceTrendSeries.length; else minimumVsMinimumEmpty">
+        <app-simple-chart
+          title="Vs mínimo histórico"
+          subtitle="Evolución del resultado de esta especie contra el benchmark mínimo."
+          mode="line"
+          [points]="minimumBalanceTrendSeries"
+          [currency]="asset.position.currency"
+          valueKind="money"
+          [showZeroLine]="true"
+          [showAverage]="false">
+        </app-simple-chart>
+
+        <div class="summary-strip" *ngIf="minimumBalanceTrendStats as stats">
+          <span>Inicial: {{ formatMoney(stats.initial, asset.position.currency) }}</span>
+          <span>Final: {{ formatMoney(stats.final, asset.position.currency) }}</span>
+          <span>Máx: {{ formatMoney(stats.max, asset.position.currency) }}</span>
+          <span>Mín: {{ formatMoney(stats.min, asset.position.currency) }}</span>
+          <span>Último: {{ formatMoney(stats.latest, asset.position.currency) }} ({{ stats.latestDate || 'N/D' }})</span>
+          <span>Var vs mínimo: {{ formatMoney(stats.variationAmount, asset.position.currency) }}</span>
+          <span>Var %: {{ formatPercent(stats.variationPercent) }}</span>
+        </div>
+      </ng-container>
+
+      <ng-template #minimumVsMinimumEmpty>
+        <div class="empty-inline">
+          {{ minimumBalanceTrendReport?.emptyMessage || 'No hay datos suficientes para reconstruir el vs mínimo histórico de esta especie.' }}
+        </div>
+      </ng-template>
+    </div>
 
     <div class="summary-strip" *ngIf="historyStats as stats">
       <span>Desde: {{ stats.startDate || 'N/D' }}</span>

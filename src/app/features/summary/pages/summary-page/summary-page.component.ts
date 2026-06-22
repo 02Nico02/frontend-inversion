@@ -14,12 +14,14 @@ import { PrivacyModeService } from '../../../../core/services/privacy-mode.servi
 import { PortfolioUpcomingMilestonesService } from '../../../../core/services/portfolio-upcoming-milestones.service';
 import { PortfolioMinimumBalanceTrendService } from '../../../../core/services/portfolio-minimum-balance-trend.service';
 import { MinimumBalanceTrendSummary } from '../../../../core/models/portfolio-minimum-balance-trend.model';
+import { PendingOrdersSummary } from '../../../../core/models/pending-orders.model';
+import { PendingOrdersPanelComponent } from '../../../../shared/components/pending-orders-panel/pending-orders-panel.component';
 
 const UPCOMING_CONTRIBUTION_KEY = 'summary.upcomingGoals.monthlyContributionArs';
 
 @Component({
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, DashboardSummaryPanelComponent],
+  imports: [CommonModule, FormsModule, RouterLink, DashboardSummaryPanelComponent, PendingOrdersPanelComponent],
   templateUrl: './summary-page.component.html',
   styleUrls: ['./summary-page.component.scss'],
 })
@@ -217,6 +219,10 @@ export class SummaryPageComponent {
       return 'N/D';
     }
     return `${value} mes${value === 1 ? '' : 'es'}`;
+  }
+
+  pendingOrders(snapshot: PortfolioAppState): PendingOrdersSummary | null {
+    return snapshot.dataset?.pendingOrders ?? null;
   }
 
   strategyReferenceSummary(goal: PortfolioUpcomingMilestone): string {

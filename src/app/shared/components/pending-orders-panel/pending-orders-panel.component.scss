@@ -1,0 +1,91 @@
+.pending-orders-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.badge {
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(82, 198, 255, 0.12);
+  border: 1px solid rgba(82, 198, 255, 0.25);
+  color: #a7e4ff;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.metric-cell {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.9rem 1rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.metric-cell span,
+.note,
+.lead,
+.symbol-summary__card small,
+.order-card__body {
+  color: rgba(226, 235, 255, 0.72);
+}
+
+.metric-cell strong {
+  font-size: 1.05rem;
+}
+
+.orders-list,
+.symbol-summary {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.order-card,
+.symbol-summary__card {
+  padding: 0.9rem 1rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: grid;
+  gap: 0.35rem;
+}
+
+.order-card__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.order-card__body {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.note {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+@media (max-width: 720px) {
+  .panel-head,
+  .order-card__head,
+  .order-card__body {
+    flex-direction: column;
+  }
+}

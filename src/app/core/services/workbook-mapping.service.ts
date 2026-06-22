@@ -148,6 +148,13 @@ export class WorkbookMappingService {
       expectedColumns: ['FECHA', 'VALOR AR', 'VALOR USD', '% JUBILACIÓN', '% AHORRO', 'MONTO JUB. AR', 'MONTO JUB. USD', 'MONTO AHOR. AR', 'MONTO AHOR. USD']
     },
     {
+      key: 'pendingOrders',
+      primaryName: 'Tabla_OrdenesPendientes',
+      aliases: ['Tabla_OrdenesPendientes'],
+      critical: false,
+      expectedColumns: ['ESPECIE', 'Cant', 'PRECIO']
+    },
+    {
       key: 'platforms',
       primaryName: 'Tabla38',
       aliases: ['Tabla38'],

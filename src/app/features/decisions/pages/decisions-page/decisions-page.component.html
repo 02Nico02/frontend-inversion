@@ -7,6 +7,11 @@
       [privacyEnabled]="privacyMode.enabled">
     </app-decision-liquidity-panel>
 
+    <app-pending-orders-panel
+      [summary]="snapshot.dataset?.pendingOrders ?? null"
+      [privacyEnabled]="privacyMode.enabled">
+    </app-pending-orders-panel>
+
     <app-decision-movements-panel
       [movements]="vm.movements"
       [movementDateRange]="movementDateRange"

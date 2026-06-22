@@ -19,6 +19,7 @@ import { DecisionInsightsService } from '../../services/decision-insights.servic
 import { DecisionOpportunitiesService } from '../../services/decision-opportunities.service';
 import { ExportCurrencyScope, ExportFormat, ExportMode, ExportSimulationCurrency, GptPortfolioExportOptions, GptPortfolioExportService, WeeklyManualContext } from '../../services/gpt-portfolio-export.service';
 import { MovementDateRange, MovementDateRangeService, MovementRangePreset } from '../../services/movement-date-range.service';
+import { PendingOrdersPanelComponent } from '../../../../shared/components/pending-orders-panel/pending-orders-panel.component';
 
 @Component({
   standalone: true,
@@ -33,7 +34,8 @@ import { MovementDateRange, MovementDateRangeService, MovementRangePreset } from
     DecisionPerformancePanelComponent,
     DecisionExportPanelComponent,
     DecisionSignalsSummaryComponent,
-    DecisionMisleadingPositionsComponent
+    DecisionMisleadingPositionsComponent,
+    PendingOrdersPanelComponent
   ],
   templateUrl: './decisions-page.component.html',
   styleUrls: ['./decisions-page.component.scss']

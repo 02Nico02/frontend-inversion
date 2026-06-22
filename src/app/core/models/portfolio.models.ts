@@ -1,7 +1,9 @@
 import type { CalendarBenchmarkRow } from './minimum-performance.model';
 import type { InvestmentMovement } from './investment-movements.model';
+import type { PendingOrdersSummary } from './pending-orders.model';
 export type { CalendarBenchmarkRow } from './minimum-performance.model';
 export type { InvestmentMovement } from './investment-movements.model';
+export type { PendingOrder, PendingOrdersSummary, PendingOrderSummaryBySymbol } from './pending-orders.model';
 
 export interface InvestmentOperation {
   id: string;
@@ -208,4 +210,5 @@ export interface PortfolioDataset {
   strategicSplit: StrategicSplit[];
   platformDistribution: PlatformDistribution[];
   calendarBenchmarks: CalendarBenchmarkRow[];
+  pendingOrders?: PendingOrdersSummary;
 }

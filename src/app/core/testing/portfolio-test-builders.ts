@@ -17,6 +17,7 @@ import {
   PortfolioSummary,
   StrategicSplit
 } from '../models/portfolio.models';
+import { PendingOrdersSummary } from '../models/pending-orders.model';
 import { WorkbookSnapshot, WorkbookTableData, WorkbookValidationReport } from '../models/workbook.models';
 import { PortfolioAppState } from '../services/portfolio-state.service';
 import { CombinedAlert } from '../services/alert-mapper.service';
@@ -258,6 +259,16 @@ export function buildPortfolioDataset(overrides: Partial<PortfolioDataset> = {})
     strategicSplit: [],
     platformDistribution: [],
     calendarBenchmarks: [],
+    pendingOrders: {
+      orders: [],
+      summaryBySymbol: [],
+      totalOrders: 0,
+      totalReservedARS: 0,
+      cashTreatment: 'reserved_not_available_cash',
+      includedInCurrentPositions: false,
+      includedInAvailableCash: false,
+      warnings: []
+    } satisfies PendingOrdersSummary,
     ...overrides
   };
 }

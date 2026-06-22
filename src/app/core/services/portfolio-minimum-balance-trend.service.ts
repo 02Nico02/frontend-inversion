@@ -110,11 +110,16 @@ interface FciCapitalEvent {
   realizedGainAmount: number | null;
   sourceTable: 'Tabla6' | 'Tabla13';
   sourceId: string;
+  benchmarkIndexBeforeEvent: number | null;
   benchmarkIndexAtEvent: number | null;
   capitalBeforeEvent: number;
   capitalAfterEvent: number;
+  benchmarkBalanceBeforeEvent: number;
+  benchmarkBalanceAfterEvent: number;
   minimumAccruedBeforeEvent: number;
   minimumAccruedAfterEvent: number;
+  soldShare?: number | null;
+  minimumExpectedRemoved?: number | null;
 }
 
 interface FciHistoricalSegmentContext {
@@ -220,13 +225,18 @@ export interface MinimumBalanceTrendLotDebugRow {
     realizedGainAmount: number | null;
     sourceTable: 'Tabla6' | 'Tabla13';
     sourceId: string;
+    benchmarkIndexBeforeEvent: number | null;
     benchmarkIndexAtEvent: number | null;
     capitalBeforeEvent: number;
     capitalAfterEvent: number;
+    benchmarkBalanceBeforeEvent: number;
+    benchmarkBalanceAfterEvent: number;
     minimumAccruedBeforeEvent: number;
     minimumAccruedAfterEvent: number;
     includedInOriginalCapital?: boolean;
     reducesExposureAtDate?: boolean;
+    soldShare?: number | null;
+    minimumExpectedRemoved?: number | null;
   }>;
   skipped: boolean;
   skipReason: string | null;
@@ -354,6 +364,28 @@ export interface MinimumBalanceTrendSymbolDateReport {
   historicalPrice: number | null;
   historicalPriceDate: string | null;
   benchmarkRatio: number | null;
+  fciCapitalEvents?: Array<{
+    date: string;
+    type: 'buy' | 'sell';
+    amount: number;
+    originalCostAmount: number;
+    saleProceedsAmount: number | null;
+    realizedGainAmount: number | null;
+    sourceTable: 'Tabla6' | 'Tabla13';
+    sourceId: string;
+    benchmarkIndexBeforeEvent: number | null;
+    benchmarkIndexAtEvent: number | null;
+    capitalBeforeEvent: number;
+    capitalAfterEvent: number;
+    benchmarkBalanceBeforeEvent: number;
+    benchmarkBalanceAfterEvent: number;
+    minimumAccruedBeforeEvent: number;
+    minimumAccruedAfterEvent: number;
+    soldShare?: number | null;
+    minimumExpectedRemoved?: number | null;
+    includedInOriginalCapital?: boolean;
+    reducesExposureAtDate?: boolean;
+  }>;
   included: boolean;
   skipReason: string | null;
   warnings: string[];
@@ -757,6 +789,9 @@ export class PortfolioMinimumBalanceTrendService {
       historicalPrice: included ? symbolPoint.meta?.historicalPrice ?? null : null,
       historicalPriceDate: included ? symbolPoint.meta?.historicalPriceDate ?? null : null,
       benchmarkRatio: included ? symbolPoint.meta?.benchmarkRatio ?? null : null,
+      fciCapitalEvents: included
+        ? fciReferenceRow?.fciCapitalEvents?.map((event) => ({ ...event }))
+        : undefined,
       included,
       skipReason: symbolPoint.meta?.skipReason ?? null,
       warnings: symbolPoint.meta?.warnings ?? []
@@ -1257,11 +1292,16 @@ export class PortfolioMinimumBalanceTrendService {
             realizedGainAmount: event.realizedGainAmount,
             sourceTable: event.sourceTable,
             sourceId: event.sourceId,
+            benchmarkIndexBeforeEvent: event.benchmarkIndexBeforeEvent,
             benchmarkIndexAtEvent: event.benchmarkIndexAtEvent,
             capitalBeforeEvent: event.capitalBeforeEvent,
             capitalAfterEvent: event.capitalAfterEvent,
+            benchmarkBalanceBeforeEvent: event.benchmarkBalanceBeforeEvent,
+            benchmarkBalanceAfterEvent: event.benchmarkBalanceAfterEvent,
             minimumAccruedBeforeEvent: event.minimumAccruedBeforeEvent,
             minimumAccruedAfterEvent: event.minimumAccruedAfterEvent,
+            soldShare: event.soldShare ?? null,
+            minimumExpectedRemoved: event.minimumExpectedRemoved ?? null,
             includedInOriginalCapital: true,
             reducesExposureAtDate: event.type === 'sell' && event.date.getTime() <= date.getTime()
           })),
@@ -1352,11 +1392,16 @@ export class PortfolioMinimumBalanceTrendService {
           realizedGainAmount: event.realizedGainAmount,
           sourceTable: event.sourceTable,
           sourceId: event.sourceId,
+          benchmarkIndexBeforeEvent: event.benchmarkIndexBeforeEvent,
           benchmarkIndexAtEvent: event.benchmarkIndexAtEvent,
           capitalBeforeEvent: event.capitalBeforeEvent,
           capitalAfterEvent: event.capitalAfterEvent,
+          benchmarkBalanceBeforeEvent: event.benchmarkBalanceBeforeEvent,
+          benchmarkBalanceAfterEvent: event.benchmarkBalanceAfterEvent,
           minimumAccruedBeforeEvent: event.minimumAccruedBeforeEvent,
           minimumAccruedAfterEvent: event.minimumAccruedAfterEvent,
+          soldShare: event.soldShare ?? null,
+          minimumExpectedRemoved: event.minimumExpectedRemoved ?? null,
           includedInOriginalCapital: true,
           reducesExposureAtDate: event.type === 'sell' && event.date.getTime() <= date.getTime()
         })),
@@ -1734,6 +1779,7 @@ export class PortfolioMinimumBalanceTrendService {
             benchmarkRows,
             date,
             baseInfo: baseCapitalInfo ?? null,
+            warnings,
             fallbackBaseCapital:
               investedAmountOverride && investedAmountOverride > 0
                 ? investedAmountOverride
@@ -2045,11 +2091,16 @@ export class PortfolioMinimumBalanceTrendService {
         realizedGainAmount: null,
         sourceTable: 'Tabla6',
         sourceId: id,
+        benchmarkIndexBeforeEvent: null,
         benchmarkIndexAtEvent: null,
         capitalBeforeEvent: 0,
         capitalAfterEvent: 0,
+        benchmarkBalanceBeforeEvent: 0,
+        benchmarkBalanceAfterEvent: 0,
         minimumAccruedBeforeEvent: 0,
-        minimumAccruedAfterEvent: 0
+        minimumAccruedAfterEvent: 0,
+        soldShare: null,
+        minimumExpectedRemoved: null
       });
       grouped.set(symbol, current);
     };
@@ -2085,11 +2136,16 @@ export class PortfolioMinimumBalanceTrendService {
         realizedGainAmount,
         sourceTable: 'Tabla13',
         sourceId: id,
+        benchmarkIndexBeforeEvent: null,
         benchmarkIndexAtEvent: null,
         capitalBeforeEvent: 0,
         capitalAfterEvent: 0,
+        benchmarkBalanceBeforeEvent: 0,
+        benchmarkBalanceAfterEvent: 0,
         minimumAccruedBeforeEvent: 0,
-        minimumAccruedAfterEvent: 0
+        minimumAccruedAfterEvent: 0,
+        soldShare: null,
+        minimumExpectedRemoved: null
       });
       grouped.set(symbol, current);
     };
@@ -2163,6 +2219,7 @@ export class PortfolioMinimumBalanceTrendService {
     benchmarkRows: CalendarBenchmarkRow[];
     date: Date;
     baseInfo: FciCapitalBaseInfo | null;
+    warnings: string[];
     fallbackBaseCapital: number | null;
   }): {
     baseCapitalInitial: number | null;
@@ -2182,7 +2239,7 @@ export class PortfolioMinimumBalanceTrendService {
     baseDate: Date | null;
     fciCapitalEvents: FciCapitalEvent[];
   } {
-    const { benchmarkRows, date, baseInfo, fallbackBaseCapital } = args;
+    const { benchmarkRows, date, baseInfo, warnings, fallbackBaseCapital } = args;
     const sortedEvents = [...(baseInfo?.capitalEvents ?? [])].sort((left, right) => {
       const diff = left.date.getTime() - right.date.getTime();
       if (diff !== 0) {
@@ -2245,6 +2302,7 @@ export class PortfolioMinimumBalanceTrendService {
         continue;
       }
 
+      const benchmarkIndexBeforeEvent = lastBenchmarkIndex;
       if (lastBenchmarkIndex === null) {
         lastBenchmarkIndex = benchmarkInfo.index;
         baseDate = benchmarkInfo.row?.date ?? event.date;
@@ -2256,15 +2314,30 @@ export class PortfolioMinimumBalanceTrendService {
 
       const capitalBeforeEvent = capital;
       const minimumAccruedBeforeEvent = benchmarkBalance;
-      capital = Math.max(0, capital - event.amount);
-      benchmarkBalance = Math.max(0, benchmarkBalance - event.amount);
+      let soldShare = 1;
+      if (capitalBeforeEvent > 0) {
+        soldShare = Math.max(0, Math.min(1, event.amount / capitalBeforeEvent));
+        if (event.amount > capitalBeforeEvent) {
+          warnings.push(`Venta FCI supera el capital expuesto antes del evento para ${baseInfo?.purchaseLotIds[0] ?? 'FCI'}.`);
+        }
+      } else {
+        warnings.push(`Venta FCI supera o agota el capital expuesto antes del evento para ${baseInfo?.purchaseLotIds[0] ?? 'FCI'}.`);
+      }
+      const minimumExpectedRemoved = minimumAccruedBeforeEvent * soldShare;
+      capital = Math.max(0, capitalBeforeEvent - event.amount);
+      benchmarkBalance = Math.max(0, minimumAccruedBeforeEvent - minimumExpectedRemoved);
       capitalReturnedAmount += event.amount;
 
+      event.benchmarkIndexBeforeEvent = benchmarkIndexBeforeEvent;
       event.benchmarkIndexAtEvent = benchmarkInfo.index;
       event.capitalBeforeEvent = capitalBeforeEvent;
       event.capitalAfterEvent = capital;
+      event.benchmarkBalanceBeforeEvent = minimumAccruedBeforeEvent;
+      event.benchmarkBalanceAfterEvent = benchmarkBalance;
       event.minimumAccruedBeforeEvent = minimumAccruedBeforeEvent;
       event.minimumAccruedAfterEvent = benchmarkBalance;
+      event.soldShare = soldShare;
+      event.minimumExpectedRemoved = minimumExpectedRemoved;
     }
 
     if (evalBenchmarkInfo.index !== null && evalBenchmarkInfo.index > 0 && lastBenchmarkIndex !== null && lastBenchmarkIndex > 0) {
