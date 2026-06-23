@@ -1,4 +1,4 @@
-﻿<section class="page" *ngIf="detail as asset; else emptyState">
+<section class="page" *ngIf="detail as asset; else emptyState">
   <header class="page-header">
     <div class="breadcrumbs">
       <button type="button" class="back" (click)="back()">Volver a posiciones</button>
@@ -447,9 +447,6 @@
               <option value="daily">Diario</option>
             </select>
           </label>
-          <button type="button" class="toggle diagnostic-button" (click)="exportMinimumBalanceTrendDiagnostic()">
-            Exportar diagnóstico
-          </button>
         </div>
       </div>
 

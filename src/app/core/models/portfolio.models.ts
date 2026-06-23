@@ -37,9 +37,9 @@ export interface InvestmentSale {
   total: number | null;
   sellPrice: number | null;
   currentValue: number | null;
-  variation: number | null;
+  variation?: number | null;
   amount: number | null;
-  minimumObjective: number | null;
+  minimumObjective?: number | null;
   sourceTable?: string;
 }
 

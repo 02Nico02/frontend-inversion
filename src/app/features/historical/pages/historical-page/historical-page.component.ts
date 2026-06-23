@@ -1,17 +1,15 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit, isDevMode } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HistoricalSymbolComboboxComponent, HistoricalSymbolOption } from '../../../../shared/components/historical-symbol-combobox/historical-symbol-combobox.component';
 import { SimpleChartComponent } from '../../../../shared/components/simple-chart/simple-chart.component';
 import { PortfolioStateService } from '../../../../core/services/portfolio-state.service';
 import { PortfolioCalculatorService } from '../../../../core/services/portfolio-calculator.service';
 import { ChartDataService } from '../../../../core/services/chart-data.service';
-import { FileDownloadService } from '../../../../core/services/file-download.service';
 import { CurrencyMapperService } from '../../../../core/services/currency-mapper.service';
 import { PortfolioAppState } from '../../../../core/services/portfolio-state.service';
 import { PortfolioMilestonesService } from '../../../../core/services/portfolio-milestones.service';
 import { PortfolioMinimumBalanceTrendService } from '../../../../core/services/portfolio-minimum-balance-trend.service';
-import { PortfolioStage3DiagnosticService } from '../../../../core/services/portfolio-stage3-diagnostic.service';
 import {
   PortfolioMilestone,
   PortfolioMilestoneBuildResult,
@@ -21,32 +19,6 @@ import {
 import { MinimumBalanceTrendPoint, MinimumBalanceTrendSummary } from '../../../../core/models/portfolio-minimum-balance-trend.model';
 import { PrivacyModeService } from '../../../../core/services/privacy-mode.service';
 import { parseExcelDate } from '../../../../core/utils/value-parsing.utils';
-import {
-  MinimumBalanceTrendDateDebugReport,
-  MinimumBalanceTrendCurrentComparisonReport,
-  MinimumBalanceTrendSkippedLotsReport,
-  MinimumBalanceTrendPointsDebugReport,
-  MinimumBalanceTrendTopContributorsReport,
-  MinimumBalanceTrendSymbolDateReport,
-  MinimumBalanceTrendSymbolReport
-} from '../../../../core/services/portfolio-minimum-balance-trend.service';
-
-interface PortfolioHistoricalDebugApi {
-  minimumBalanceTrendPoints: () => MinimumBalanceTrendPointsDebugReport;
-  minimumBalanceTrendForDate: (date: string | Date) => MinimumBalanceTrendDateDebugReport;
-  minimumBalanceTrendTopContributors: (date: string | Date) => MinimumBalanceTrendTopContributorsReport;
-  minimumBalanceTrendSuspiciousLots: (date: string | Date) => MinimumBalanceTrendDateDebugReport;
-  minimumBalanceTrendSkippedLots: (date: string | Date) => MinimumBalanceTrendSkippedLotsReport;
-  minimumBalanceTrendCurrentComparison: () => MinimumBalanceTrendCurrentComparisonReport;
-  minimumBalanceTrendForSymbol: (symbol: string) => MinimumBalanceTrendSymbolReport;
-  minimumBalanceTrendForSymbolAtDate: (symbol: string, date: string | Date) => MinimumBalanceTrendSymbolDateReport;
-}
-
-declare global {
-  interface Window {
-    __portfolioDebug?: PortfolioHistoricalDebugApi;
-  }
-}
 
 type DatePeriod = 'ALL' | '1M' | '3M' | '6M' | 'YTD' | '1Y' | 'CUSTOM';
 type MinimumBalanceTrendViewMode = 'monthly' | 'daily';
@@ -66,8 +38,6 @@ export class HistoricalPageComponent implements OnInit, OnDestroy {
   balanceRangeStart = '';
   balanceRangeEnd = '';
   minimumBalanceTrendView: MinimumBalanceTrendViewMode = 'monthly';
-  stage3DiagnosticDate = '2026-06-19';
-
   private cachedPriceSeriesKey = '';
   private cachedPriceSeries: ReturnType<ChartDataService['priceSeries']> = [];
   private cachedBalanceSeriesKey = '';
@@ -112,19 +82,13 @@ export class HistoricalPageComponent implements OnInit, OnDestroy {
     private readonly currencyMapper: CurrencyMapperService,
     private readonly milestonesService: PortfolioMilestonesService,
     private readonly minimumBalanceTrendService: PortfolioMinimumBalanceTrendService,
-    private readonly diagnosticService: PortfolioStage3DiagnosticService,
-    private readonly downloader: FileDownloadService,
     public readonly privacyMode: PrivacyModeService
   ) {}
 
   ngOnInit(): void {
-    this.registerDebugApi();
   }
 
   ngOnDestroy(): void {
-    if (typeof window !== 'undefined' && window.__portfolioDebug) {
-      delete window.__portfolioDebug;
-    }
   }
 
   historicalSpeciesOptions(snapshot: PortfolioAppState): HistoricalSymbolOption[] {
@@ -315,13 +279,6 @@ export class HistoricalPageComponent implements OnInit, OnDestroy {
     return this.minimumBalanceTrendView === 'daily' ? 'Diario' : 'Mensual';
   }
 
-  exportStage3Diagnostic(snapshot: PortfolioAppState): void {
-    const report = this.diagnosticService.buildReport(snapshot, this.stage3DiagnosticDate);
-    const json = JSON.stringify(report, null, 2);
-    const filename = `diagnostico-etapa-3-${report.dateEvaluated}.json`;
-    this.downloader.downloadText(filename, json, 'application/json;charset=utf-8');
-  }
-
   onMinimumBalanceTrendViewChange(value: MinimumBalanceTrendViewMode): void {
     this.minimumBalanceTrendView = value;
     this.cachedMinimumBalanceTrendKey = '';
@@ -487,247 +444,6 @@ export class HistoricalPageComponent implements OnInit, OnDestroy {
 
   percent(value: number | null | undefined): string {
     return this.currencyMapper.formatPercentage(value);
-  }
-
-  private registerDebugApi(): void {
-    if (!isDevMode() || typeof window === 'undefined') {
-      return;
-    }
-
-    window.__portfolioDebug = {
-      minimumBalanceTrendPoints: () => {
-        const report = this.minimumBalanceTrendService.debugMinimumBalanceTrendPoints(this.state.snapshot);
-        console.groupCollapsed('[portfolio-debug] minimumBalanceTrendPoints');
-        console.table(report.points.map((point) => ({
-          date: point.date,
-          comparableValueARS: point.comparableValueARS,
-          minimumExpectedARS: point.minimumExpectedARS,
-          balanceVsMinimumARS: point.balanceVsMinimumARS,
-          balanceVsMinimumPercent: point.balanceVsMinimumPercent,
-          bestHistorical: point.bestHistorical,
-          worstHistorical: point.worstHistorical,
-          highestComparableValue: point.highestComparableValue,
-          highestMinimumExpected: point.highestMinimumExpected
-        })));
-        if (report.warnings.length) {
-          console.warn('[portfolio-debug] warnings', report.warnings);
-        }
-        console.groupEnd();
-        return report;
-      },
-      minimumBalanceTrendForDate: (date: string | Date) => {
-        const report = this.minimumBalanceTrendService.debugMinimumBalanceTrendForDate(this.state.snapshot, date);
-        console.groupCollapsed(`[portfolio-debug] minimumBalanceTrendForDate ${report.date}`);
-        console.log(report);
-        console.log('[portfolio-debug] benchmark sources', {
-          selected: report.benchmarkSourceSelected,
-          available: report.benchmarkSourcesAvailable
-        });
-        console.table(report.lots.map((lot) => ({
-          lotId: lot.lotId,
-          sourceTable: lot.sourceTable,
-          symbol: lot.symbol,
-          currency: lot.currency,
-          buyDate: lot.buyDate,
-          sellDate: lot.sellDate,
-          benchmarkSource: lot.benchmarkSource,
-          buyIndex: lot.buyIndex,
-          evalIndex: lot.evalIndex,
-          benchmarkRatio: lot.benchmarkRatio,
-          historicalPrice: lot.historicalPrice,
-          historicalPriceDate: lot.historicalPriceDate,
-          marketValue: lot.marketValue,
-          rawMinimumExpected: lot.rawMinimumExpected,
-          adjustedMinimumExpected: lot.adjustedMinimumExpected,
-          minimumExpectedUsed: lot.minimumExpectedUsed,
-          incomeAmount: lot.incomeAmount,
-          capitalReturnedAmount: lot.capitalReturnedAmount,
-          comparableValue: lot.comparableValue,
-          balanceVsMinimum: lot.balanceVsMinimum,
-          balanceVsMinimumPercent: lot.balanceVsMinimumPercent,
-          skipped: lot.skipped,
-          skipReason: lot.skipReason
-        })));
-        if (report.warnings.length) {
-          console.warn('[portfolio-debug] warnings', report.warnings);
-        }
-        console.groupEnd();
-        return report;
-      },
-      minimumBalanceTrendTopContributors: (date: string | Date) => {
-        const report = this.minimumBalanceTrendService.debugMinimumBalanceTrendTopContributors(this.state.snapshot, date);
-        console.groupCollapsed(`[portfolio-debug] minimumBalanceTrendTopContributors ${report.date}`);
-        console.table(report.lots.map((lot) => ({
-          lotId: lot.lotId,
-          sourceTable: lot.sourceTable,
-          symbol: lot.symbol,
-          impactScore: lot.impactScore,
-          comparableValue: lot.comparableValue,
-          minimumExpectedUsed: lot.minimumExpectedUsed,
-          balanceVsMinimum: lot.balanceVsMinimum,
-          marketValue: lot.marketValue,
-          capitalReturnedAmount: lot.capitalReturnedAmount,
-          incomeAmount: lot.incomeAmount
-        })));
-        if (report.warnings.length) {
-          console.warn('[portfolio-debug] warnings', report.warnings);
-        }
-        console.groupEnd();
-        return report;
-      },
-      minimumBalanceTrendSuspiciousLots: (date: string | Date) => {
-        const report = this.minimumBalanceTrendService.debugMinimumBalanceTrendSuspiciousLots(this.state.snapshot, date);
-        console.groupCollapsed(`[portfolio-debug] minimumBalanceTrendSuspiciousLots ${report.date}`);
-        console.table(report.lots.map((lot) => ({
-          symbol: lot.symbol,
-          sourceTable: lot.sourceTable,
-          currency: lot.currency,
-          positionType: lot.positionType,
-          assetType: lot.assetType,
-          quantity: lot.quantity,
-          historicalPrice: lot.historicalPrice,
-          historicalPriceDate: lot.historicalPriceDate,
-          investedAmount: lot.investedAmount,
-          marketValue: lot.marketValue,
-          ratio: lot.investedAmount && lot.marketValue !== null ? lot.marketValue / lot.investedAmount : null,
-          skipReason: lot.skipReason
-        })));
-        if (report.warnings.length) {
-          console.warn('[portfolio-debug] warnings', report.warnings);
-        }
-        console.groupEnd();
-        return report;
-      },
-      minimumBalanceTrendSkippedLots: (date: string | Date) => {
-        const report = this.minimumBalanceTrendService.debugMinimumBalanceTrendSkippedLots(this.state.snapshot, date);
-        console.groupCollapsed(`[portfolio-debug] minimumBalanceTrendSkippedLots ${report.date}`);
-        console.table(report.skippedLots.map((lot) => ({
-          symbol: lot.symbol,
-          sourceTable: lot.sourceTable,
-          currency: lot.currency,
-          positionType: lot.positionType,
-          assetType: lot.assetType,
-          skipReason: lot.skipReason,
-          investedAmount: lot.investedAmount,
-          quantity: lot.quantity,
-          historicalPrice: lot.historicalPrice,
-          marketValue: lot.marketValue
-        })));
-        console.table(
-          Object.entries(report.skippedByReason).map(([skipReason, count]) => ({
-            skipReason,
-            count
-          }))
-        );
-        if (report.warnings.length) {
-          console.warn('[portfolio-debug] warnings', report.warnings);
-        }
-        console.groupEnd();
-        return report;
-      },
-      minimumBalanceTrendCurrentComparison: () => {
-        const report = this.minimumBalanceTrendService.debugMinimumBalanceTrendCurrentComparison(this.state.snapshot);
-        console.groupCollapsed('[portfolio-debug] minimumBalanceTrendCurrentComparison');
-        console.log(report);
-        console.table([
-          {
-            scope: 'benchmarkSource',
-            benchmarkSourceActual: report.benchmarkSourceActual,
-            benchmarkSourceHistorical: report.benchmarkSourceHistorical
-          },
-          {
-            scope: 'current',
-            comparableValueARS: report.current.comparableValueARS,
-            minimumExpectedARS: report.current.minimumExpectedARS,
-            balanceVsMinimumARS: report.current.balanceVsMinimumARS,
-            balanceVsMinimumPercent: report.current.balanceVsMinimumPercent
-          },
-          {
-            scope: 'lastHistoricalPoint',
-            comparableValueARS: report.lastHistoricalPoint.comparableValueARS,
-            minimumExpectedARS: report.lastHistoricalPoint.minimumExpectedARS,
-            balanceVsMinimumARS: report.lastHistoricalPoint.balanceVsMinimumARS,
-            balanceVsMinimumPercent: report.lastHistoricalPoint.balanceVsMinimumPercent
-          },
-          {
-            scope: 'difference',
-            comparableValueARS: report.difference.comparableValueARS,
-            minimumExpectedARS: report.difference.minimumExpectedARS,
-            balanceVsMinimumARS: report.difference.balanceVsMinimumARS,
-            balanceVsMinimumPercentPoints: report.difference.balanceVsMinimumPercentPoints
-          }
-        ]);
-        console.table(
-          Object.entries(report.omittedByReason).map(([skipReason, count]) => ({
-            skipReason,
-            count
-          }))
-        );
-        if (report.warnings.length) {
-          console.warn('[portfolio-debug] warnings', report.warnings);
-        }
-        console.groupEnd();
-        return report;
-      },
-      minimumBalanceTrendForSymbol: (symbol: string) => {
-        const report = this.minimumBalanceTrendService.debugMinimumBalanceTrendForSymbol(this.state.snapshot, symbol);
-        console.groupCollapsed(`[portfolio-debug] minimumBalanceTrendForSymbol ${report.symbol}`);
-        console.log(report);
-        console.table(
-          report.points.map((point) => ({
-            date: point.date,
-            value: point.value,
-            comparableValueARS: point.meta?.comparableValueARS ?? null,
-            minimumExpectedARS: point.meta?.minimumExpectedARS ?? null,
-            balanceVsMinimumARS: point.meta?.balanceVsMinimumARS ?? null,
-            balanceVsMinimumPercent: point.meta?.balanceVsMinimumPercent ?? null,
-            marketValue: point.meta?.marketValue ?? null,
-            baseCapitalUsed: point.meta?.baseCapitalUsed ?? null,
-            baseCapitalRule: point.meta?.baseCapitalRule ?? null,
-            baseCapitalSource: point.meta?.baseCapitalSource ?? null,
-            historicalPrice: point.meta?.historicalPrice ?? null,
-            historicalPriceDate: point.meta?.historicalPriceDate ?? null,
-            benchmarkRatio: point.meta?.benchmarkRatio ?? null,
-            included: point.meta?.included ?? false,
-            skipReason: point.meta?.skipReason ?? null
-          }))
-        );
-        if (report.warnings.length) {
-          console.warn('[portfolio-debug] warnings', report.warnings);
-        }
-        console.groupEnd();
-        return report;
-      },
-      minimumBalanceTrendForSymbolAtDate: (symbol: string, date: string | Date) => {
-        const report = this.minimumBalanceTrendService.debugMinimumBalanceTrendForSymbolAtDate(this.state.snapshot, symbol, date);
-        console.groupCollapsed(`[portfolio-debug] minimumBalanceTrendForSymbolAtDate ${report.symbol} ${report.date}`);
-        console.log(report);
-        console.table([
-          {
-            symbol: report.symbol,
-            date: report.date,
-            marketValue: report.marketValue,
-            comparableValue: report.comparableValue,
-            minimumExpectedUsed: report.minimumExpectedUsed,
-            balanceVsMinimum: report.balanceVsMinimum,
-            balanceVsMinimumPercent: report.balanceVsMinimumPercent,
-            baseCapitalUsed: report.baseCapitalUsed,
-            baseCapitalRule: report.baseCapitalRule,
-            baseCapitalSource: report.baseCapitalSource,
-            historicalPrice: report.historicalPrice,
-            historicalPriceDate: report.historicalPriceDate,
-            benchmarkRatio: report.benchmarkRatio,
-            included: report.included,
-            skipReason: report.skipReason
-          }
-        ]);
-        if (report.warnings.length) {
-          console.warn('[portfolio-debug] warnings', report.warnings);
-        }
-        console.groupEnd();
-        return report;
-      }
-    };
   }
 
   private filterHistoricalByPeriod<T extends { date: string | Date | null }>(values: T[], period: DatePeriod, startDate: string, endDate: string): T[] {

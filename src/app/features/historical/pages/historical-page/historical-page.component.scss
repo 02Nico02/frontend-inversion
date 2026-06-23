@@ -22,22 +22,6 @@
   margin: 0.35rem 0 0;
 }
 
-.diagnostic-toolbar {
-  display: flex;
-  gap: 0.75rem;
-  align-items: end;
-  flex-wrap: wrap;
-  margin-top: 0.85rem;
-}
-
-.diagnostic-date {
-  min-width: 220px;
-}
-
-.diagnostic-button {
-  align-self: end;
-}
-
 .panel {
   background: var(--panel);
   border: 1px solid var(--panel-border);

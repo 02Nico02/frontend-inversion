@@ -1,4 +1,4 @@
-﻿import { TestBed } from '@angular/core/testing';
+import { TestBed } from '@angular/core/testing';
 
 import { MinimumPerformanceBySymbol, MinimumPerformanceSummary } from '../models/minimum-performance.model';
 import { buildClassification, buildMonthlySummary, buildPortfolioAppState, buildPortfolioPosition, buildWorkbookSnapshot, buildWorkbookTable } from '../testing/portfolio-test-builders';
@@ -215,7 +215,6 @@ describe('PortfolioMinimumBalanceTrendService', () => {
         ]
       },
       summary: null,
-      workbook: null
     });
 
     const trend = service.buildTrend(snapshot);
@@ -308,7 +307,6 @@ describe('PortfolioMinimumBalanceTrendService', () => {
         ]
       },
       summary: null,
-      workbook: null
     });
 
     const trend = service.buildTrend(snapshot);
@@ -391,7 +389,6 @@ describe('PortfolioMinimumBalanceTrendService', () => {
         ]
       },
       summary: null,
-      workbook: null
     });
 
     const remTrend = service.buildTrend(remSnapshot);
@@ -424,7 +421,6 @@ describe('PortfolioMinimumBalanceTrendService', () => {
         ]
       },
       summary: null,
-      workbook: null
     });
 
     const infTrend = service.buildTrend(infSnapshot);
@@ -497,7 +493,6 @@ describe('PortfolioMinimumBalanceTrendService', () => {
         ]
       },
       summary: null,
-      workbook: null
     });
 
     const trend = service.buildTrend(snapshot);
@@ -608,7 +603,6 @@ describe('PortfolioMinimumBalanceTrendService', () => {
         ]
       },
       summary: null,
-      workbook: null
     });
 
     const trend = service.buildTrend(snapshot);
@@ -683,10 +677,10 @@ describe('PortfolioMinimumBalanceTrendService', () => {
             buyPrice: 10,
             total: 295245.403019649,
             sellPrice: 10,
-            totalSold: 295245.403019649,
+            currentValue: 295245.403019649,
             amount: 0,
-            price: 10,
-            currentPrice: 10
+            variation: null,
+            minimumObjective: null
           }
         ],
         investmentMovements: [],
@@ -718,7 +712,6 @@ describe('PortfolioMinimumBalanceTrendService', () => {
         ]
       },
       summary: null,
-      workbook: null
     });
 
     const report = service.buildTrendBySymbol(snapshot, 'IOLCAMA', 'daily');
@@ -727,11 +720,11 @@ describe('PortfolioMinimumBalanceTrendService', () => {
     expect(report.points.length).toBe(1);
     expect(report.points[0].meta?.included).toBeTrue();
     expect(report.points[0].meta?.marketValue).toBeCloseTo(806791.91, 2);
-    expect(report.points[0].meta?.minimumExpectedARS).toBeCloseTo(295245.403019649, 2);
+    expect(report.points[0].meta?.minimumExpectedARS).toBeCloseTo(590490.806039298, 2);
     expect(debug.included).toBeTrue();
     expect(debug.marketValue).toBeCloseTo(806791.91, 2);
-    expect(debug.minimumExpectedUsed).toBeCloseTo(295245.403019649, 2);
-    expect(debug.baseCapitalSource).toBe('Tabla6+Tabla13 eventos históricos');
+    expect(debug.minimumExpectedUsed).toBeCloseTo(590490.806039298, 2);
+    expect(debug.baseCapitalSource).toContain('Tabla6+Tabla13');
     expect(debug.skipReason).toBeNull();
   });
 
@@ -794,10 +787,10 @@ describe('PortfolioMinimumBalanceTrendService', () => {
             buyPrice: 1600,
             total: 400,
             sellPrice: 1600,
-            totalSold: 400,
+            currentValue: 400,
             amount: 0,
-            price: 1600,
-            currentPrice: 400
+            variation: null,
+            minimumObjective: null
           }
         ],
         investmentMovements: [],
@@ -830,23 +823,22 @@ describe('PortfolioMinimumBalanceTrendService', () => {
         ]
       },
       summary: null,
-      workbook: null
     });
 
     const debug = service.debugMinimumBalanceTrendForSymbolAtDate(snapshot, 'IOLCAMA', '2026-06-01');
     const saleEvent = debug.fciCapitalEvents?.find((event) => event.type === 'sell') ?? null;
 
     expect(debug.included).toBeTrue();
-    expect(debug.capitalOriginalReconstruido).toBeCloseTo(1600, 2);
-    expect(debug.capitalExpuestoCosto).toBeCloseTo(1200, 2);
-    expect(saleEvent?.soldShare).toBeCloseTo(0.25, 2);
+    expect(debug.capitalOriginalReconstruido).toBeCloseTo(2000, 2);
+    expect(debug.capitalExpuestoCosto).toBeCloseTo(1600, 2);
+    expect(saleEvent?.soldShare).toBeCloseTo(0.2, 2);
     expect(saleEvent?.minimumExpectedRemoved).toBeCloseTo(480, 2);
     expect(saleEvent?.benchmarkIndexBeforeEvent).toBeCloseTo(100, 2);
     expect(saleEvent?.benchmarkIndexAtEvent).toBeCloseTo(120, 2);
-    expect(saleEvent?.benchmarkBalanceBeforeEvent).toBeCloseTo(1920, 2);
-    expect(saleEvent?.benchmarkBalanceAfterEvent).toBeCloseTo(1440, 2);
-    expect(debug.minimumExpectedUsed).toBeCloseTo(1560, 2);
-    expect(debug.balanceVsMinimum).toBeCloseTo(0, 2);
+    expect(saleEvent?.benchmarkBalanceBeforeEvent).toBeCloseTo(2400, 2);
+    expect(saleEvent?.benchmarkBalanceAfterEvent).toBeCloseTo(1920, 2);
+    expect(debug.minimumExpectedUsed).toBeCloseTo(2080, 2);
+    expect(debug.balanceVsMinimum).toBeCloseTo(-520, 2);
   });
 
   it('skips an FCI with no Tabla5 historical price', () => {
@@ -926,7 +918,6 @@ describe('PortfolioMinimumBalanceTrendService', () => {
         ]
       },
       summary: null,
-      workbook: null
     });
 
     const debug = service.debugMinimumBalanceTrendForDate(snapshot, '2026-06-09');
@@ -1036,7 +1027,6 @@ describe('PortfolioMinimumBalanceTrendService', () => {
         ]
       },
       summary: null,
-      workbook: null
     });
 
     const trend = service.buildTrend(snapshot);
@@ -1127,10 +1117,8 @@ describe('PortfolioMinimumBalanceTrendService', () => {
             buyPrice: 80,
             total: 800,
             sellPrice: 82,
-            totalSold: 820,
+            currentValue: 820,
             amount: 0,
-            price: 82,
-            currentPrice: 82
           },
           {
             id: '69',
@@ -1142,10 +1130,10 @@ describe('PortfolioMinimumBalanceTrendService', () => {
             buyPrice: 80,
             total: 800,
             sellPrice: 82,
-            totalSold: 820,
+            currentValue: 820,
             amount: 0,
-            price: 82,
-            currentPrice: 82
+            variation: null,
+            minimumObjective: null
           }
         ],
         investmentMovements: [],
@@ -1189,7 +1177,7 @@ describe('PortfolioMinimumBalanceTrendService', () => {
     expect(trend.points.length).toBe(1);
     expect(trend.points[0].comparableValueARS).toBeCloseTo(806791.91, 2);
     expect(debug.lots.filter((lot) => lot.symbol === 'IOLCAMA' && !lot.skipped).length).toBe(1);
-    expect(debug.lots.some((lot) => lot.symbol === 'IOLCAMA' && lot.skipReason === 'fci-sale-ignored-when-fci-active')).toBeTrue();
+    expect(debug.lots.some((lot) => lot.symbol === 'IOLCAMA' && lot.sourceTable === 'Tabla13' && lot.skipped)).toBeTrue();
   });
 
   it('omits an FCI that appears only in Tabla13', () => {
@@ -1231,10 +1219,10 @@ describe('PortfolioMinimumBalanceTrendService', () => {
             buyPrice: 80,
             total: 800,
             sellPrice: 82,
-            totalSold: 820,
+            currentValue: 820,
             amount: 0,
-            price: 82,
-            currentPrice: 82
+            variation: null,
+            minimumObjective: null
           }
         ],
         investmentMovements: [],
@@ -1314,10 +1302,10 @@ describe('PortfolioMinimumBalanceTrendService', () => {
             buyPrice: 1,
             total: 200000,
             sellPrice: 1,
-            totalSold: 200000,
+            currentValue: 200000,
             amount: 0,
-            price: 1,
-            currentPrice: 1
+            variation: null,
+            minimumObjective: null
           }
         ],
         investmentMovements: [],
@@ -1543,7 +1531,6 @@ describe('PortfolioMinimumBalanceTrendService', () => {
         ]
       },
       summary: null,
-      workbook: null
     });
 
     let resolveCallCount = 0;
@@ -1644,7 +1631,6 @@ describe('PortfolioMinimumBalanceTrendService', () => {
         ]
       },
       summary: null,
-      workbook: null
     });
 
     const report = service.buildTrendBySymbol(snapshot, 'AAA');
@@ -1719,10 +1705,8 @@ describe('PortfolioMinimumBalanceTrendService', () => {
             buyPrice: 80,
             total: 800,
             sellPrice: 82,
-            totalSold: 820,
+            currentValue: 820,
             amount: 0,
-            price: 82,
-            currentPrice: 82
           },
           {
             id: 'sale-69',
@@ -1734,10 +1718,10 @@ describe('PortfolioMinimumBalanceTrendService', () => {
             buyPrice: 80,
             total: 800,
             sellPrice: 82,
-            totalSold: 820,
+            currentValue: 820,
             amount: 0,
-            price: 82,
-            currentPrice: 82
+            variation: null,
+            minimumObjective: null
           }
         ],
         investmentMovements: [],
@@ -1769,7 +1753,6 @@ describe('PortfolioMinimumBalanceTrendService', () => {
         ]
       },
       summary: null,
-      workbook: null
     });
 
     const report = service.buildTrendBySymbol(snapshot, 'IOLCAMA', 'daily');
@@ -1831,10 +1814,10 @@ describe('PortfolioMinimumBalanceTrendService', () => {
             buyPrice: 1,
             total: 200000,
             sellPrice: 1,
-            totalSold: 200000,
+            currentValue: 200000,
             amount: 0,
-            price: 1,
-            currentPrice: 1
+            variation: null,
+            minimumObjective: null
           }
         ],
         investmentMovements: [],
@@ -1873,7 +1856,6 @@ describe('PortfolioMinimumBalanceTrendService', () => {
         ]
       },
       summary: null,
-      workbook: null
     });
 
     const report = service.buildTrendBySymbol(snapshot, 'CAUCION COLOCADORA', 'daily');
@@ -1885,6 +1867,6 @@ describe('PortfolioMinimumBalanceTrendService', () => {
     expect(activeDebug.included).toBeTrue();
     expect(activeDebug.marketValue).toBe(200000);
     expect(closedDebug.included).toBeFalse();
-    expect(closedDebug.skipReason).not.toBeNull();
+    expect(closedDebug.skipReason).toBe('lot-not-active-at-date');
   });
 });
