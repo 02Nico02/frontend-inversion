@@ -34,11 +34,11 @@
       <div class="movement-range-grid">
         <label>
           Desde
-          <input type="date" [ngModel]="movementDateRange?.from" (ngModelChange)="onDateChange('from', $event)" />
+          <input type="date" [ngModel]="movementDateForInput(movementDateRange?.from)" (ngModelChange)="onDateChange('from', $event)" />
         </label>
         <label>
           Hasta
-          <input type="date" [ngModel]="movementDateRange?.to" (ngModelChange)="onDateChange('to', $event)" />
+          <input type="date" [ngModel]="movementDateForInput(movementDateRange?.to)" (ngModelChange)="onDateChange('to', $event)" />
         </label>
       </div>
       <p class="muted">Rango analizado: {{ vm.rangeLabel }} · Preset: {{ vm.rangePresetLabel }}</p>

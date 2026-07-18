@@ -143,7 +143,7 @@ export class PortfolioMilestonesService {
       case 'portfolio-value':
         return 'Valor del portafolio';
       case 'daily-balance':
-        return 'Balance diario';
+        return 'Resultado del día';
       case 'monthly-performance':
         return 'Rendimiento mensual';
       case 'real-performance':

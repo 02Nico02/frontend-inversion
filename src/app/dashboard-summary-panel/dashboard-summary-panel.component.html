@@ -62,15 +62,18 @@
           <strong>{{ summary.worstPosition?.symbol || 'N/D' }}</strong>
         </div>
         <div class="metric-cell">
-          <span>Último balance</span>
+          <span>Resultado del día</span>
           <strong>{{ summary.latestBalance !== null ? formatNumber(summary.latestBalance) : 'N/D' }}</strong>
         </div>
         <div class="metric-cell">
-          <span>Fecha último balance</span>
+          <span>Fecha del resultado del día</span>
           <strong>{{ summary.latestBalanceDate ? formatDateLabel(summary.latestBalanceDate) : 'N/D' }}</strong>
         </div>
       </div>
-      <p class="metric-note">Los valores de resultado mostrados en este resumen son nominales: valor actual menos total invertido.</p>
+      <p class="metric-note">
+        Los valores de resultado mostrados en este resumen son nominales: valor actual menos total invertido.
+        El resultado del día es la variación agregada de las especies respecto del día anterior; no es el valor del portafolio.
+      </p>
     </article>
   </div>
   <ng-template #emptySummary>
@@ -80,3 +83,4 @@
     </div>
   </ng-template>
 </section>
+

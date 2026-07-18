@@ -1596,16 +1596,15 @@ export class GptPortfolioExportService {
 
   private latestBalanceMarkdown(latest: LatestBalanceDigest): string {
     return [
-      '## Balance diario',
-      `- Ultimo balance: ${latest.currentValue ?? 'N/D'}`,
-      `- Fecha ultimo balance: ${latest.currentDate ?? 'N/D'}`,
-      `- Balance anterior: ${latest.previousValue ?? 'N/D'}`,
-      `- Variacion ultimo dia: ${latest.delta ?? 'N/D'}`,
-      `- Variacion ultimo dia %: ${latest.deltaPercent ?? 'N/D'}`,
-      `- Mejor balance diario: ${latest.bestValue ?? 'N/D'}`,
-      `- Fecha mejor balance: ${latest.bestDate ?? 'N/D'}`,
-      `- Peor balance diario: ${latest.worstValue ?? 'N/D'}`,
-      `- Fecha peor balance: ${latest.worstDate ?? 'N/D'}`
+      '## Resultado del día',
+      '- Este valor no es el valor del portafolio. Es la suma diaria por especie de la diferencia entre el precio actual y el del día anterior.',
+      `- Resultado del día actual: ${latest.currentValue ?? 'N/D'}`,
+      `- Fecha del resultado del día: ${latest.currentDate ?? 'N/D'}`,
+      `- Resultado del día anterior: ${latest.previousValue ?? 'N/D'}`,
+      `- Mejor resultado diario: ${latest.bestValue ?? 'N/D'}`,
+      `- Fecha mejor resultado: ${latest.bestDate ?? 'N/D'}`,
+      `- Peor resultado diario: ${latest.worstValue ?? 'N/D'}`,
+      `- Fecha peor resultado: ${latest.worstDate ?? 'N/D'}`
     ].join('\n');
   }
 
@@ -2497,3 +2496,4 @@ export class GptPortfolioExportService {
     return 'OK';
   }
 }
+

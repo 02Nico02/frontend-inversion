@@ -79,13 +79,24 @@ export class MovementDateRangeService {
       return fallback;
     }
 
-    if (parsed.from.getTime() < bounds.from.getTime() || parsed.to.getTime() > bounds.to.getTime()) {
-      return fallback;
+    const clampedFrom = new Date(Math.max(parsed.from.getTime(), bounds.from.getTime()));
+    const clampedTo = new Date(Math.min(parsed.to.getTime(), bounds.to.getTime()));
+
+    if (clampedFrom.getTime() > clampedTo.getTime()) {
+      const boundary = parsed.to.getTime() > bounds.to.getTime() ? bounds.to : bounds.from;
+      if (!boundary) {
+        return fallback;
+      }
+      return {
+        from: this.formatDate(boundary),
+        to: this.formatDate(boundary),
+        preset
+      };
     }
 
     return {
-      from: this.formatDate(parsed.from),
-      to: this.formatDate(parsed.to),
+      from: this.formatDate(clampedFrom),
+      to: this.formatDate(clampedTo),
       preset
     };
   }
