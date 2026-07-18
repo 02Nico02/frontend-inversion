@@ -89,9 +89,10 @@ export class DecisionOpportunitiesService {
 
   private buildMinimumBenchmarkReview(snapshot: PortfolioAppState): DecisionMinimumBenchmarkReview {
     const minimumBySymbol = this.minimumPerformanceService.buildMinimumPerformanceBySymbol(snapshot);
-    const items = minimumBySymbol
+    const eligibleItems = minimumBySymbol
       .filter((item) => this.isReviewableMinimum(item))
-      .sort((a, b) => (a.valueVsMinimumPercent ?? 0) - (b.valueVsMinimumPercent ?? 0))
+      .sort((a, b) => (a.valueVsMinimumPercent ?? 0) - (b.valueVsMinimumPercent ?? 0));
+    const items = eligibleItems
       .slice(0, 5)
       .map((item) => ({
         symbol: item.symbol,
@@ -101,11 +102,11 @@ export class DecisionOpportunitiesService {
         reason: this.minimumReason(item)
       }));
 
-    const totalDeficitAmount = items.reduce((sum, item) => sum + item.valueVsMinimumAmount, 0);
+    const totalDeficitAmount = eligibleItems.reduce((sum, item) => sum + (item.valueVsMinimumAmount ?? 0), 0);
     const summary = this.minimumPerformanceService.buildMinimumPerformanceSummary(snapshot);
 
     return {
-      totalBelowMinimum: items.length,
+      totalBelowMinimum: eligibleItems.length,
       totalDeficitAmount,
       items,
       summary

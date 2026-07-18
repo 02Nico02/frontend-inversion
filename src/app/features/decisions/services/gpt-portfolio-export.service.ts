@@ -102,6 +102,11 @@ interface ExportPositionRow {
   resultadoEfectivoPercent: string;
   resultadoMonto: string;
   resultadoPercent: string;
+  valorComparable: string;
+  minimoEsperado: string;
+  vsMinimo: string;
+  percentVsMinimo: string;
+  estadoBenchmark: string;
   pesoPercent: string;
   alertas: string;
   estadoSemaforo: string;
@@ -217,6 +222,8 @@ interface ExportBenchmarkMinimum {
     status: string;
     description: string;
   } | null;
+  totalBelowMinimum: number;
+  positionsBelowMinimumShown: number;
   positionsBelowMinimum: Array<{
     especie: string;
     moneda: string;
@@ -652,6 +659,18 @@ export class GptPortfolioExportService {
     return ordered.map((position) => {
       const alert = alertIndex.get(position.symbol.toUpperCase()) ?? null;
       const effective = effectivePositionMap.get(this.positionEffectiveKey(position.symbol, position.currency)) ?? null;
+      const minimum = effective?.minimumPerformance ?? null;
+      const benchmarkAvailable = Boolean(
+        minimum &&
+        minimum.minimumExpectedValue !== null &&
+        minimum.valueVsMinimumAmount !== null &&
+        minimum.valueVsMinimumPercent !== null
+      );
+      const benchmarkState = !minimum || !benchmarkAvailable
+        ? 'SIN_BENCHMARK'
+        : (minimum.valueVsMinimumAmount ?? 0) < 0
+          ? 'BAJO_MINIMO'
+          : 'SOBRE_MINIMO';
       const status = this.positionStatus(position, alert, effective);
       const alertLabel = alert && alert.count > 0
         ? `${alert.count} alertas · ${alert.nearestNote ? `próxima: ${alert.nearestNote}` : 'sin nota'} · ${alert.nearestStatus}`
@@ -674,6 +693,11 @@ export class GptPortfolioExportService {
         resultadoEfectivoPercent: this.maskOrFormatPercent(effective?.effectiveResultPercent ?? position.resultPercent, options),
         resultadoMonto: this.maskOrFormatMoney(effective?.effectiveResultAmount ?? position.resultAmount, position.currency, options),
         resultadoPercent: this.maskOrFormatPercent(effective?.effectiveResultPercent ?? position.resultPercent, options),
+        valorComparable: this.maskOrFormatMoney(minimum?.comparableValue ?? null, position.currency, options),
+        minimoEsperado: this.maskOrFormatMoney(minimum?.minimumExpectedValue ?? null, position.currency, options),
+        vsMinimo: this.maskOrFormatMoney(minimum?.valueVsMinimumAmount ?? null, position.currency, options),
+        percentVsMinimo: this.maskOrFormatPercent(minimum?.valueVsMinimumPercent ?? null, options),
+        estadoBenchmark: benchmarkState,
         pesoPercent: this.maskOrFormatPercent(position.portfolioWeight, options),
         alertas: alertLabel,
         estadoSemaforo: status.status,
@@ -1084,6 +1108,8 @@ export class GptPortfolioExportService {
 
     return {
       summary,
+      totalBelowMinimum: review.totalBelowMinimum,
+      positionsBelowMinimumShown: review.items.length,
       positionsBelowMinimum: review.items.map((item) => ({
         especie: item.symbol,
         moneda: item.currency,
@@ -1544,7 +1570,8 @@ export class GptPortfolioExportService {
       `- Resultado ARS: ${exportData.summary.ars.totalResult}`,
       `- Resultado USD: ${exportData.summary.usd.totalResult}`,
       `- Balance vs mínimo ARS: ${exportData.benchmarkMinimum.summary?.balanceVsMinimumArs ?? 'N/D'} / ${exportData.benchmarkMinimum.summary?.balanceVsMinimumPercentArs ?? 'N/D'}`,
-      `- Posiciones bajo benchmark mínimo: ${exportData.benchmarkMinimum.positionsBelowMinimum.length}`,
+      `- Posiciones bajo benchmark mínimo: ${exportData.benchmarkMinimum.totalBelowMinimum}`,
+      `- Peores posiciones bajo benchmark mínimo mostradas: ${exportData.benchmarkMinimum.positionsBelowMinimumShown}`,
       `- Alertas activadas: ${this.activatedAlertSymbols(exportData).slice(0, 5).join(', ') || 'N/D'}`,
       `- Principales posiciones por peso: ${exportData.concentration.ranking.slice(0, 5).map((item) => item.symbol).join(', ') || 'N/D'}`,
       `- Mayor concentracion por tipo de activo: ${exportData.concentration.largestAssetType?.label ?? 'N/D'}`,
@@ -1631,6 +1658,11 @@ export class GptPortfolioExportService {
           { header: 'Resultado nominal %', key: 'resultadoNominalPercent' },
           { header: 'Resultado efectivo $', key: 'resultadoEfectivoMonto' },
           { header: 'Resultado efectivo %', key: 'resultadoEfectivoPercent' },
+          { header: 'Valor comparable', key: 'valorComparable' },
+          { header: 'Mínimo esperado', key: 'minimoEsperado' },
+          { header: 'Vs mínimo', key: 'vsMinimo' },
+          { header: '% vs mínimo', key: 'percentVsMinimo' },
+          { header: 'Estado benchmark', key: 'estadoBenchmark' },
           { header: 'Peso %', key: 'pesoPercent' }
         ]
       : [
@@ -1647,6 +1679,11 @@ export class GptPortfolioExportService {
           { header: 'Total actual', key: 'totalActual' },
           { header: 'Resultado efectivo $', key: 'resultadoEfectivoMonto' },
           { header: 'Resultado efectivo %', key: 'resultadoEfectivoPercent' },
+          { header: 'Valor comparable', key: 'valorComparable' },
+          { header: 'Mínimo esperado', key: 'minimoEsperado' },
+          { header: 'Vs mínimo', key: 'vsMinimo' },
+          { header: '% vs mínimo', key: 'percentVsMinimo' },
+          { header: 'Estado benchmark', key: 'estadoBenchmark' },
           { header: 'Peso %', key: 'pesoPercent' }
         ];
 
@@ -1682,12 +1719,15 @@ export class GptPortfolioExportService {
       `- Valor comparable ARS: ${summary.currentComparableArs ?? 'N/D'}`,
       `- Mínimo esperado ARS: ${summary.minimumExpectedArs ?? 'N/D'}`,
       `- Posiciones ARS comparables: ${summary.comparableLotsCount}`,
-      `- Posiciones debajo del mínimo: ${review.items.length}`,
+      `- Posiciones debajo del mínimo: ${exportData.benchmarkMinimum.totalBelowMinimum}`,
+      `- Posiciones listadas abajo: ${exportData.benchmarkMinimum.positionsBelowMinimumShown}`,
       '- Nota: el valor comparable no es el valor de mercado; se usa solo para comparar contra el mínimo esperado.'
     ];
 
     if (exportData.benchmarkMinimum.positionsBelowMinimum.length) {
-      lines.push('', '### Posiciones bajo benchmark mínimo');
+      lines.push('', '### Peores posiciones bajo benchmark mínimo');
+      lines.push('> Esta tabla muestra solo las peores posiciones por % vs mínimo.');
+      lines.push('> El listado completo está en “Posiciones actuales”, columnas `Valor comparable`, `Mínimo esperado`, `Vs mínimo`, `% vs mínimo` y `Estado benchmark`.');
       lines.push(this.tableFromRows(exportData.benchmarkMinimum.positionsBelowMinimum, [
         { header: 'Especie', key: 'especie' },
         { header: 'Moneda', key: 'moneda' },
@@ -2225,7 +2265,7 @@ export class GptPortfolioExportService {
     }
 
     if (exportData.benchmarkMinimum.positionsBelowMinimum.length) {
-      focus.push(`Posiciones bajo benchmark mínimo: ${exportData.benchmarkMinimum.positionsBelowMinimum.slice(0, 5).map((item) => item.especie).join(', ')}.`);
+      focus.push(`Peores posiciones bajo benchmark mínimo: ${exportData.benchmarkMinimum.positionsBelowMinimum.slice(0, 5).map((item) => item.especie).join(', ')}.`);
     }
 
     if (activatedAlerts.length) {
