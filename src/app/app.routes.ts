@@ -9,6 +9,7 @@ import { ConcentrationPageComponent } from './features/concentration/pages/conce
 import { DecisionsPageComponent } from './features/decisions/pages/decisions-page/decisions-page.component';
 import { StrategyPageComponent } from './features/strategy/pages/strategy-page/strategy-page.component';
 import { DataReviewPageComponent } from './features/data-review/pages/data-review-page/data-review-page.component';
+import { ResearchPageComponent } from './features/research/pages/research-page/research-page.component';
 import { ImportPageComponent } from './features/import/pages/import-page/import-page.component';
 import { HelpPageComponent } from './features/settings/pages/help-page/help-page.component';
 import { workbookLoadedGuard } from './core/guards/workbook-loaded.guard';
@@ -25,6 +26,7 @@ export const appRoutes: Routes = [
   { path: 'decisiones', component: DecisionsPageComponent, canActivate: [workbookLoadedGuard] },
   { path: 'estrategia', component: StrategyPageComponent, canActivate: [workbookLoadedGuard] },
   { path: 'datos-a-revisar', component: DataReviewPageComponent, canActivate: [workbookLoadedGuard] },
+  { path: 'datos-gpt', component: ResearchPageComponent, canActivate: [workbookLoadedGuard] },
   { path: 'importacion', component: ImportPageComponent },
   { path: 'configuracion', component: HelpPageComponent, canActivate: [workbookLoadedGuard] },
   { path: '**', redirectTo: 'importacion' }

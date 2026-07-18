@@ -1,0 +1,146 @@
+<section class="page" *ngIf="state.snapshot as snapshot">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Datos GPT</p>
+      <h2>Investigación de especies para ChatGPT</h2>
+      <p class="lead">Armá plantillas editables por especie, guardalas localmente y exportalas en Markdown listo para pegar.</p>
+    </div>
+
+    <div class="actions">
+      <button type="button" class="secondary" (click)="copyMarkdown()" [disabled]="!selectedAssets.length">Copiar Markdown</button>
+      <button type="button" class="primary" (click)="exportMarkdown()" [disabled]="!selectedAssets.length">Exportar .md</button>
+      <button type="button" class="secondary" (click)="clearItems()" [disabled]="!selectedAssets.length">Limpiar lista</button>
+    </div>
+  </header>
+
+  <ng-container *ngIf="snapshot.dataset as dataset; else emptyState">
+    <div class="status-line" *ngIf="copyStatus || exportStatus">
+      <p *ngIf="copyStatus">{{ copyStatus }}</p>
+      <p *ngIf="exportStatus">{{ exportStatus }}</p>
+    </div>
+
+    <div class="research-layout">
+      <article class="panel selector-panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Selector</p>
+            <h3>Especies actuales del portafolio</h3>
+          </div>
+          <strong class="badge">{{ filteredPositions.length }} visibles</strong>
+        </div>
+
+        <label class="search-box">
+          <span>Buscar especie...</span>
+          <input type="search" [(ngModel)]="searchTerm" placeholder="MSFT, ETF, bono, cripto..." />
+        </label>
+
+        <div class="positions-empty" *ngIf="!hasPositions">
+          <strong>No hay posiciones cargadas.</strong>
+          <p>Importá el Excel para empezar a armar la lista de investigación.</p>
+        </div>
+
+        <div class="table-wrap" *ngIf="hasPositions">
+          <table class="table compact">
+            <thead>
+              <tr>
+                <th>Símbolo</th>
+                <th>Tipo activo</th>
+                <th>Sector</th>
+                <th>Región</th>
+                <th class="num">Peso %</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let position of filteredPositions; trackBy: trackByPosition">
+                <td><strong>{{ position.symbol }}</strong></td>
+                <td>{{ position.assetType || position.positionType || 'N/D' }}</td>
+                <td>{{ position.sector || 'N/D' }}</td>
+                <td>{{ position.region || 'N/D' }}</td>
+                <td class="num">{{ position.portfolioWeight | number:'1.2-2' }}%</td>
+                <td class="num">
+                  <button type="button" class="secondary small" (click)="addPosition(position)" [disabled]="isSelected(position)">
+                    {{ isSelected(position) ? 'Agregada' : 'Agregar' }}
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="panel preview-panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Preview</p>
+            <h3>Markdown generado</h3>
+          </div>
+          <strong class="badge">{{ selectedAssets.length }} seleccionadas</strong>
+        </div>
+
+        <textarea class="markdown-preview" readonly [value]="markdownPreview"></textarea>
+      </article>
+    </div>
+
+    <section class="selected-section">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Lista editable</p>
+          <h3>Especies seleccionadas</h3>
+        </div>
+        <span class="hint">Se guarda automáticamente en localStorage.</span>
+      </div>
+
+      <div class="empty-selection panel" *ngIf="!selectedAssets.length">
+        <strong>No hay especies seleccionadas.</strong>
+        <p>Agregá una especie desde la tabla de la izquierda para empezar.</p>
+      </div>
+
+      <div class="cards-grid" *ngIf="selectedAssets.length">
+        <article class="asset-card panel" *ngFor="let item of selectedAssets; trackBy: trackByItem">
+          <div class="asset-card-head">
+            <div>
+              <p class="eyebrow">{{ item.portfolioSymbol }}</p>
+              <h4>{{ item.portfolioSymbol }} · {{ templateLabel(item.kind) }}</h4>
+              <p class="subtle">{{ item.assetType || 'Sin tipo' }} · {{ item.sector || 'Sin sector' }} · {{ item.region || 'Sin región' }}</p>
+            </div>
+            <button type="button" class="ghost small" (click)="removeItem(item.id)">Eliminar</button>
+          </div>
+
+          <label class="field">
+            <span>Tipo de plantilla</span>
+            <select [ngModel]="item.kind" (ngModelChange)="updateKind(item.id, $event)">
+              <option *ngFor="let template of templateService.templates" [ngValue]="template.kind">{{ template.label }}</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Símbolo búsqueda</span>
+            <input type="text" [ngModel]="item.querySymbol" (ngModelChange)="updateQuerySymbol(item.id, $event)" />
+          </label>
+
+          <div class="field-grid">
+            <label class="field" *ngFor="let field of item.fields; trackBy: trackByField">
+              <span>{{ field.label }}</span>
+              <input type="text" [ngModel]="field.value" (ngModelChange)="updateField(item.id, field.label, $event)" />
+            </label>
+          </div>
+
+          <label class="field">
+            <span>Notas</span>
+            <textarea rows="3" [ngModel]="item.notes" (ngModelChange)="updateNotes(item.id, $event)"></textarea>
+          </label>
+        </article>
+      </div>
+    </section>
+  </ng-container>
+
+  <ng-template #emptyState>
+    <article class="panel empty">
+      <h3>No hay datos cargados</h3>
+      <p>Importá el Excel para habilitar la lista de especies disponibles.</p>
+      <a routerLink="/importacion" class="button">Cargar Excel</a>
+    </article>
+  </ng-template>
+</section>
+

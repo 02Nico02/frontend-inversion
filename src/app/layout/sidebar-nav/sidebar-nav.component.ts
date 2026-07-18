@@ -24,6 +24,7 @@ export class SidebarNavComponent {
     { label: 'Concentracion', path: '/concentracion' },
     { label: 'Decisiones', path: '/decisiones' },
     { label: 'Estrategia', path: '/estrategia' },
+    { label: 'Datos GPT', path: '/datos-gpt' },
     { label: 'Datos a revisar', path: '/datos-a-revisar' },
     { label: 'Importacion', path: '/importacion' },
     { label: 'Configuracion', path: '/configuracion' }

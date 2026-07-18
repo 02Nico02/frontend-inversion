@@ -1,0 +1,102 @@
+.research-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.panel-head,
+.section-head,
+.asset-card-head,
+.page-header .actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.search-box,
+.field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.search-box input,
+.field input,
+.field select,
+.field textarea,
+.markdown-preview {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 13, 32, 0.92);
+  color: inherit;
+  padding: 0.8rem 0.9rem;
+}
+
+.search-box {
+  margin-bottom: 1rem;
+}
+
+.positions-empty,
+.empty-selection,
+.status-line {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.status-line {
+  margin-bottom: 1rem;
+  color: #a7f3d0;
+}
+
+.preview-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.markdown-preview {
+  min-height: 34rem;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+  white-space: pre;
+}
+
+.selected-section {
+  margin-top: 1.5rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1rem;
+}
+
+.asset-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.8rem;
+}
+
+.small {
+  padding: 0.55rem 0.8rem;
+}
+
+.subtle,
+.hint {
+  color: rgba(222, 229, 255, 0.72);
+}
+
+@media (max-width: 1100px) {
+  .research-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
