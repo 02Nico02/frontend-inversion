@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { PortfolioPosition } from '../../../core/models/portfolio.models';
+import { ResearchDataSource } from '../models/research-provider.models';
 import { ResearchAssetField, ResearchAssetItem, ResearchAssetKind, ResearchTemplateDefinition } from '../models/research.models';
 
 const TEMPLATE_DEFINITIONS: ResearchTemplateDefinition[] = [
@@ -169,6 +170,7 @@ export class ResearchTemplateService {
     const querySymbol = this.normalizeSymbol(raw.querySymbol ?? raw.portfolioSymbol ?? '');
     const templateFields = this.templateFields(kind);
     const existingFields = new Map((raw.fields ?? []).map((field) => [this.normalizeLabel(field.label), field.value] as const));
+    const source = this.isSource(raw.source) ? raw.source : 'manual';
 
     return {
       id: String(raw.id ?? this.createId()),
@@ -178,7 +180,7 @@ export class ResearchTemplateService {
       assetType: raw.assetType ?? undefined,
       sector: raw.sector ?? undefined,
       region: raw.region ?? undefined,
-      source: 'manual',
+      source,
       fields: templateFields.map((label) => ({
         label,
         value: existingFields.get(this.normalizeLabel(label)) ?? ''
@@ -203,6 +205,10 @@ export class ResearchTemplateService {
 
   isKind(value: unknown): value is ResearchAssetKind {
     return value === 'stock' || value === 'etf' || value === 'arg_bond' || value === 'crypto' || value === 'manual';
+  }
+
+  isSource(value: unknown): value is ResearchDataSource {
+    return value === 'manual' || value === 'alpha_vantage' || value === 'coingecko' || value === 'mixed';
   }
 
   private templateFor(kind: ResearchAssetKind): ResearchTemplateDefinition {
@@ -240,4 +246,3 @@ export class ResearchTemplateService {
     return new Date().toISOString();
   }
 }
-

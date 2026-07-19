@@ -13,7 +13,7 @@ export interface ResearchAssetItem {
   assetType?: string;
   sector?: string;
   region?: string;
-  source: 'manual';
+  source: 'manual' | 'alpha_vantage' | 'coingecko' | 'mixed';
   fields: ResearchAssetField[];
   notes?: string;
   updatedAt: string;
@@ -25,4 +25,3 @@ export interface ResearchTemplateDefinition {
   description: string;
   fields: string[];
 }
-

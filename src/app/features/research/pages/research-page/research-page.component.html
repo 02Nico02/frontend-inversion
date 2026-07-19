@@ -6,12 +6,51 @@
       <p class="lead">Armá plantillas editables por especie, guardalas localmente y exportalas en Markdown listo para pegar.</p>
     </div>
 
-    <div class="actions">
+    <div class="actions actions-group">
       <button type="button" class="secondary" (click)="copyMarkdown()" [disabled]="!selectedAssets.length">Copiar Markdown</button>
       <button type="button" class="primary" (click)="exportMarkdown()" [disabled]="!selectedAssets.length">Exportar .md</button>
       <button type="button" class="secondary" (click)="clearItems()" [disabled]="!selectedAssets.length">Limpiar lista</button>
     </div>
   </header>
+
+  <details class="panel provider-panel">
+    <summary class="provider-summary">
+      <div>
+        <p class="eyebrow">Configuración de proveedores</p>
+        <h3>Keys locales para autocompletar</h3>
+      </div>
+      <span class="badge">Guardado local</span>
+    </summary>
+
+    <p class="provider-note">Las API keys se guardan solo en este navegador mediante localStorage. No se suben al backend.</p>
+
+    <div class="provider-grid">
+      <label class="field">
+        <span>Alpha Vantage API key</span>
+        <input
+          type="password"
+          [ngModel]="providerSettings.alphaVantageApiKey"
+          (ngModelChange)="providerSettings.alphaVantageApiKey = $event; saveProviderSettings(true)"
+          placeholder="Ingresá la key de Alpha Vantage"
+        />
+      </label>
+
+      <label class="field">
+        <span>CoinGecko API key</span>
+        <input
+          type="password"
+          [ngModel]="providerSettings.coinGeckoApiKey"
+          (ngModelChange)="providerSettings.coinGeckoApiKey = $event; saveProviderSettings(true)"
+          placeholder="Opcional"
+        />
+      </label>
+    </div>
+
+    <div class="provider-actions">
+      <button type="button" class="secondary small" (click)="saveProviderSettings()">Guardar configuración</button>
+      <button type="button" class="ghost small" (click)="clearProviderSettings()">Borrar keys</button>
+    </div>
+  </details>
 
   <ng-container *ngIf="snapshot.dataset as dataset; else emptyState">
     <div class="status-line" *ngIf="copyStatus || exportStatus">
@@ -75,10 +114,21 @@
             <p class="eyebrow">Preview</p>
             <h3>Markdown generado</h3>
           </div>
-          <strong class="badge">{{ selectedAssets.length }} seleccionadas</strong>
+          <div class="panel-head-actions">
+            <strong class="badge">{{ selectedAssets.length }} seleccionadas</strong>
+            <button type="button" class="ghost small" (click)="showPreview = !showPreview">
+              {{ showPreview ? 'Ocultar vista previa' : 'Mostrar vista previa' }}
+            </button>
+          </div>
         </div>
 
-        <textarea class="markdown-preview" readonly [value]="markdownPreview"></textarea>
+        <p class="preview-summary">{{ markdownSummary }}</p>
+
+        <textarea *ngIf="showPreview" class="markdown-preview" readonly [value]="markdownPreview"></textarea>
+        <div class="preview-collapsed" *ngIf="!showPreview">
+          <strong>Vista previa oculta.</strong>
+          <p>Podés volver a abrirla desde el botón superior.</p>
+        </div>
       </article>
     </div>
 
@@ -88,7 +138,7 @@
           <p class="eyebrow">Lista editable</p>
           <h3>Especies seleccionadas</h3>
         </div>
-        <span class="hint">Se guarda automáticamente en localStorage.</span>
+        <span class="hint">{{ markdownSummary }}</span>
       </div>
 
       <div class="empty-selection panel" *ngIf="!selectedAssets.length">
@@ -98,38 +148,87 @@
 
       <div class="cards-grid" *ngIf="selectedAssets.length">
         <article class="asset-card panel" *ngFor="let item of selectedAssets; trackBy: trackByItem">
-          <div class="asset-card-head">
-            <div>
-              <p class="eyebrow">{{ item.portfolioSymbol }}</p>
-              <h4>{{ item.portfolioSymbol }} · {{ templateLabel(item.kind) }}</h4>
-              <p class="subtle">{{ item.assetType || 'Sin tipo' }} · {{ item.sector || 'Sin sector' }} · {{ item.region || 'Sin región' }}</p>
+          <div class="asset-card-summary">
+            <button type="button" class="asset-card-summary-trigger" (click)="toggleExpanded(item.id)">
+              <div class="asset-card-summary-main">
+                <div class="asset-card-title">
+                  <p class="eyebrow">{{ item.portfolioSymbol }}</p>
+                  <h4>{{ item.portfolioSymbol }} · {{ templateLabel(item.kind) }}</h4>
+                  <p class="subtle">{{ item.assetType || 'Sin tipo' }} · {{ item.sector || 'Sin sector' }} · {{ item.region || 'Sin región' }}</p>
+                </div>
+
+                <span
+                  class="status-pill"
+                  [class.status-pill--complete]="completion(item).status === 'completo'"
+                  [class.status-pill--partial]="completion(item).status === 'parcial'"
+                  [class.status-pill--incomplete]="completion(item).status === 'incompleto'"
+                >
+                  {{ completionLabel(item) }}
+                </span>
+              </div>
+
+              <div class="asset-card-summary-meta">
+                <span>{{ itemSummary(item) }}</span>
+                <span>Faltan: {{ missingFieldsPreview(item) }}</span>
+              </div>
+            </button>
+
+            <div class="asset-card-actions asset-card-actions--autofill">
+              <button type="button" class="secondary small" (click)="autofillItem(item)" [disabled]="!canAutofill(item) || autofillState(item.id).status === 'loading'">
+                {{ autofillState(item.id).status === 'loading' ? 'Autocompletando...' : 'Autocompletar' }}
+              </button>
+
+              <label class="overwrite-toggle">
+                <input type="checkbox" [(ngModel)]="overwriteById[item.id]" />
+                <span>Sobrescribir campos completos</span>
+              </label>
             </div>
-            <button type="button" class="ghost small" (click)="removeItem(item.id)">Eliminar</button>
+
+            <p class="provider-hint">Proveedor sugerido: {{ providerLabel(item) }}</p>
           </div>
 
-          <label class="field">
-            <span>Tipo de plantilla</span>
-            <select [ngModel]="item.kind" (ngModelChange)="updateKind(item.id, $event)">
-              <option *ngFor="let template of templateService.templates" [ngValue]="template.kind">{{ template.label }}</option>
-            </select>
-          </label>
+          <p class="card-state card-state--success" *ngIf="autofillState(item.id).status === 'success'">
+            {{ autofillState(item.id).message }}
+          </p>
+          <p class="card-state card-state--error" *ngIf="autofillState(item.id).status === 'error'">
+            {{ autofillState(item.id).message }}
+          </p>
+          <p class="card-state card-state--idle" *ngIf="!canAutofill(item)">
+            {{ item.kind === 'arg_bond' ? 'Autocompletado no disponible para bonos argentinos en este MVP. Completar manualmente.' : 'Autocompletado no disponible para plantilla manual.' }}
+          </p>
 
-          <label class="field">
-            <span>Símbolo búsqueda</span>
-            <input type="text" [ngModel]="item.querySymbol" (ngModelChange)="updateQuerySymbol(item.id, $event)" />
-          </label>
+          <div class="asset-card-actions asset-card-actions--secondary">
+            <button type="button" class="ghost small" (click)="toggleExpanded(item.id)">
+              {{ isExpanded(item.id) ? 'Ocultar' : 'Editar' }}
+            </button>
+            <button type="button" class="ghost small danger" (click)="removeItem(item.id)">Eliminar</button>
+          </div>
 
-          <div class="field-grid">
-            <label class="field" *ngFor="let field of item.fields; trackBy: trackByField">
-              <span>{{ field.label }}</span>
-              <input type="text" [ngModel]="field.value" (ngModelChange)="updateField(item.id, field.label, $event)" />
+          <div class="asset-card-body" *ngIf="isExpanded(item.id)">
+            <label class="field">
+              <span>Tipo de plantilla</span>
+              <select [ngModel]="item.kind" (ngModelChange)="updateKind(item.id, $event)">
+                <option *ngFor="let template of templateService.templates" [ngValue]="template.kind">{{ template.label }}</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Símbolo búsqueda</span>
+              <input type="text" [ngModel]="item.querySymbol" (ngModelChange)="updateQuerySymbol(item.id, $event)" />
+            </label>
+
+            <div class="field-grid">
+              <label class="field" *ngFor="let field of item.fields; trackBy: trackByField">
+                <span>{{ field.label }}</span>
+                <input type="text" [ngModel]="field.value" (ngModelChange)="updateField(item.id, field.label, $event)" />
+              </label>
+            </div>
+
+            <label class="field">
+              <span>Notas</span>
+              <textarea rows="3" [ngModel]="item.notes" (ngModelChange)="updateNotes(item.id, $event)"></textarea>
             </label>
           </div>
-
-          <label class="field">
-            <span>Notas</span>
-            <textarea rows="3" [ngModel]="item.notes" (ngModelChange)="updateNotes(item.id, $event)"></textarea>
-          </label>
         </article>
       </div>
     </section>
@@ -143,4 +242,3 @@
     </article>
   </ng-template>
 </section>
-
