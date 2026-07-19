@@ -66,7 +66,10 @@ export class ResearchExportService {
         lines.push(`${field.label}: ${field.value ?? ''}`);
       }
 
-      lines.push('', `Notas: ${item.notes ?? ''}`);
+      const notes = String(item.notes ?? '').trim();
+      if (notes) {
+        lines.push('', `Notas: ${notes}`);
+      }
     }
 
     return lines.join('\n').trim() + '\n';

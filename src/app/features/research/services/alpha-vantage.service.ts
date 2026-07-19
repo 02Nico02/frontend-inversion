@@ -73,6 +73,11 @@ export class AlphaVantageService {
       this.assignTechnicalFields(fields, points, warnings);
       this.assignPerformanceFields(fields, points, warnings);
 
+      const missingFundamentalFields = this.findMissingFundamentalFields(fields);
+      if (missingFundamentalFields.length) {
+        warnings.push('Alpha Vantage no devolvió algunos campos fundamentales; se dejaron vacíos.');
+      }
+
       return {
         provider: 'alpha_vantage',
         fetchedAt,
@@ -107,8 +112,6 @@ export class AlphaVantageService {
       'Forward P/E': overview['ForwardPE'],
       PEG: overview['PEGRatio'],
       ROE: overview['ReturnOnEquityTTM'],
-      ROIC: overview['ReturnOnAssetsTTM'],
-      'Debt/Eq': overview['DebtToEquity'],
       'Operating Margin': overview['OperatingMarginTTM'],
       'Profit Margin': overview['ProfitMargin'],
       'EPS Y/Y': overview['QuarterlyEarningsGrowthYOY'],
@@ -125,17 +128,22 @@ export class AlphaVantageService {
       ['SMA200', 200]
     ];
 
+    const latest = points[points.length - 1];
+    // SMA20/SMA50/SMA200 se exportan como distancia porcentual contra la media móvil, estilo Finviz.
+    // No se exporta el valor absoluto de la SMA.
     for (const [label, period] of periods) {
       const value = this.calculateSma(points, period);
-      if (value !== null) {
-        target[label] = this.formatNumber(value);
+      if (value !== null && value > 0) {
+        target[label] = this.formatPercent((latest.close / value) - 1);
+      } else {
+        warnings.push(`No hay histórico suficiente para calcular ${label}.`);
       }
     }
 
     const rsi = this.calculateRsi(points, 14);
-      if (rsi !== null) {
-        target['RSI'] = this.formatNumber(rsi);
-      }
+    if (rsi !== null) {
+      target['RSI'] = this.formatNumber(rsi);
+    }
 
     if (!target['52W High'] || !target['52W Low']) {
       const yearWindow = this.lastPointsWithin(points, 365);
@@ -262,6 +270,24 @@ export class AlphaVantageService {
       }
     }
     return null;
+  }
+
+  private findMissingFundamentalFields(fields: Record<string, string>): string[] {
+    const expectedFields = [
+      'Target Price',
+      'P/E',
+      'Forward P/E',
+      'PEG',
+      'ROE',
+      'Operating Margin',
+      'Profit Margin',
+      'EPS Y/Y',
+      'Sales Y/Y',
+      '52W High',
+      '52W Low'
+    ];
+
+    return expectedFields.filter((label) => !String(fields[label] ?? '').trim());
   }
 
   private lastPointsWithin(points: DailySeriesPoint[], days: number): DailySeriesPoint[] {
