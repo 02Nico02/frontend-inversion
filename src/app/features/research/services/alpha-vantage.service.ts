@@ -26,56 +26,75 @@ export class AlphaVantageService {
 
     const normalizedSymbol = symbol.trim().toUpperCase();
     try {
-      const [overview, series] = await Promise.all([
-        this.fetchJson<Record<string, string>>(this.buildUrl({
+      const [overviewResult, seriesResult] = await Promise.all([
+        this.safeFetch<Record<string, string>>(this.buildUrl({
           function: 'OVERVIEW',
           symbol: normalizedSymbol,
           apikey: apiKey
         })),
-        this.fetchJson<Record<string, unknown>>(this.buildUrl({
-          function: 'TIME_SERIES_DAILY_ADJUSTED',
+        this.safeFetch<Record<string, unknown>>(this.buildUrl({
+          function: 'TIME_SERIES_DAILY',
           symbol: normalizedSymbol,
           outputsize: 'full',
           apikey: apiKey
         }))
       ]);
 
-      const warnings: string[] = [];
-      const errors = this.collectApiErrors(overview, series);
-      if (errors.length) {
+      const warnings = [...overviewResult.errors, ...seriesResult.errors];
+      const fields: Record<string, string> = {};
+
+      const overview = overviewResult.data;
+      const series = seriesResult.data;
+      const hasOverviewData = Boolean(overview && Object.keys(overview).length);
+      const hasSeriesData = Boolean(series && Object.keys(series).length);
+
+      if (hasOverviewData && overview) {
+        this.assignFields(fields, this.mapOverviewFields(overview));
+      }
+
+      if (hasSeriesData && series) {
+        const points = this.normalizeDailySeries(series);
+        if (points.length) {
+          const latest = points[points.length - 1];
+          fields['Precio'] = this.formatNumber(latest.close);
+          this.assignTechnicalFields(fields, points, warnings);
+          this.assignPerformanceFields(fields, points, warnings);
+        } else {
+          warnings.push('Alpha Vantage no devolvio historico diario utilizable.');
+        }
+      }
+
+      if (!hasOverviewData && !hasSeriesData) {
         return {
           provider: 'alpha_vantage',
           fetchedAt,
           fields: {},
           warnings,
-          errors
+          errors: [overviewResult.errors[0] ?? seriesResult.errors[0] ?? 'Alpha Vantage no devolvio datos utilizables.']
         };
       }
 
-      const points = this.normalizeDailySeries(series);
-      if (!points.length) {
+      const missingFundamentalFields = this.findMissingFundamentalFields(fields);
+      if (hasOverviewData && missingFundamentalFields.length) {
+        warnings.push('Alpha Vantage no devolvio algunos campos fundamentales; se dejaron vacios.');
+      }
+
+      if (hasOverviewData && !hasSeriesData) {
+        warnings.push('No se pudo obtener historico diario; se completaron solo datos fundamentales disponibles.');
+      }
+
+      if (!hasOverviewData && hasSeriesData) {
+        warnings.push('No se pudo obtener OVERVIEW; se completaron solo precio, tecnicos y performance.');
+      }
+
+      if (!Object.keys(fields).length) {
         return {
           provider: 'alpha_vantage',
           fetchedAt,
           fields: {},
-          warnings: [],
-          errors: ['Alpha Vantage no devolvió histórico diario para el símbolo solicitado.']
+          warnings,
+          errors: [overviewResult.errors[0] ?? seriesResult.errors[0] ?? 'Alpha Vantage no devolvio datos utilizables.']
         };
-      }
-
-      const latest = points[points.length - 1];
-      const fields: Record<string, string> = {
-        Precio: this.formatNumber(latest.close)
-      };
-
-      const overviewFields = this.mapOverviewFields(overview);
-      this.assignFields(fields, overviewFields);
-      this.assignTechnicalFields(fields, points, warnings);
-      this.assignPerformanceFields(fields, points, warnings);
-
-      const missingFundamentalFields = this.findMissingFundamentalFields(fields);
-      if (missingFundamentalFields.length) {
-        warnings.push('Alpha Vantage no devolvió algunos campos fundamentales; se dejaron vacíos.');
       }
 
       return {
@@ -129,14 +148,12 @@ export class AlphaVantageService {
     ];
 
     const latest = points[points.length - 1];
-    // SMA20/SMA50/SMA200 se exportan como distancia porcentual contra la media móvil, estilo Finviz.
-    // No se exporta el valor absoluto de la SMA.
     for (const [label, period] of periods) {
       const value = this.calculateSma(points, period);
       if (value !== null && value > 0) {
         target[label] = this.formatPercent((latest.close / value) - 1);
       } else {
-        warnings.push(`No hay histórico suficiente para calcular ${label}.`);
+        warnings.push(`No hay historico suficiente para calcular ${label}.`);
       }
     }
 
@@ -151,7 +168,7 @@ export class AlphaVantageService {
         target['52W High'] = target['52W High'] ?? this.formatNumber(Math.max(...yearWindow.map((point) => point.high)));
         target['52W Low'] = target['52W Low'] ?? this.formatNumber(Math.min(...yearWindow.map((point) => point.low)));
       } else {
-        warnings.push('No hay suficientes datos para calcular máximos y mínimos de 52 semanas.');
+        warnings.push('No hay suficientes datos para calcular maximos y minimos de 52 semanas.');
       }
     }
   }
@@ -165,11 +182,19 @@ export class AlphaVantageService {
     ];
 
     for (const [label, targetDate] of targets) {
-      const base = this.findPointAtOrBefore(points, targetDate);
+      let base = this.findPointAtOrBefore(points, targetDate);
+      if (!base && label === 'Perf Year') {
+        base = this.fallbackPublicApiYearBase(points, latest);
+        if (base) {
+          warnings.push('Perf Year calculado con el primer dato disponible dentro del rango publico de Alpha Vantage.');
+        }
+      }
+
       if (!base) {
-        warnings.push(`No hay histórico suficiente para calcular ${label}.`);
+        warnings.push(`No hay historico suficiente para calcular ${label}.`);
         continue;
       }
+
       target[label] = this.formatPercent((latest.close / base.close) - 1);
     }
 
@@ -177,6 +202,8 @@ export class AlphaVantageService {
     const ytdBase = this.findPointAtOrBefore(points, yearStart);
     if (ytdBase) {
       target['Perf YTD'] = this.formatPercent((latest.close / ytdBase.close) - 1);
+    } else {
+      warnings.push('No hay historico suficiente para calcular Perf YTD.');
     }
   }
 
@@ -230,6 +257,16 @@ export class AlphaVantageService {
     return messages;
   }
 
+  private async safeFetch<T>(url: string): Promise<{ data: T | null; errors: string[] }> {
+    try {
+      const data = await this.fetchJson<T>(url);
+      const errors = this.collectApiErrors(data as Record<string, unknown>);
+      return errors.length ? { data: null, errors } : { data, errors: [] };
+    } catch {
+      return { data: null, errors: ['No se pudo consultar Alpha Vantage.'] };
+    }
+  }
+
   private extractString(payload: Record<string, unknown>, key: string): string | null {
     const value = payload[key];
     return typeof value === 'string' && value.trim().length ? value.trim() : null;
@@ -270,6 +307,16 @@ export class AlphaVantageService {
       }
     }
     return null;
+  }
+
+  private fallbackPublicApiYearBase(points: DailySeriesPoint[], latest: DailySeriesPoint): DailySeriesPoint | null {
+    const first = points[0];
+    if (!first) {
+      return null;
+    }
+
+    const diffDays = Math.abs(new Date(latest.date).getTime() - new Date(first.date).getTime()) / (24 * 60 * 60 * 1000);
+    return diffDays >= 350 && diffDays <= 366 ? first : null;
   }
 
   private findMissingFundamentalFields(fields: Record<string, string>): string[] {

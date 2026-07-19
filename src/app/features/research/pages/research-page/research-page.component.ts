@@ -142,7 +142,10 @@ export class ResearchPageComponent implements OnInit, OnDestroy {
     this.persist();
 
     const providerLabel = result.provider === 'alpha_vantage' ? 'Alpha Vantage' : 'CoinGecko';
-    this.setAutofillState(item.id, 'success', `Datos actualizados desde ${providerLabel}.`);
+    const message = result.warnings.length
+      ? `Datos actualizados desde ${providerLabel}. Algunos campos no estuvieron disponibles.`
+      : `Datos actualizados desde ${providerLabel}.`;
+    this.setAutofillState(item.id, 'success', message);
   }
 
   addPosition(position: PortfolioPosition): void {
