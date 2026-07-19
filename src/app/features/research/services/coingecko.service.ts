@@ -30,7 +30,7 @@ export class CoinGeckoService {
     try {
       const chart = await this.fetchJson<Record<string, unknown>>(this.buildUrl(`/coins/${id}/market_chart`, {
         vs_currency: 'usd',
-        days: '400',
+        days: '365',
         interval: 'daily'
       }), apiKey);
 
@@ -95,9 +95,9 @@ export class CoinGeckoService {
     for (const [label, days] of targets) {
       let base = this.findPointAtOrBefore(points, this.shiftTime(latest.time, -days));
       if (!base && label === 'Perf Year') {
-        base = this.fallbackYearBase(points, latest);
+        base = this.fallbackPublicApiYearBase(points, latest);
         if (base) {
-          warnings.push('Perf Year calculado con el primer dato disponible cercano a 1 año.');
+          warnings.push('Perf Year calculado con el primer dato disponible dentro del rango público de CoinGecko.');
         }
       }
 
@@ -200,14 +200,14 @@ export class CoinGeckoService {
     return null;
   }
 
-  private fallbackYearBase(points: PricePoint[], latest: PricePoint): PricePoint | null {
+  private fallbackPublicApiYearBase(points: PricePoint[], latest: PricePoint): PricePoint | null {
     const first = points[0];
     if (!first) {
       return null;
     }
 
     const diffDays = Math.abs(latest.time - first.time) / (24 * 60 * 60 * 1000);
-    return diffDays >= 350 && diffDays <= 410 ? first : null;
+    return diffDays >= 350 && diffDays <= 366 ? first : null;
   }
 
   private lastPointsWithin(points: PricePoint[], days: number): PricePoint[] {
