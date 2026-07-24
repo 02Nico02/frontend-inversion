@@ -13,6 +13,7 @@ import { MarketDataAutofillService } from '../../services/market-data-autofill.s
 import { ResearchCompletionService } from '../../services/research-completion.service';
 import { ResearchExportService } from '../../services/research-export.service';
 import { ResearchProviderSettingsService } from '../../services/research-provider-settings.service';
+import { ResearchTextImportInput, ResearchTextImportResult, ResearchTextImportService } from '../../services/research-text-import.service';
 import { ResearchTemplateService } from '../../services/research-template.service';
 
 const STORAGE_KEY = 'frontend-inversion.research-assets';
@@ -34,6 +35,11 @@ export class ResearchPageComponent implements OnInit, OnDestroy {
   expandedIds = new Set<string>();
   overwriteById: Record<string, boolean> = {};
   autofillStates: Record<string, AutofillUiState> = {};
+  textImportSymbol = '';
+  textImportKind: ResearchAssetKind = 'stock';
+  textImportRawText = '';
+  textImportPreview: ResearchTextImportResult | null = null;
+  textImportStatus = '';
   private subscription?: Subscription;
   private positionsCache: PortfolioPosition[] = [];
 
@@ -45,6 +51,7 @@ export class ResearchPageComponent implements OnInit, OnDestroy {
     private readonly exportService: ResearchExportService,
     private readonly providerSettingsService: ResearchProviderSettingsService,
     private readonly autofillService: MarketDataAutofillService,
+    private readonly textImportService: ResearchTextImportService,
     private readonly downloader: FileDownloadService
   ) {
     this.selectedAssets = this.loadFromStorage();
@@ -163,6 +170,12 @@ export class ResearchPageComponent implements OnInit, OnDestroy {
     this.expandedIds.add(item.id);
     this.persist();
     this.exportStatus = '';
+
+    if (this.canAutofill(item)) {
+      queueMicrotask(() => {
+        void this.autofillItem(item);
+      });
+    }
   }
 
   removeItem(id: string): void {
@@ -267,6 +280,51 @@ export class ResearchPageComponent implements OnInit, OnDestroy {
     this.persist();
   }
 
+  previewTextImport(): void {
+    const validation = this.validateTextImport();
+    if (validation) {
+      this.textImportPreview = null;
+      this.textImportStatus = validation;
+      return;
+    }
+
+    this.textImportPreview = this.textImportService.preview(this.buildTextImportInput());
+    this.textImportStatus = this.textImportPreview.matchedKeys.length
+      ? `Se detectaron ${this.textImportPreview.matchedKeys.length} campos para completar.`
+      : 'No se encontraron campos reconocibles.';
+  }
+
+  addFromText(): void {
+    const validation = this.validateTextImport();
+    if (validation) {
+      this.textImportPreview = null;
+      this.textImportStatus = validation;
+      return;
+    }
+
+    const input = this.buildTextImportInput();
+    if (this.isDuplicateResearchSymbol(input.portfolioSymbol, input.querySymbol)) {
+      this.textImportStatus = 'Ya existe una especie con ese símbolo.';
+      return;
+    }
+
+    const item = this.textImportService.createItem(input);
+    this.selectedAssets = [...this.selectedAssets, item];
+    this.expandedIds.add(item.id);
+    this.persist();
+    this.textImportStatus = 'Especie agregada desde texto.';
+    this.copyStatus = '';
+    this.exportStatus = '';
+  }
+
+  clearTextImport(): void {
+    this.textImportSymbol = '';
+    this.textImportKind = 'stock';
+    this.textImportRawText = '';
+    this.textImportPreview = null;
+    this.textImportStatus = '';
+  }
+
   saveProviderSettings(silent = false): void {
     this.providerSettingsService.save(this.providerSettings);
     if (!silent) {
@@ -315,6 +373,37 @@ export class ResearchPageComponent implements OnInit, OnDestroy {
       ...this.autofillStates,
       [itemId]: { status, message }
     };
+  }
+
+  private buildTextImportInput(): ResearchTextImportInput {
+    const portfolioSymbol = this.normalizeSymbol(this.textImportSymbol);
+    return {
+      portfolioSymbol,
+      querySymbol: portfolioSymbol,
+      kind: this.textImportKind,
+      rawText: this.textImportRawText
+    };
+  }
+
+  private validateTextImport(): string {
+    if (!this.normalizeSymbol(this.textImportSymbol)) {
+      return 'Ingresá un símbolo.';
+    }
+    if (!String(this.textImportRawText ?? '').trim()) {
+      return 'Pegá un texto para extraer.';
+    }
+    return '';
+  }
+
+  private isDuplicateResearchSymbol(portfolioSymbol: string, querySymbol: string): boolean {
+    const normalizedPortfolioSymbol = this.normalizeSymbol(portfolioSymbol);
+    const normalizedQuerySymbol = this.normalizeSymbol(querySymbol);
+    return this.selectedAssets.some((item) =>
+      this.normalizeSymbol(item.portfolioSymbol) === normalizedPortfolioSymbol
+      || this.normalizeSymbol(item.querySymbol) === normalizedPortfolioSymbol
+      || this.normalizeSymbol(item.portfolioSymbol) === normalizedQuerySymbol
+      || this.normalizeSymbol(item.querySymbol) === normalizedQuerySymbol
+    );
   }
 
   private applyAutofillResult(item: ResearchAssetItem, result: ResearchAutofillResult, overwrite: boolean): ResearchAssetItem {

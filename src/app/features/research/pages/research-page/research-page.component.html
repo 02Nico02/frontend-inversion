@@ -52,6 +52,78 @@
     </div>
   </details>
 
+  <details class="panel text-import-panel">
+    <summary class="provider-summary">
+      <div>
+        <p class="eyebrow">Agregar desde texto</p>
+        <h3>Importar bloque pegado</h3>
+      </div>
+      <span class="badge">Manual</span>
+    </summary>
+
+    <p class="provider-note">Pegá un bloque tipo Finviz y extraigo los campos que la plantilla necesita.</p>
+
+    <div class="provider-grid text-import-grid">
+      <label class="field">
+        <span>Símbolo</span>
+        <input type="text" [(ngModel)]="textImportSymbol" placeholder="AMD" />
+      </label>
+
+      <label class="field">
+        <span>Tipo de plantilla</span>
+        <select [(ngModel)]="textImportKind">
+          <option *ngFor="let template of templateService.templates" [ngValue]="template.kind">{{ template.label }}</option>
+        </select>
+      </label>
+    </div>
+
+    <label class="field">
+      <span>Texto pegado</span>
+      <textarea
+        rows="10"
+        [(ngModel)]="textImportRawText"
+        placeholder="Pegá aquí el bloque copiado desde Finviz o una fuente similar"
+      ></textarea>
+    </label>
+
+    <p class="field-help">Usá esto para pegar texto externo y completar campos sin autocompletar por proveedor.</p>
+    <p class="field-help subtle" *ngIf="textImportSymbol">
+      Símbolo a importar: {{ textImportSymbol | uppercase }}
+    </p>
+
+    <div class="provider-actions">
+      <button type="button" class="secondary small" (click)="previewTextImport()">Previsualizar extracción</button>
+      <button type="button" class="primary small" (click)="addFromText()">Agregar desde texto</button>
+      <button type="button" class="ghost small" (click)="clearTextImport()">Limpiar</button>
+    </div>
+
+    <p class="provider-note" *ngIf="textImportStatus">{{ textImportStatus }}</p>
+
+    <div class="preview-table-wrap" *ngIf="textImportPreview">
+      <table class="table compact">
+        <thead>
+          <tr>
+            <th>Campo destino</th>
+            <th>Valor detectado</th>
+            <th>Fuente</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let field of templateFields(textImportKind)">
+            <td>{{ field }}</td>
+            <td>{{ textImportPreview.fields[field] || '—' }}</td>
+            <td>{{ textImportPreview.fieldSources[field] || '—' }}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="preview-missing">
+        <strong>Campos no encontrados</strong>
+        <p>{{ textImportPreview.missingFields.length ? textImportPreview.missingFields.join(', ') : 'Ninguno' }}</p>
+      </div>
+    </div>
+  </details>
+
   <ng-container *ngIf="snapshot.dataset as dataset; else emptyState">
     <div class="status-line" *ngIf="copyStatus || exportStatus">
       <p *ngIf="copyStatus">{{ copyStatus }}</p>
