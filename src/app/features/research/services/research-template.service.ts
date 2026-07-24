@@ -97,6 +97,10 @@ const TEMPLATE_DEFINITIONS: ResearchTemplateDefinition[] = [
   }
 ];
 
+const DEFAULT_QUERY_SYMBOL_MAP: Record<string, string> = {
+  YPFD: 'YPF'
+};
+
 @Injectable({ providedIn: 'root' })
 export class ResearchTemplateService {
   readonly templates = TEMPLATE_DEFINITIONS;
@@ -136,10 +140,11 @@ export class ResearchTemplateService {
 
   createItem(position: PortfolioPosition): ResearchAssetItem {
     const kind = this.detectKind(position);
+    const portfolioSymbol = this.normalizeSymbol(position.symbol);
     return {
       id: this.createId(),
-      portfolioSymbol: this.normalizeSymbol(position.symbol),
-      querySymbol: this.normalizeSymbol(position.symbol),
+      portfolioSymbol,
+      querySymbol: this.resolveQuerySymbol(portfolioSymbol, portfolioSymbol),
       kind,
       assetType: position.assetType ?? position.positionType ?? undefined,
       sector: position.sector ?? undefined,
@@ -152,10 +157,11 @@ export class ResearchTemplateService {
   }
 
   createEmptyItem(portfolioSymbol: string, kind: ResearchAssetKind = 'manual'): ResearchAssetItem {
+    const normalizedPortfolioSymbol = this.normalizeSymbol(portfolioSymbol);
     return {
       id: this.createId(),
-      portfolioSymbol: this.normalizeSymbol(portfolioSymbol),
-      querySymbol: this.normalizeSymbol(portfolioSymbol),
+      portfolioSymbol: normalizedPortfolioSymbol,
+      querySymbol: this.resolveQuerySymbol(normalizedPortfolioSymbol, normalizedPortfolioSymbol),
       kind,
       source: 'manual',
       fields: this.buildEmptyFields(kind),
@@ -167,7 +173,10 @@ export class ResearchTemplateService {
   hydrateItem(raw: Partial<ResearchAssetItem>): ResearchAssetItem {
     const kind = this.isKind(raw.kind) ? raw.kind : 'manual';
     const portfolioSymbol = this.normalizeSymbol(raw.portfolioSymbol ?? raw.querySymbol ?? '');
-    const querySymbol = this.normalizeSymbol(raw.querySymbol ?? raw.portfolioSymbol ?? '');
+    const rawQuerySymbol = this.normalizeSymbol(raw.querySymbol ?? raw.portfolioSymbol ?? '');
+    const querySymbol = this.shouldApplyDefaultQuerySymbol(portfolioSymbol, rawQuerySymbol)
+      ? this.resolveQuerySymbol(portfolioSymbol, rawQuerySymbol)
+      : rawQuerySymbol;
     const templateFields = this.templateFields(kind);
     const existingFields = new Map((raw.fields ?? []).map((field) => [this.normalizeLabel(field.label), field.value] as const));
     const source = this.isSource(raw.source) ? raw.source : 'manual';
@@ -221,6 +230,20 @@ export class ResearchTemplateService {
 
   private normalizeSymbol(value: string): string {
     return String(value ?? '').trim().toUpperCase();
+  }
+
+  private resolveQuerySymbol(portfolioSymbol: string, fallback: string): string {
+    return DEFAULT_QUERY_SYMBOL_MAP[portfolioSymbol] ?? fallback;
+  }
+
+  private shouldApplyDefaultQuerySymbol(portfolioSymbol: string, querySymbol: string): boolean {
+    if (!portfolioSymbol) {
+      return false;
+    }
+    if (!querySymbol) {
+      return true;
+    }
+    return querySymbol === portfolioSymbol;
   }
 
   private normalize(value: string): string {

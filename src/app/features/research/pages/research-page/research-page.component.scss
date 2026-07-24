@@ -159,6 +159,17 @@ button.danger:hover:not(:disabled),
   gap: 0.35rem;
 }
 
+.field-help {
+  margin: 0.1rem 0 0;
+  color: rgba(222, 229, 255, 0.68);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.field-help.subtle {
+  color: rgba(222, 229, 255, 0.56);
+}
+
 .search-box input,
 .field input,
 .field select,

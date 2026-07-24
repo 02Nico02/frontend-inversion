@@ -215,6 +215,10 @@
             <label class="field">
               <span>Símbolo búsqueda</span>
               <input type="text" [ngModel]="item.querySymbol" (ngModelChange)="updateQuerySymbol(item.id, $event)" />
+              <p class="field-help">Usado para consultar proveedores externos. Ejemplo: YPFD → YPF.</p>
+              <p class="field-help subtle" *ngIf="item.portfolioSymbol !== item.querySymbol">
+                Símbolo en cartera: {{ item.portfolioSymbol }} · Símbolo externo: {{ item.querySymbol }}
+              </p>
             </label>
 
             <div class="field-grid">

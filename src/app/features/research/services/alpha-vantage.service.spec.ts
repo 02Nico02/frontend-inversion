@@ -22,6 +22,8 @@ describe('AlphaVantageService', () => {
       ProfitMargin: '10',
       QuarterlyEarningsGrowthYOY: '8',
       QuarterlyRevenueGrowthYOY: '9',
+      '50DayMovingAverage': '180',
+      '200DayMovingAverage': '160',
       '52WeekHigh': '220',
       '52WeekLow': '120'
     }), { status: 200 });
@@ -46,10 +48,12 @@ describe('AlphaVantageService', () => {
     expect(result.fields['RSI']).toMatch(/^\d+([.,]\d+)?$/);
     expect(result.fields['52W High']).toBeDefined();
     expect(result.fields['52W Low']).toBeDefined();
+    expect(result.fields['Perf Year']).toBeUndefined();
     expect(result.fields['ROIC']).toBeUndefined();
     expect(result.fields['Debt/Eq']).toBeUndefined();
     expect(result.fields['EPS next Y']).toBeUndefined();
     expect(result.fields['EPS next 5Y']).toBeUndefined();
+    expect(result.warnings).toContain('Perf Year no disponible con historico compact de Alpha Vantage.');
   });
 
   it('keeps fundamentals when the historical endpoint returns a premium error', async () => {
@@ -63,6 +67,8 @@ describe('AlphaVantageService', () => {
       ProfitMargin: '10',
       QuarterlyEarningsGrowthYOY: '8',
       QuarterlyRevenueGrowthYOY: '9',
+      '50DayMovingAverage': '180',
+      '200DayMovingAverage': '160',
       '52WeekHigh': '220',
       '52WeekLow': '120'
     }), { status: 200 });

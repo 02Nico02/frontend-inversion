@@ -35,7 +35,7 @@ export class AlphaVantageService {
         this.safeFetch<Record<string, unknown>>(this.buildUrl({
           function: 'TIME_SERIES_DAILY',
           symbol: normalizedSymbol,
-          outputsize: 'full',
+          outputsize: 'compact',
           apikey: apiKey
         }))
       ]);
@@ -57,7 +57,7 @@ export class AlphaVantageService {
         if (points.length) {
           const latest = points[points.length - 1];
           fields['Precio'] = this.formatNumber(latest.close);
-          this.assignTechnicalFields(fields, points, warnings);
+          this.assignTechnicalFields(fields, points, overview ?? undefined, warnings);
           this.assignPerformanceFields(fields, points, warnings);
         } else {
           warnings.push('Alpha Vantage no devolvio historico diario utilizable.');
@@ -140,21 +140,38 @@ export class AlphaVantageService {
     };
   }
 
-  private assignTechnicalFields(target: Record<string, string>, points: DailySeriesPoint[], warnings: string[]): void {
-    const periods: Array<[string, number]> = [
-      ['SMA20', 20],
-      ['SMA50', 50],
-      ['SMA200', 200]
-    ];
-
+  private assignTechnicalFields(
+    target: Record<string, string>,
+    points: DailySeriesPoint[],
+    overview: Record<string, string> | undefined,
+    warnings: string[]
+  ): void {
     const latest = points[points.length - 1];
-    for (const [label, period] of periods) {
-      const value = this.calculateSma(points, period);
-      if (value !== null && value > 0) {
-        target[label] = this.formatPercent((latest.close / value) - 1);
-      } else {
-        warnings.push(`No hay historico suficiente para calcular ${label}.`);
-      }
+    const sma20 = this.calculateSma(points, 20);
+    if (sma20 !== null && sma20 > 0) {
+      target['SMA20'] = this.formatPercent((latest.close / sma20) - 1);
+    } else {
+      warnings.push('No hay historico suficiente para calcular SMA20.');
+    }
+
+    const sma50FromSeries = this.calculateSma(points, 50);
+    const sma50FromOverview = this.toNumber(overview?.['50DayMovingAverage']);
+    const sma50 = sma50FromSeries !== null && sma50FromSeries > 0
+      ? sma50FromSeries
+      : Number.isFinite(sma50FromOverview) && sma50FromOverview > 0
+        ? sma50FromOverview
+        : null;
+    if (sma50 !== null) {
+      target['SMA50'] = this.formatPercent((latest.close / sma50) - 1);
+    } else {
+      warnings.push('No hay historico suficiente para calcular SMA50.');
+    }
+
+    const sma200FromOverview = this.toNumber(overview?.['200DayMovingAverage']);
+    if (Number.isFinite(sma200FromOverview) && sma200FromOverview > 0) {
+      target['SMA200'] = this.formatPercent((latest.close / sma200FromOverview) - 1);
+    } else {
+      warnings.push('SMA200 no disponible con Alpha Vantage gratis.');
     }
 
     const rsi = this.calculateRsi(points, 14);
@@ -182,14 +199,11 @@ export class AlphaVantageService {
     ];
 
     for (const [label, targetDate] of targets) {
-      let base = this.findPointAtOrBefore(points, targetDate);
-      if (!base && label === 'Perf Year') {
-        base = this.fallbackPublicApiYearBase(points, latest);
-        if (base) {
-          warnings.push('Perf Year calculado con el primer dato disponible dentro del rango publico de Alpha Vantage.');
-        }
+      if (label === 'Perf Year') {
+        warnings.push('Perf Year no disponible con historico compact de Alpha Vantage.');
+        continue;
       }
-
+      let base = this.findPointAtOrBefore(points, targetDate);
       if (!base) {
         warnings.push(`No hay historico suficiente para calcular ${label}.`);
         continue;
@@ -307,16 +321,6 @@ export class AlphaVantageService {
       }
     }
     return null;
-  }
-
-  private fallbackPublicApiYearBase(points: DailySeriesPoint[], latest: DailySeriesPoint): DailySeriesPoint | null {
-    const first = points[0];
-    if (!first) {
-      return null;
-    }
-
-    const diffDays = Math.abs(new Date(latest.date).getTime() - new Date(first.date).getTime()) / (24 * 60 * 60 * 1000);
-    return diffDays >= 350 && diffDays <= 366 ? first : null;
   }
 
   private findMissingFundamentalFields(fields: Record<string, string>): string[] {

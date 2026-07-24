@@ -97,8 +97,10 @@ export class ResearchPageComponent implements OnInit, OnDestroy {
   }
 
   isSelected(position: PortfolioPosition): boolean {
-    const querySymbol = this.normalizeSymbol(position.symbol);
-    return this.selectedAssets.some((item) => this.normalizeSymbol(item.querySymbol) === querySymbol);
+    const symbol = this.normalizeSymbol(position.symbol);
+    return this.selectedAssets.some((item) =>
+      this.normalizeSymbol(item.portfolioSymbol) === symbol || this.normalizeSymbol(item.querySymbol) === symbol
+    );
   }
 
   providerLabel(item: ResearchAssetItem): string {
@@ -149,8 +151,10 @@ export class ResearchPageComponent implements OnInit, OnDestroy {
   }
 
   addPosition(position: PortfolioPosition): void {
-    const querySymbol = this.normalizeSymbol(position.symbol);
-    if (this.selectedAssets.some((item) => this.normalizeSymbol(item.querySymbol) === querySymbol)) {
+    const symbol = this.normalizeSymbol(position.symbol);
+    if (this.selectedAssets.some((item) =>
+      this.normalizeSymbol(item.portfolioSymbol) === symbol || this.normalizeSymbol(item.querySymbol) === symbol
+    )) {
       return;
     }
 
