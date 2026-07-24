@@ -37,6 +37,11 @@ describe('ResearchTextImportService', () => {
         '11.75%',
         'Profit Margin',
         '13.37%',
+        'Trades',
+        'Shs Outstand',
+        '1.63B',
+        'Shs Float',
+        '1.62B',
         'EPS Y/Y TTM',
         '123.87%',
         'Sales Y/Y TTM',
@@ -76,6 +81,8 @@ describe('ResearchTextImportService', () => {
     expect(preview.fields['ROIC']).toBe('7.43%');
     expect(preview.fields['EPS next Y']).toBe('82.46%');
     expect(preview.fields['Perf Year']).toBe('221.95%');
+    expect(preview.fields['52W High']).toBe('584.73 -10.74%');
+    expect(preview.fields['Perf Month']).toBe('0.43%');
     expect(preview.matchedKeys).toContain('Precio');
     expect(preview.matchedKeys).toContain('EPS next Y');
   });

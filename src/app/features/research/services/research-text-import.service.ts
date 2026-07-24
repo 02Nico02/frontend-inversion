@@ -39,8 +39,9 @@ export class ResearchTextImportService {
       };
     }
 
-    const entries = this.parseEntries(rawText);
     const fieldAliases = this.fieldAliasesFor(input.kind);
+    const knownKeys = this.knownKeysFor(input.kind, fieldAliases);
+    const entries = this.parseEntries(rawText, knownKeys);
     const groupedEntries = this.groupEntries(entries);
     const fields: Record<string, string> = {};
     const fieldSources: Record<string, string> = {};
@@ -94,23 +95,44 @@ export class ResearchTextImportService {
     };
   }
 
-  private parseEntries(rawText: string): ParsedEntry[] {
+  private parseEntries(rawText: string, knownKeys: Set<string>): ParsedEntry[] {
     const lines = rawText
       .split(/\r?\n/)
       .map((line) => line.trim())
       .filter((line) => line.length > 0);
 
     const entries: ParsedEntry[] = [];
-    for (let index = 0; index < lines.length; index += 2) {
+    for (let index = 0; index < lines.length; index += 1) {
       const sourceKey = lines[index];
-      const value = lines[index + 1] ?? '';
-      if (!sourceKey || !value) {
+      const normalizedKey = this.normalizeKey(sourceKey);
+      if (!knownKeys.has(normalizedKey)) {
         continue;
       }
+
+      let value = '';
+      for (let nextIndex = index + 1; nextIndex < lines.length; nextIndex += 1) {
+        const candidate = lines[nextIndex];
+        if (!candidate) {
+          continue;
+        }
+
+        const candidateKey = this.normalizeKey(candidate);
+        if (knownKeys.has(candidateKey)) {
+          break;
+        }
+
+        value = candidate.trim();
+        break;
+      }
+
+      if (!value) {
+        continue;
+      }
+
       entries.push({
         sourceKey,
-        normalizedKey: this.normalizeKey(sourceKey),
-        value: value.trim()
+        normalizedKey,
+        value
       });
     }
 
@@ -213,6 +235,89 @@ export class ResearchTextImportService {
       'Perf YTD': ['Perf YTD'],
       'Perf Year': ['Perf Year']
     };
+  }
+
+  private knownKeysFor(kind: ResearchAssetKind, fieldAliases: Record<string, string[]>): Set<string> {
+    const known = new Set<string>();
+    for (const aliases of Object.values(fieldAliases)) {
+      for (const alias of aliases) {
+        known.add(this.normalizeKey(alias));
+      }
+    }
+
+    for (const extra of this.commonKnownKeys(kind)) {
+      known.add(this.normalizeKey(extra));
+    }
+
+    return known;
+  }
+
+  private commonKnownKeys(kind: ResearchAssetKind): string[] {
+    const extras = [
+      'Index',
+      'Market Cap',
+      'Enterprise Value',
+      'Income',
+      'Sales',
+      'Book/sh',
+      'Cash/sh',
+      'Dividend Est.',
+      'Dividend TTM',
+      'Payout',
+      'Employees',
+      'IPO',
+      'P/S',
+      'P/B',
+      'P/C',
+      'P/FCF',
+      'EV/EBITDA',
+      'EV/Sales',
+      'Quick Ratio',
+      'Current Ratio',
+      'LT Debt/Eq',
+      'Option/Short',
+      'EPS (ttm)',
+      'EPS next Q',
+      'EPS this Y',
+      'EPS past 3/5Y',
+      'Sales past 3/5Y',
+      'EPS Q/Q',
+      'Sales Q/Q',
+      'Earnings',
+      'EPS/Sales Surpr.',
+      'Insider Own',
+      'Insider Trans',
+      'Inst Own',
+      'Inst Trans',
+      'ROA',
+      'Gross Margin',
+      'Trades',
+      'Shs Outstand',
+      'Shs Float',
+      'Short Float',
+      'Short Ratio',
+      'Short Interest',
+      'Volatility',
+      'ATR (14)',
+      'Beta',
+      'Rel Volume',
+      'Avg Volume',
+      'Volume',
+      'Perf Week',
+      'Perf Half Y',
+      'Perf 3Y',
+      'Perf 5Y',
+      'Perf 10Y',
+      'Recom',
+      'Prev Close',
+      'Change'
+    ];
+
+    if (kind === 'stock') {
+      return extras;
+    }
+
+    return extras;
   }
 
   private shouldPreferPercent(fieldLabel: string): boolean {
