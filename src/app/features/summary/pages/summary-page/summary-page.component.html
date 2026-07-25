@@ -3,105 +3,151 @@
     <div>
       <p class="eyebrow">Resumen</p>
       <h2>Vista general del portafolio</h2>
-      <p class="lead">Arranque rápido para entender el estado del Excel, la concentración y las alertas importantes.</p>
+      <p class="lead">Portada ejecutiva para entender el estado del portafolio, las señales importantes y el próximo paso.</p>
     </div>
   </header>
 
   <ng-container *ngIf="snapshot.dataset && snapshot.summary; else emptyState">
     <app-dashboard-summary-panel [summary]="snapshot.summary"></app-dashboard-summary-panel>
 
-    <article class="panel benchmark-panel" *ngIf="minimumPerformanceSummary(snapshot) as minimumSummary" [ngClass]="minimumPerformanceStatusClass(minimumSummary.status)">
-      <div class="metric-head">
+    <section class="summary-section">
+      <div class="section-head">
         <div>
-          <p class="eyebrow">Comparación vs mínimo ARS</p>
-          <h3>{{ minimumPerformanceStatusLabel(minimumSummary.status) }}</h3>
+          <p class="eyebrow">Estado general</p>
+          <h3>Portafolio vs mínimo esperado</h3>
+          <p class="lead">Resumen rápido para saber si el portafolio está arriba o abajo del benchmark mínimo.</p>
         </div>
-        <strong class="badge">{{ minimumSummary.comparableLotsCount }} lotes</strong>
+        <a routerLink="/historico" class="link">Ver histórico</a>
       </div>
 
-      <div class="metric-grid compact" *ngIf="minimumSummary.status !== 'missing'; else missingBenchmark">
-        <div class="metric-cell">
-          <span>Vs mínimo %</span>
-          <strong [class.positive]="(minimumSummary.balanceVsMinimumPercentArs ?? 0) >= 0" [class.negative]="(minimumSummary.balanceVsMinimumPercentArs ?? 0) < 0">
-            {{ minimumSummary.balanceVsMinimumArs !== null ? percent(minimumSummary.balanceVsMinimumPercentArs ?? 0) : 'N/D' }}
-          </strong>
-        </div>
-        <div class="metric-cell">
-          <span>Vs mínimo $</span>
-          <strong [class.positive]="(minimumSummary.balanceVsMinimumArs ?? 0) >= 0" [class.negative]="(minimumSummary.balanceVsMinimumArs ?? 0) < 0">
-            {{ minimumSummary.balanceVsMinimumArs !== null ? (minimumSummary.balanceVsMinimumArs | currency:'ARS':'symbol-narrow':'1.2-2') : 'N/D' }}
-          </strong>
-        </div>
-        <div class="metric-cell">
-          <span>Valor comparable ARS</span>
-          <strong>{{ minimumSummary.currentComparableArs !== null ? (minimumSummary.currentComparableArs | currency:'ARS':'symbol-narrow':'1.2-2') : 'N/D' }}</strong>
-        </div>
-        <div class="metric-cell">
-          <span>Mínimo esperado ARS</span>
-          <strong>{{ minimumSummary.minimumExpectedArs !== null ? (minimumSummary.minimumExpectedArs | currency:'ARS':'symbol-narrow':'1.2-2') : 'N/D' }}</strong>
-        </div>
+      <div class="summary-grid summary-grid--benchmark">
+        <article class="panel benchmark-panel" *ngIf="minimumPerformanceSummary(snapshot) as minimumSummary" [ngClass]="minimumPerformanceStatusClass(minimumSummary.status)">
+          <div class="metric-head">
+            <div>
+              <p class="eyebrow">Estado vs mínimo ARS</p>
+              <h3>{{ minimumPerformanceStatusLabel(minimumSummary.status) }}</h3>
+            </div>
+            <strong class="badge">{{ minimumSummary.comparableLotsCount }} lotes</strong>
+          </div>
+
+          <div class="metric-grid compact" *ngIf="minimumSummary.status !== 'missing'; else missingBenchmark">
+            <div class="metric-cell">
+              <span>Vs mínimo %</span>
+              <strong [class.positive]="(minimumSummary.balanceVsMinimumPercentArs ?? 0) >= 0" [class.negative]="(minimumSummary.balanceVsMinimumPercentArs ?? 0) < 0">
+                {{ minimumSummary.balanceVsMinimumArs !== null ? percent(minimumSummary.balanceVsMinimumPercentArs ?? 0) : 'N/D' }}
+              </strong>
+            </div>
+            <div class="metric-cell">
+              <span>Vs mínimo $</span>
+              <strong [class.positive]="(minimumSummary.balanceVsMinimumArs ?? 0) >= 0" [class.negative]="(minimumSummary.balanceVsMinimumArs ?? 0) < 0">
+                {{ minimumSummary.balanceVsMinimumArs !== null ? (minimumSummary.balanceVsMinimumArs | currency:'ARS':'symbol-narrow':'1.2-2') : 'N/D' }}
+              </strong>
+            </div>
+            <div class="metric-cell">
+              <span>Valor comparable ARS</span>
+              <strong>{{ minimumSummary.currentComparableArs !== null ? (minimumSummary.currentComparableArs | currency:'ARS':'symbol-narrow':'1.2-2') : 'N/D' }}</strong>
+            </div>
+            <div class="metric-cell">
+              <span>Mínimo esperado ARS</span>
+              <strong>{{ minimumSummary.minimumExpectedArs !== null ? (minimumSummary.minimumExpectedArs | currency:'ARS':'symbol-narrow':'1.2-2') : 'N/D' }}</strong>
+            </div>
+          </div>
+
+          <ng-template #missingBenchmark>
+            <div class="empty-benchmark">
+              <strong>N/D</strong>
+              <p>No hay datos suficientes para calcular el benchmark mínimo.</p>
+            </div>
+          </ng-template>
+
+          <p class="benchmark-note">Comparación resumida. El detalle completo vive en Histórico y Posiciones.</p>
+        </article>
+
+        <article class="panel balance-trend-panel" *ngIf="minimumBalanceTrend(snapshot) as trend">
+          <div class="metric-head">
+            <div>
+              <p class="eyebrow">Balance vs mínimo ARS</p>
+              <h3>Evolución contra el benchmark mínimo</h3>
+            </div>
+            <strong class="badge">{{ trend.trendLabel }}</strong>
+          </div>
+
+          <div class="metric-grid compact">
+            <div class="metric-cell">
+              <span>Resultado actual</span>
+              <strong>{{ trend.currentBalanceVsMinimumARS !== null ? (privacyMode.enabled ? 'Oculto' : (trend.currentBalanceVsMinimumARS | currency:'ARS':'symbol-narrow':'1.2-2')) : 'N/D' }}</strong>
+            </div>
+            <div class="metric-cell">
+              <span>% vs mínimo</span>
+              <strong>{{ trend.currentBalanceVsMinimumPercent !== null ? (privacyMode.enabled ? 'Oculto' : percent(trend.currentBalanceVsMinimumPercent)) : 'N/D' }}</strong>
+            </div>
+            <div class="metric-cell">
+              <span>Posiciones bajo mínimo</span>
+              <strong>{{ trend.positionsBelowMinimumCount }}</strong>
+            </div>
+            <div class="metric-cell">
+              <span>Déficit total</span>
+              <strong>{{ privacyMode.enabled ? 'Oculto' : (trend.totalDeficitBelowMinimumARS | currency:'ARS':'symbol-narrow':'1.2-2') }}</strong>
+            </div>
+          </div>
+
+          <p class="benchmark-note">Estado actual del portafolio frente al benchmark mínimo.</p>
+          <p class="benchmark-note warning" *ngIf="!trend.points.length">Sin historial suficiente para tendencia.</p>
+          <p class="benchmark-note warning" *ngIf="trend.warnings.length">{{ trend.warnings[0] }}</p>
+        </article>
       </div>
+    </section>
 
-      <ng-template #missingBenchmark>
-        <div class="empty-benchmark">
-          <strong>N/D</strong>
-          <p>No hay datos suficientes para calcular el benchmark mínimo.</p>
-        </div>
-      </ng-template>
-
-      <p class="benchmark-note">
-        Este bloque compara el valor comparable contra el mínimo esperado. No representa valor de mercado ni resultado nominal.
-      </p>
-    </article>
-
-    <article class="panel balance-trend-panel" *ngIf="minimumBalanceTrend(snapshot) as trend">
-      <div class="metric-head">
+    <section class="summary-section signals-section">
+      <div class="section-head">
         <div>
-          <p class="eyebrow">Balance vs mínimo ARS</p>
-          <h3>Evolución del balance contra el benchmark mínimo</h3>
-          <p class="benchmark-note">Estado actual del portafolio frente al mínimo esperado.</p>
+          <p class="eyebrow">Señales de la semana</p>
+          <h3>Órdenes pendientes y alerta clave</h3>
+          <p class="lead">Lo primero que conviene mirar antes de abrir pantallas más profundas.</p>
         </div>
-        <strong class="badge">{{ trend.trendLabel }}</strong>
-      </div>
-
-      <div class="metric-grid compact">
-        <div class="metric-cell">
-          <span>Actual</span>
-          <strong>{{ trend.currentBalanceVsMinimumARS !== null ? (privacyMode.enabled ? 'Oculto' : (trend.currentBalanceVsMinimumARS | currency:'ARS':'symbol-narrow':'1.2-2')) : 'N/D' }}</strong>
-        </div>
-        <div class="metric-cell">
-          <span>% vs mínimo</span>
-          <strong>{{ trend.currentBalanceVsMinimumPercent !== null ? (privacyMode.enabled ? 'Oculto' : percent(trend.currentBalanceVsMinimumPercent)) : 'N/D' }}</strong>
-        </div>
-        <div class="metric-cell">
-          <span>Posiciones bajo mínimo</span>
-          <strong>{{ trend.positionsBelowMinimumCount }}</strong>
-        </div>
-        <div class="metric-cell">
-          <span>Déficit total</span>
-          <strong>{{ privacyMode.enabled ? 'Oculto' : (trend.totalDeficitBelowMinimumARS | currency:'ARS':'symbol-narrow':'1.2-2') }}</strong>
+        <div class="section-head__actions">
+          <a routerLink="/decisiones" class="link">Ir a decisiones</a>
+          <a routerLink="/alertas" class="link">Ver alertas</a>
         </div>
       </div>
 
-      <p class="benchmark-note" *ngIf="!trend.points.length">
-        Sin historial suficiente para tendencia.
-      </p>
-      <p class="benchmark-note" *ngIf="trend.warnings.length">
-        {{ trend.warnings[0] }}
-      </p>
-    </article>
+      <div class="signals-grid">
+        <app-pending-orders-panel
+          [summary]="pendingOrders(snapshot)"
+          [privacyEnabled]="privacyMode.enabled">
+        </app-pending-orders-panel>
 
-    <app-pending-orders-panel
-      [summary]="pendingOrders(snapshot)"
-      [privacyEnabled]="privacyMode.enabled">
-    </app-pending-orders-panel>
+        <article class="panel signal-card">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Alerta clave</p>
+              <h3>Última señal importante</h3>
+            </div>
+          </div>
 
-    <section class="panel upcoming-panel">
-      <div class="upcoming-header">
+          <ng-container *ngIf="snapshot.combinedAlerts[0] as alert; else noAlert">
+            <div class="signal-highlight">
+              <strong>{{ alert.symbol }}</strong>
+              <span>{{ alert.status }}</span>
+            </div>
+            <p class="benchmark-note">Revisá el detalle antes de tomar una decisión.</p>
+            <a [routerLink]="['/posiciones', alert.symbol]" class="link">Ver detalle de la especie</a>
+          </ng-container>
+
+          <ng-template #noAlert>
+            <p class="benchmark-note">No hay alertas destacadas en este momento.</p>
+            <a routerLink="/alertas" class="link">Abrir alertas</a>
+          </ng-template>
+        </article>
+      </div>
+    </section>
+
+    <section class="summary-section upcoming-section">
+      <div class="section-head">
         <div>
           <p class="eyebrow">Próximos hitos</p>
           <h3>Objetivos cercanos</h3>
-          <p class="lead">Objetivos cercanos calculados a partir del valor actual y la estrategia del portafolio.</p>
+          <p class="lead">Resumen breve de los hitos detectados por el sistema.</p>
         </div>
 
         <label class="contribution-field" *ngIf="!privacyMode.enabled; else privacyContribution">
@@ -125,97 +171,104 @@
         </ng-template>
       </div>
 
-      <div class="upcoming-summary" *ngIf="upcomingGoals(snapshot) as goals">
-        <div class="summary-chip">
-          <span>Objetivos detectados</span>
-          <strong>{{ goals.length }}</strong>
-        </div>
-        <div class="summary-chip">
-          <span>Aporte mensual</span>
-          <strong>{{ privacyMode.enabled ? 'Oculto' : (upcomingContributionArs !== null ? (upcomingContributionArs | currency:'ARS':'symbol-narrow':'1.0-0') : 'N/D') }}</strong>
-        </div>
-      </div>
-
-      <div class="goals-empty" *ngIf="!upcomingGoals(snapshot).length">
-        <p>No hay objetivos próximos para mostrar con los datos actuales.</p>
-      </div>
-
-      <div class="goals-grid" *ngIf="upcomingGoals(snapshot).length">
-        <article class="goal-card" *ngFor="let goal of upcomingGoals(snapshot)">
-          <div class="goal-head">
-            <span class="goal-chip" [class.reached]="goal.status === 'reached'" [class.pending]="goal.status === 'pending'" [class.missing]="goal.status === 'not-available'">
-              {{ goalStatusBadge(goal) }}
-            </span>
-            <span class="goal-category">{{ goalCategoryLabel(goal.category) }}</span>
+      <ng-container *ngIf="upcomingGoals(snapshot) as goals">
+        <div class="upcoming-summary">
+          <div class="summary-chip">
+            <span>Objetivos detectados</span>
+            <strong>{{ goals.length }}</strong>
           </div>
+          <div class="summary-chip">
+            <span>Aporte mensual</span>
+            <strong>{{ privacyMode.enabled ? 'Oculto' : (upcomingContributionArs !== null ? (upcomingContributionArs | currency:'ARS':'symbol-narrow':'1.0-0') : 'N/D') }}</strong>
+          </div>
+        </div>
 
-          <h4>{{ goal.title }}</h4>
-          <p class="goal-description">{{ goal.description }}</p>
+        <div class="goals-empty" *ngIf="!goals.length">
+          <p>No hay objetivos próximos para mostrar con los datos actuales.</p>
+        </div>
 
-          <ng-container *ngIf="goal.category !== 'strategy-balance'; else strategyGoal">
-            <div class="goal-metrics" *ngIf="goal.status !== 'not-available'; else unavailableGoal">
-              <div class="goal-metric">
-                <span>Actual</span>
-                <strong>{{ goalAmount(goal.currentValue, goal.currency) }}</strong>
-              </div>
-              <div class="goal-metric">
-                <span>Objetivo</span>
-                <strong>{{ goalAmount(goal.targetValue, goal.currency) }}</strong>
-              </div>
-              <div class="goal-metric">
-                <span>Faltante</span>
-                <strong>{{ goalAmount(goal.remainingAmount, goal.currency) }}</strong>
-              </div>
-              <div class="goal-metric">
-                <span>% faltante</span>
-                <strong>{{ goalPercent(goal.remainingPercent) }}</strong>
-              </div>
-              <div class="goal-metric">
-                <span>Con aporte mensual</span>
-                <strong>{{ goalMonths(goal.estimatedMonths) }}</strong>
-              </div>
+        <p class="benchmark-note" *ngIf="goals.length > 3">
+          Mostrando 3 de {{ goals.length }} objetivos. El detalle completo vive en Decisiones o Estrategia.
+        </p>
+
+        <div class="goals-grid goals-grid--compact" *ngIf="goals.length">
+          <article class="goal-card" *ngFor="let goal of goals.slice(0, 3)">
+            <div class="goal-head">
+              <span class="goal-chip" [class.reached]="goal.status === 'reached'" [class.pending]="goal.status === 'pending'" [class.missing]="goal.status === 'not-available'">
+                {{ goalStatusBadge(goal) }}
+              </span>
+              <span class="goal-category">{{ goalCategoryLabel(goal.category) }}</span>
             </div>
-          </ng-container>
 
-          <ng-template #strategyGoal>
-            <div class="goal-metrics strategy">
-              <div class="goal-metric wide">
-                <span>Referencia según aportes</span>
-                <strong>{{ strategyReferenceSummary(goal) }}</strong>
-                <small>{{ strategyReferenceDetail(goal) }}</small>
-              </div>
-              <div class="goal-metric" *ngFor="let item of goal.breakdown">
-                <span>{{ goalCurrencyLabel(item.currency) }}</span>
-                <strong>{{ strategyBreakdownLabel(item) }}</strong>
-                <small>Aportes acumulados: {{ goalAmount(item.retirementAmount, item.currency) }} / {{ goalAmount(item.savingsAmount, item.currency) }}</small>
-              </div>
-            </div>
-          </ng-template>
+            <h4>{{ goal.title }}</h4>
+            <p class="goal-description">{{ goal.description }}</p>
 
-          <ng-template #unavailableGoal>
-            <div class="goal-metrics unavailable">
-              <div class="goal-metric">
-                <span>Estado</span>
-                <strong>No disponible</strong>
+            <ng-container *ngIf="goal.category !== 'strategy-balance'; else strategyGoal">
+              <div class="goal-metrics" *ngIf="goal.status !== 'not-available'; else unavailableGoal">
+                <div class="goal-metric">
+                  <span>Actual</span>
+                  <strong>{{ goalAmount(goal.currentValue, goal.currency) }}</strong>
+                </div>
+                <div class="goal-metric">
+                  <span>Objetivo</span>
+                  <strong>{{ goalAmount(goal.targetValue, goal.currency) }}</strong>
+                </div>
+                <div class="goal-metric">
+                  <span>Faltante</span>
+                  <strong>{{ goalAmount(goal.remainingAmount, goal.currency) }}</strong>
+                </div>
+                <div class="goal-metric">
+                  <span>% faltante</span>
+                  <strong>{{ goalPercent(goal.remainingPercent) }}</strong>
+                </div>
+                <div class="goal-metric">
+                  <span>Con aporte mensual</span>
+                  <strong>{{ goalMonths(goal.estimatedMonths) }}</strong>
+                </div>
               </div>
-            </div>
-          </ng-template>
+            </ng-container>
 
-          <small>Fuente: {{ goal.source }}</small>
-        </article>
-      </div>
+            <ng-template #strategyGoal>
+              <div class="goal-metrics strategy">
+                <div class="goal-metric wide">
+                  <span>Referencia según aportes</span>
+                  <strong>{{ strategyReferenceSummary(goal) }}</strong>
+                  <small>{{ strategyReferenceDetail(goal) }}</small>
+                </div>
+                <div class="goal-metric" *ngFor="let item of goal.breakdown">
+                  <span>{{ goalCurrencyLabel(item.currency) }}</span>
+                  <strong>{{ strategyBreakdownLabel(item) }}</strong>
+                  <small>Aportes acumulados: {{ goalAmount(item.retirementAmount, item.currency) }} / {{ goalAmount(item.savingsAmount, item.currency) }}</small>
+                </div>
+              </div>
+            </ng-template>
+
+            <ng-template #unavailableGoal>
+              <div class="goal-metrics unavailable">
+                <div class="goal-metric">
+                  <span>Estado</span>
+                  <strong>No disponible</strong>
+                </div>
+              </div>
+            </ng-template>
+
+            <small>Fuente: {{ goal.source }}</small>
+          </article>
+        </div>
+      </ng-container>
     </section>
 
-    <div class="mini-grid">
-      <article class="panel">
+    <section class="summary-secondary">
+      <article class="panel secondary-card">
         <p class="eyebrow">Salud de datos</p>
         <h3>{{ healthSummary(snapshot).status | titlecase }}</h3>
-        <p>Críticos: {{ healthSummary(snapshot).criticalProblems }}</p>
-        <p>Advertencias: {{ healthSummary(snapshot).warnings }}</p>
-        <p>Sin clasificación: {{ healthSummary(snapshot).uncategorizedAssets }}</p>
+        <p><strong>Críticos:</strong> {{ healthSummary(snapshot).criticalProblems }}</p>
+        <p><strong>Advertencias:</strong> {{ healthSummary(snapshot).warnings }}</p>
+        <p><strong>Sin clasificación:</strong> {{ healthSummary(snapshot).uncategorizedAssets }}</p>
+        <a routerLink="/datos-a-revisar" class="link">Revisar datos</a>
       </article>
 
-      <article class="panel">
+      <article class="panel secondary-card">
         <p class="eyebrow">Concentración</p>
         <h3>{{ percent(concentration(snapshot).top1Percent) }} Top 1</h3>
         <p>{{ percent(concentration(snapshot).top3Percent) }} Top 3</p>
@@ -223,25 +276,18 @@
         <a routerLink="/concentracion" class="link">Ver concentración</a>
       </article>
 
-      <article class="panel">
-        <p class="eyebrow">Alertas clave</p>
-        <h3>{{ snapshot.combinedAlerts.length }} alertas</h3>
-        <p *ngIf="snapshot.combinedAlerts[0] as alert">
-          {{ alert.symbol }} · {{ alert.status }}
-        </p>
-        <a routerLink="/alertas" class="link">Abrir alertas</a>
-      </article>
-
-      <article class="panel">
+      <article class="panel secondary-card">
         <p class="eyebrow">Acciones rápidas</p>
-        <div class="action-list">
-          <a routerLink="/importacion" class="link">Importar o reemplazar Excel</a>
+        <div class="action-list action-list--compact">
+          <a routerLink="/decisiones" class="link">Ir a decisiones</a>
           <a routerLink="/posiciones" class="link">Ir a posiciones</a>
           <a routerLink="/historico" class="link">Ver histórico</a>
-          <a routerLink="/datos-a-revisar" class="link">Revisar datos</a>
+          <a routerLink="/datos-gpt" class="link">Exportar contexto / Datos GPT</a>
+          <a routerLink="/importacion" class="link">Importar o reemplazar Excel</a>
+          <a routerLink="/alertas" class="link">Abrir alertas</a>
         </div>
       </article>
-    </div>
+    </section>
   </ng-container>
 
   <ng-template #emptyState>
