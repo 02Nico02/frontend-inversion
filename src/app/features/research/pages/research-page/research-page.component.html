@@ -1,26 +1,42 @@
 <section class="page" *ngIf="state.snapshot as snapshot">
   <header class="page-header">
-    <div>
+    <div class="page-heading">
       <p class="eyebrow">Datos GPT</p>
       <h2>Investigación de especies para ChatGPT</h2>
       <p class="lead">Armá plantillas editables por especie, guardalas localmente y exportalas en Markdown listo para pegar.</p>
+      <p class="page-summary">{{ markdownSummary }}</p>
     </div>
 
     <div class="actions actions-group">
+      <button type="button" class="secondary" (click)="toggleProviderSettingsPanel()">Configurar proveedores</button>
       <button type="button" class="secondary" (click)="copyMarkdown()" [disabled]="!selectedAssets.length">Copiar Markdown</button>
-      <button type="button" class="primary" (click)="exportMarkdown()" [disabled]="!selectedAssets.length">Exportar .md</button>
-      <button type="button" class="secondary" (click)="clearItems()" [disabled]="!selectedAssets.length">Limpiar lista</button>
+      <button type="button" class="primary" (click)="setActiveStep('export')" [disabled]="!selectedAssets.length">Exportar .md</button>
     </div>
   </header>
 
-  <details class="panel provider-panel">
-    <summary class="provider-summary">
+  <nav class="step-tabs" aria-label="Flujo de datos GPT">
+    <button type="button" class="step-tab" [class.step-tab--active]="activeStep === 'select'" (click)="setActiveStep('select')">
+      <span class="step-tab__index">1</span>
+      <span>Seleccionar</span>
+    </button>
+    <button type="button" class="step-tab" [class.step-tab--active]="activeStep === 'complete'" (click)="setActiveStep('complete')" [disabled]="!selectedAssets.length">
+      <span class="step-tab__index">2</span>
+      <span>Completar datos</span>
+    </button>
+    <button type="button" class="step-tab" [class.step-tab--active]="activeStep === 'export'" (click)="setActiveStep('export')" [disabled]="!selectedAssets.length">
+      <span class="step-tab__index">3</span>
+      <span>Exportar</span>
+    </button>
+  </nav>
+
+  <div class="panel provider-panel compact-panel" *ngIf="showProviderSettingsPanel">
+    <div class="panel-head">
       <div>
         <p class="eyebrow">Configuración de proveedores</p>
         <h3>Keys locales para autocompletar</h3>
       </div>
       <span class="badge">Guardado local</span>
-    </summary>
+    </div>
 
     <p class="provider-note">Las API keys se guardan solo en este navegador mediante localStorage. No se suben al backend.</p>
 
@@ -50,24 +66,46 @@
       <button type="button" class="secondary small" (click)="saveProviderSettings()">Guardar configuración</button>
       <button type="button" class="ghost small" (click)="clearProviderSettings()">Borrar keys</button>
     </div>
-  </details>
+  </div>
 
-  <details class="panel text-import-panel">
-    <summary class="provider-summary">
+  <div class="panel text-import-panel compact-panel" *ngIf="showTextImportPanel">
+    <div class="panel-head">
       <div>
         <p class="eyebrow">Agregar desde texto</p>
         <h3>Importar bloque pegado</h3>
       </div>
       <span class="badge">Manual</span>
-    </summary>
+    </div>
 
     <p class="provider-note">Pegá un bloque tipo Finviz y extraigo los campos que la plantilla necesita.</p>
 
     <div class="provider-grid text-import-grid">
-      <label class="field">
+      <div class="field symbol-combobox">
         <span>Símbolo</span>
-        <input type="text" [(ngModel)]="textImportSymbol" placeholder="AMD" />
-      </label>
+        <div class="symbol-combobox__shell" [class.open]="textImportSuggestionsVisible">
+          <input
+            type="text"
+            [ngModel]="textImportSymbol"
+            (ngModelChange)="onTextImportSymbolChange($event)"
+            (focus)="openTextImportSuggestions()"
+            (click)="openTextImportSuggestions()"
+            placeholder="AMD"
+          />
+        </div>
+
+        <div class="symbol-combobox__dropdown" *ngIf="textImportSuggestionsVisible">
+          <button
+            type="button"
+            class="symbol-combobox__option"
+            *ngFor="let suggestion of textImportSuggestions; trackBy: trackByPosition"
+            (click)="selectTextImportSuggestion(suggestion)"
+          >
+            <strong>{{ suggestion.symbol }}</strong>
+            <span>{{ suggestion.assetType || suggestion.positionType || 'N/D' }}</span>
+            <small>{{ suggestion.sector || 'Sin sector' }} · {{ suggestion.region || 'Sin región' }}</small>
+          </button>
+        </div>
+      </div>
 
       <label class="field">
         <span>Tipo de plantilla</span>
@@ -89,6 +127,9 @@
     <p class="field-help">Usá esto para pegar texto externo y completar campos sin autocompletar por proveedor.</p>
     <p class="field-help subtle" *ngIf="textImportSymbol">
       Símbolo a importar: {{ textImportSymbol | uppercase }}
+    </p>
+    <p class="field-help subtle" *ngIf="textImportDetectedKindLabel">
+      Tipo detectado automáticamente: {{ textImportDetectedKindLabel }}
     </p>
 
     <div class="provider-actions">
@@ -122,7 +163,7 @@
         <p>{{ textImportPreview.missingFields.length ? textImportPreview.missingFields.join(', ') : 'Ninguno' }}</p>
       </div>
     </div>
-  </details>
+  </div>
 
   <ng-container *ngIf="snapshot.dataset as dataset; else emptyState">
     <div class="status-line" *ngIf="copyStatus || exportStatus">
@@ -130,16 +171,26 @@
       <p *ngIf="exportStatus">{{ exportStatus }}</p>
     </div>
 
-    <div class="research-layout">
-      <article class="panel selector-panel">
-        <div class="panel-head">
-          <div>
-            <p class="eyebrow">Selector</p>
-            <h3>Especies actuales del portafolio</h3>
-          </div>
-          <strong class="badge">{{ filteredPositions.length }} visibles</strong>
+    <section class="step-section" *ngIf="activeStep === 'select'">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">1 · Seleccionar</p>
+          <h3>Especies actuales del portafolio</h3>
         </div>
+        <div class="section-head-actions">
+          <strong class="badge">{{ filteredPositions.length }} visibles</strong>
+          <span class="hint">{{ selectedAssets.length }} seleccionadas</span>
+        </div>
+      </div>
 
+      <div class="step-toolbar">
+        <button type="button" class="secondary small" (click)="toggleTextImportPanel()">
+          {{ showTextImportPanel ? 'Ocultar Agregar desde texto' : 'Agregar desde texto' }}
+        </button>
+        <button type="button" class="primary small" (click)="setActiveStep('complete')" [disabled]="!selectedAssets.length">Ir a completar datos</button>
+      </div>
+
+      <div class="panel selector-panel">
         <label class="search-box">
           <span>Buscar especie...</span>
           <input type="search" [(ngModel)]="searchTerm" placeholder="MSFT, ETF, bono, cripto..." />
@@ -150,7 +201,7 @@
           <p>Importá el Excel para empezar a armar la lista de investigación.</p>
         </div>
 
-        <div class="table-wrap" *ngIf="hasPositions">
+        <div class="table-wrap table-wrap--select" *ngIf="hasPositions">
           <table class="table compact">
             <thead>
               <tr>
@@ -178,132 +229,223 @@
             </tbody>
           </table>
         </div>
-      </article>
+      </div>
+    </section>
 
-      <article class="panel preview-panel">
-        <div class="panel-head">
-          <div>
-            <p class="eyebrow">Preview</p>
-            <h3>Markdown generado</h3>
-          </div>
-          <div class="panel-head-actions">
-            <strong class="badge">{{ selectedAssets.length }} seleccionadas</strong>
-            <button type="button" class="ghost small" (click)="showPreview = !showPreview">
-              {{ showPreview ? 'Ocultar vista previa' : 'Mostrar vista previa' }}
-            </button>
-          </div>
-        </div>
-
-        <p class="preview-summary">{{ markdownSummary }}</p>
-
-        <textarea *ngIf="showPreview" class="markdown-preview" readonly [value]="markdownPreview"></textarea>
-        <div class="preview-collapsed" *ngIf="!showPreview">
-          <strong>Vista previa oculta.</strong>
-          <p>Podés volver a abrirla desde el botón superior.</p>
-        </div>
-      </article>
-    </div>
-
-    <section class="selected-section">
+    <section class="step-section" *ngIf="activeStep === 'complete'">
       <div class="section-head">
         <div>
-          <p class="eyebrow">Lista editable</p>
+          <p class="eyebrow">2 · Completar datos</p>
           <h3>Especies seleccionadas</h3>
         </div>
-        <span class="hint">{{ markdownSummary }}</span>
+        <div class="section-head-actions">
+          <strong class="badge">{{ selectedAssets.length }} seleccionadas</strong>
+          <span class="hint">{{ markdownSummary }}</span>
+        </div>
+      </div>
+
+      <div class="step-toolbar">
+        <button type="button" class="secondary small" (click)="setActiveStep('select')">Volver a seleccionar</button>
+        <button type="button" class="primary small" (click)="setActiveStep('export')" [disabled]="!selectedAssets.length">Ir a exportar</button>
       </div>
 
       <div class="empty-selection panel" *ngIf="!selectedAssets.length">
         <strong>No hay especies seleccionadas.</strong>
-        <p>Agregá una especie desde la tabla de la izquierda para empezar.</p>
+        <p>Agregá una especie desde la pestaña de selección para empezar.</p>
       </div>
 
-      <div class="cards-grid" *ngIf="selectedAssets.length">
-        <article class="asset-card panel" *ngFor="let item of selectedAssets; trackBy: trackByItem">
-          <div class="asset-card-summary">
-            <button type="button" class="asset-card-summary-trigger" (click)="toggleExpanded(item.id)">
-              <div class="asset-card-summary-main">
-                <div class="asset-card-title">
-                  <p class="eyebrow">{{ item.portfolioSymbol }}</p>
-                  <h4>{{ item.portfolioSymbol }} · {{ templateLabel(item.kind) }}</h4>
-                  <p class="subtle">{{ item.assetType || 'Sin tipo' }} · {{ item.sector || 'Sin sector' }} · {{ item.region || 'Sin región' }}</p>
-                </div>
+      <div class="panel compact-list-panel" *ngIf="selectedAssets.length">
+        <div class="table-wrap table-wrap--selected">
+          <table class="table compact selected-table">
+            <thead>
+              <tr>
+                <th>Especie</th>
+                <th>Plantilla</th>
+                <th>Estado</th>
+                <th>Campos</th>
+                <th>Fuente</th>
+                <th class="num">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let item of selectedAssets; trackBy: trackByItem" [class.row-active]="editingItemId === item.id">
+                <td>
+                  <strong>{{ item.portfolioSymbol }}</strong>
+                  <p class="table-subtle">{{ item.querySymbol || 'N/D' }}</p>
+                </td>
+                <td>{{ templateLabel(item.kind) }}</td>
+                <td>
+                  <span
+                    class="status-pill"
+                    [class.status-pill--complete]="completion(item).status === 'completo'"
+                    [class.status-pill--partial]="completion(item).status === 'parcial'"
+                    [class.status-pill--incomplete]="completion(item).status === 'incompleto'"
+                  >
+                    {{ completionLabel(item) | titlecase }}
+                  </span>
+                </td>
+                <td>{{ itemSummary(item) }}</td>
+                <td>{{ item.source }}</td>
+                <td class="num row-actions">
+                  <button type="button" class="ghost small" (click)="startEditing(item.id)">Editar</button>
+                  <button
+                    type="button"
+                    class="secondary small"
+                    (click)="autofillItem(item)"
+                    [disabled]="!canAutofill(item) || autofillState(item.id).status === 'loading'"
+                  >
+                    {{ canAutofill(item) ? (autofillState(item.id).status === 'loading' ? 'Autocompletando...' : 'Autocompletar') : 'Manual' }}
+                  </button>
+                  <button type="button" class="ghost small danger" (click)="removeItem(item.id)">Eliminar</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-                <span
-                  class="status-pill"
-                  [class.status-pill--complete]="completion(item).status === 'completo'"
-                  [class.status-pill--partial]="completion(item).status === 'parcial'"
-                  [class.status-pill--incomplete]="completion(item).status === 'incompleto'"
-                >
-                  {{ completionLabel(item) }}
-                </span>
-              </div>
-
-              <div class="asset-card-summary-meta">
-                <span>{{ itemSummary(item) }}</span>
-                <span>Faltan: {{ missingFieldsPreview(item) }}</span>
-              </div>
-            </button>
-
-            <div class="asset-card-actions asset-card-actions--autofill">
-              <button type="button" class="secondary small" (click)="autofillItem(item)" [disabled]="!canAutofill(item) || autofillState(item.id).status === 'loading'">
-                {{ autofillState(item.id).status === 'loading' ? 'Autocompletando...' : 'Autocompletar' }}
-              </button>
-
-              <label class="overwrite-toggle">
-                <input type="checkbox" [(ngModel)]="overwriteById[item.id]" />
-                <span>Sobrescribir campos completos</span>
-              </label>
-            </div>
-
-            <p class="provider-hint">Proveedor sugerido: {{ providerLabel(item) }}</p>
+      <div class="panel editor-panel" *ngIf="editingItem as item">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Editor</p>
+            <h3>{{ item.portfolioSymbol }} · {{ templateLabel(item.kind) }}</h3>
           </div>
-
-          <p class="card-state card-state--success" *ngIf="autofillState(item.id).status === 'success'">
-            {{ autofillState(item.id).message }}
-          </p>
-          <p class="card-state card-state--error" *ngIf="autofillState(item.id).status === 'error'">
-            {{ autofillState(item.id).message }}
-          </p>
-          <p class="card-state card-state--idle" *ngIf="!canAutofill(item)">
-            {{ item.kind === 'arg_bond' ? 'Autocompletado no disponible para bonos argentinos en este MVP. Completar manualmente.' : 'Autocompletado no disponible para plantilla manual.' }}
-          </p>
-
-          <div class="asset-card-actions asset-card-actions--secondary">
-            <button type="button" class="ghost small" (click)="toggleExpanded(item.id)">
-              {{ isExpanded(item.id) ? 'Ocultar' : 'Editar' }}
-            </button>
+          <div class="panel-head-actions">
+            <button type="button" class="ghost small" (click)="stopEditing()">Ocultar editor</button>
             <button type="button" class="ghost small danger" (click)="removeItem(item.id)">Eliminar</button>
           </div>
+        </div>
 
-          <div class="asset-card-body" *ngIf="isExpanded(item.id)">
-            <label class="field">
-              <span>Tipo de plantilla</span>
-              <select [ngModel]="item.kind" (ngModelChange)="updateKind(item.id, $event)">
-                <option *ngFor="let template of templateService.templates" [ngValue]="template.kind">{{ template.label }}</option>
-              </select>
+        <p class="provider-note">{{ item.assetType || 'Sin tipo' }} · {{ item.sector || 'Sin sector' }} · {{ item.region || 'Sin región' }}</p>
+        <p class="provider-hint">Proveedor sugerido: {{ providerLabel(item) }}</p>
+
+        <p class="card-state card-state--success" *ngIf="autofillState(item.id).status === 'success'">
+          {{ autofillState(item.id).message }}
+        </p>
+        <p class="card-state card-state--error" *ngIf="autofillState(item.id).status === 'error'">
+          {{ autofillState(item.id).message }}
+        </p>
+        <p class="card-state card-state--idle" *ngIf="!canAutofill(item)">
+          {{ item.kind === 'arg_bond' ? 'Autocompletado no disponible para bonos argentinos en este MVP. Completar manualmente.' : 'Autocompletado no disponible para plantilla manual.' }}
+        </p>
+
+        <div class="editor-actions">
+          <button type="button" class="secondary small" (click)="autofillItem(item)" [disabled]="!canAutofill(item) || autofillState(item.id).status === 'loading'">
+            {{ autofillState(item.id).status === 'loading' ? 'Autocompletando...' : 'Autocompletar' }}
+          </button>
+
+          <label class="overwrite-toggle">
+            <input type="checkbox" [(ngModel)]="overwriteById[item.id]" />
+            <span>Sobrescribir campos completos</span>
+          </label>
+        </div>
+
+        <div class="asset-card-body">
+          <label class="field">
+            <span>Tipo de plantilla</span>
+            <select [ngModel]="item.kind" (ngModelChange)="updateKind(item.id, $event)">
+              <option *ngFor="let template of templateService.templates" [ngValue]="template.kind">{{ template.label }}</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Símbolo búsqueda</span>
+            <input type="text" [ngModel]="item.querySymbol" (ngModelChange)="updateQuerySymbol(item.id, $event)" />
+            <p class="field-help">Usado para consultar proveedores externos. Ejemplo: YPFD → YPF.</p>
+            <p class="field-help subtle" *ngIf="item.portfolioSymbol !== item.querySymbol">
+              Símbolo en cartera: {{ item.portfolioSymbol }} · Símbolo externo: {{ item.querySymbol }}
+            </p>
+          </label>
+
+          <div class="field-grid">
+            <label class="field" *ngFor="let field of item.fields; trackBy: trackByField">
+              <span>{{ field.label }}</span>
+              <input type="text" [ngModel]="field.value" (ngModelChange)="updateField(item.id, field.label, $event)" />
             </label>
+          </div>
 
-            <label class="field">
-              <span>Símbolo búsqueda</span>
-              <input type="text" [ngModel]="item.querySymbol" (ngModelChange)="updateQuerySymbol(item.id, $event)" />
-              <p class="field-help">Usado para consultar proveedores externos. Ejemplo: YPFD → YPF.</p>
-              <p class="field-help subtle" *ngIf="item.portfolioSymbol !== item.querySymbol">
-                Símbolo en cartera: {{ item.portfolioSymbol }} · Símbolo externo: {{ item.querySymbol }}
-              </p>
-            </label>
+          <label class="field">
+            <span>Notas</span>
+            <textarea rows="3" [ngModel]="item.notes" (ngModelChange)="updateNotes(item.id, $event)"></textarea>
+          </label>
+        </div>
+      </div>
+    </section>
 
-            <div class="field-grid">
-              <label class="field" *ngFor="let field of item.fields; trackBy: trackByField">
-                <span>{{ field.label }}</span>
-                <input type="text" [ngModel]="field.value" (ngModelChange)="updateField(item.id, field.label, $event)" />
-              </label>
+    <section class="step-section" *ngIf="activeStep === 'export'">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">3 · Exportar</p>
+          <h3>Markdown listo para pegar</h3>
+        </div>
+        <div class="section-head-actions">
+          <strong class="badge">{{ selectedAssets.length }} seleccionadas</strong>
+          <span class="hint">{{ markdownSummary }}</span>
+        </div>
+      </div>
+
+      <div class="step-toolbar">
+        <button type="button" class="secondary small" (click)="setActiveStep('complete')">Volver a completar datos</button>
+        <button type="button" class="ghost small" (click)="clearItems()" [disabled]="!selectedAssets.length">Limpiar lista</button>
+      </div>
+
+      <div class="export-layout">
+        <article class="panel export-summary-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Resumen</p>
+              <h3>Especies incluidas</h3>
             </div>
+          </div>
 
-            <label class="field">
-              <span>Notas</span>
-              <textarea rows="3" [ngModel]="item.notes" (ngModelChange)="updateNotes(item.id, $event)"></textarea>
-            </label>
+          <div class="table-wrap table-wrap--selected">
+            <table class="table compact">
+              <thead>
+                <tr>
+                  <th>Especie</th>
+                  <th>Tipo</th>
+                  <th>Estado</th>
+                  <th>Completitud</th>
+                  <th>Fuente</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let item of selectedAssets; trackBy: trackByItem">
+                  <td><strong>{{ item.portfolioSymbol }}</strong></td>
+                  <td>{{ templateLabel(item.kind) }}</td>
+                  <td>{{ completionLabel(item) | titlecase }}</td>
+                  <td>{{ itemSummary(item) }}</td>
+                  <td>{{ item.source }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="panel preview-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Preview</p>
+              <h3>Markdown generado</h3>
+            </div>
+            <div class="panel-head-actions">
+              <button type="button" class="ghost small" (click)="showPreview = !showPreview">
+                {{ showPreview ? 'Ocultar vista previa' : 'Mostrar vista previa' }}
+              </button>
+            </div>
+          </div>
+
+          <p class="preview-summary">{{ markdownSummary }}</p>
+
+          <textarea *ngIf="showPreview" class="markdown-preview" readonly [value]="markdownPreview"></textarea>
+          <div class="preview-collapsed" *ngIf="!showPreview">
+            <strong>Vista previa oculta.</strong>
+            <p>Podés volver a abrirla desde el botón superior.</p>
+          </div>
+
+          <div class="provider-actions export-actions">
+            <button type="button" class="secondary small" (click)="copyMarkdown()" [disabled]="!selectedAssets.length">Copiar Markdown</button>
+            <button type="button" class="primary small" (click)="exportMarkdown()" [disabled]="!selectedAssets.length">Exportar .md</button>
           </div>
         </article>
       </div>

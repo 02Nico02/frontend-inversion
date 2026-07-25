@@ -1,5 +1,5 @@
-import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit } from '@angular/core';
+﻿import { CommonModule } from '@angular/common';
+import { Component, ElementRef, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -25,12 +25,17 @@ const STORAGE_KEY = 'frontend-inversion.research-assets';
   styleUrls: ['./research-page.component.scss']
 })
 export class ResearchPageComponent implements OnInit, OnDestroy {
+  activeStep: 'select' | 'complete' | 'export' = 'select';
   searchTerm = '';
   selectedAssets: ResearchAssetItem[] = [];
   copyStatus = '';
   exportStatus = '';
   showPreview = true;
   settingsOpen = false;
+  showProviderSettingsPanel = false;
+  showTextImportPanel = false;
+  textImportSuggestionsOpen = false;
+  editingItemId: string | null = null;
   providerSettings: ResearchProviderSettings;
   expandedIds = new Set<string>();
   overwriteById: Record<string, boolean> = {};
@@ -45,6 +50,7 @@ export class ResearchPageComponent implements OnInit, OnDestroy {
 
   constructor(
     public readonly state: PortfolioStateService,
+    private readonly hostRef: ElementRef<HTMLElement>,
     private readonly calculator: PortfolioCalculatorService,
     public readonly templateService: ResearchTemplateService,
     public readonly completionService: ResearchCompletionService,
@@ -103,6 +109,10 @@ export class ResearchPageComponent implements OnInit, OnDestroy {
     return this.positionsCache.length > 0;
   }
 
+  get editingItem(): ResearchAssetItem | null {
+    return this.selectedAssets.find((item) => item.id === this.editingItemId) ?? null;
+  }
+
   isSelected(position: PortfolioPosition): boolean {
     const symbol = this.normalizeSymbol(position.symbol);
     return this.selectedAssets.some((item) =>
@@ -124,6 +134,30 @@ export class ResearchPageComponent implements OnInit, OnDestroy {
 
   overwriteValue(itemId: string): boolean {
     return this.overwriteById[itemId] ?? false;
+  }
+
+  setActiveStep(step: 'select' | 'complete' | 'export'): void {
+    this.activeStep = step;
+    if (step !== 'complete') {
+      this.editingItemId = null;
+    }
+  }
+
+  toggleProviderSettingsPanel(): void {
+    this.showProviderSettingsPanel = !this.showProviderSettingsPanel;
+  }
+
+  toggleTextImportPanel(): void {
+    this.showTextImportPanel = !this.showTextImportPanel;
+  }
+
+  startEditing(itemId: string): void {
+    this.editingItemId = itemId;
+    this.activeStep = 'complete';
+  }
+
+  stopEditing(): void {
+    this.editingItemId = null;
   }
 
   async autofillItem(item: ResearchAssetItem): Promise<void> {
@@ -168,6 +202,8 @@ export class ResearchPageComponent implements OnInit, OnDestroy {
     const item = this.templateService.createItem(position);
     this.selectedAssets = [...this.selectedAssets, item];
     this.expandedIds.add(item.id);
+    this.editingItemId = item.id;
+    this.activeStep = 'complete';
     this.persist();
     this.exportStatus = '';
 
@@ -183,6 +219,9 @@ export class ResearchPageComponent implements OnInit, OnDestroy {
     this.expandedIds.delete(id);
     delete this.autofillStates[id];
     delete this.overwriteById[id];
+    if (this.editingItemId === id) {
+      this.editingItemId = this.selectedAssets[0]?.id ?? null;
+    }
     this.persist();
   }
 
@@ -191,6 +230,8 @@ export class ResearchPageComponent implements OnInit, OnDestroy {
     this.expandedIds.clear();
     this.autofillStates = {};
     this.overwriteById = {};
+    this.editingItemId = null;
+    this.activeStep = 'select';
     this.persist();
   }
 
@@ -311,6 +352,8 @@ export class ResearchPageComponent implements OnInit, OnDestroy {
         item.id === existing.id ? this.applyTextImportToExistingItem(item, result) : item
       );
       this.expandedIds.add(existing.id);
+      this.editingItemId = existing.id;
+      this.activeStep = 'complete';
       this.textImportPreview = result;
       this.textImportStatus = 'Especie existente actualizada desde texto.';
       this.persist();
@@ -322,6 +365,8 @@ export class ResearchPageComponent implements OnInit, OnDestroy {
     const item = this.textImportService.createItem(input);
     this.selectedAssets = [...this.selectedAssets, item];
     this.expandedIds.add(item.id);
+    this.editingItemId = item.id;
+    this.activeStep = 'complete';
     this.persist();
     this.textImportPreview = result;
     this.textImportStatus = 'Especie agregada desde texto.';
@@ -335,6 +380,7 @@ export class ResearchPageComponent implements OnInit, OnDestroy {
     this.textImportRawText = '';
     this.textImportPreview = null;
     this.textImportStatus = '';
+    this.textImportSuggestionsOpen = false;
   }
 
   saveProviderSettings(silent = false): void {
@@ -380,9 +426,80 @@ export class ResearchPageComponent implements OnInit, OnDestroy {
     return this.templateService.templateFields(kind);
   }
 
+  get textImportSuggestions(): PortfolioPosition[] {
+    const term = this.normalizeSearch(this.textImportSymbol);
+    if (!term) {
+      return [];
+    }
+
+    return this.positionsCache
+      .filter((position) => {
+        const values = [
+          position.symbol,
+          position.positionType,
+          position.assetType,
+          position.sector,
+          position.subsector,
+          position.region
+        ].map((value) => this.normalizeSearch(String(value ?? '')));
+        return values.some((value) => value.includes(term));
+      })
+      .sort((left, right) => {
+        const normalizedTerm = this.normalizeSymbol(this.textImportSymbol);
+        const leftSymbol = this.normalizeSymbol(left.symbol);
+        const rightSymbol = this.normalizeSymbol(right.symbol);
+        const leftExact = leftSymbol === normalizedTerm ? 0 : leftSymbol.startsWith(normalizedTerm) ? 1 : 2;
+        const rightExact = rightSymbol === normalizedTerm ? 0 : rightSymbol.startsWith(normalizedTerm) ? 1 : 2;
+        if (leftExact !== rightExact) {
+          return leftExact - rightExact;
+        }
+        return leftSymbol.localeCompare(rightSymbol);
+      })
+      .slice(0, 6);
+  }
+
+  get textImportDetectedKindLabel(): string {
+    const position = this.matchTextImportPosition(this.textImportSymbol);
+    return position ? this.templateLabel(this.templateService.detectKind(position)) : '';
+  }
+
+  get textImportSuggestionsVisible(): boolean {
+    return this.textImportSuggestionsOpen && this.textImportSuggestions.length > 0;
+  }
+
   get textImportActionLabel(): string {
     const symbol = this.normalizeSymbol(this.textImportSymbol);
     return this.findExistingResearchItem(symbol, symbol) ? 'Actualizar existente' : 'Agregar desde texto';
+  }
+
+  onTextImportSymbolChange(value: string): void {
+    this.textImportSymbol = value;
+    this.textImportPreview = null;
+    this.textImportStatus = '';
+    this.textImportSuggestionsOpen = true;
+
+    const position = this.matchTextImportPosition(value);
+    if (position) {
+      this.textImportKind = this.templateService.detectKind(position);
+    }
+  }
+
+  openTextImportSuggestions(): void {
+    if (this.normalizeSymbol(this.textImportSymbol)) {
+      this.textImportSuggestionsOpen = true;
+    }
+  }
+
+  closeTextImportSuggestions(): void {
+    this.textImportSuggestionsOpen = false;
+  }
+
+  selectTextImportSuggestion(position: PortfolioPosition): void {
+    this.textImportSymbol = this.normalizeSymbol(position.symbol);
+    this.textImportKind = this.templateService.detectKind(position);
+    this.textImportPreview = null;
+    this.textImportStatus = '';
+    this.textImportSuggestionsOpen = false;
   }
 
   private setAutofillState(itemId: string, status: AutofillUiState['status'], message: string): void {
@@ -422,6 +539,23 @@ export class ResearchPageComponent implements OnInit, OnDestroy {
       || this.normalizeSymbol(item.portfolioSymbol) === normalizedQuerySymbol
       || this.normalizeSymbol(item.querySymbol) === normalizedQuerySymbol
     ) ?? null;
+  }
+
+  private matchTextImportPosition(value: string): PortfolioPosition | null {
+    const normalized = this.normalizeSymbol(value);
+    if (!normalized) {
+      return null;
+    }
+
+    return this.positionsCache.find((position) => this.normalizeSymbol(position.symbol) === normalized) ?? null;
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    const target = event.target as Node | null;
+    if (target && !this.hostRef.nativeElement.contains(target)) {
+      this.closeTextImportSuggestions();
+    }
   }
 
   private applyTextImportToExistingItem(item: ResearchAssetItem, result: ResearchTextImportResult): ResearchAssetItem {
@@ -510,3 +644,5 @@ export class ResearchPageComponent implements OnInit, OnDestroy {
     return this.normalizeSearch(value);
   }
 }
+
+
