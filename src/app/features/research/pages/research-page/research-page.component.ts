@@ -303,8 +303,19 @@ export class ResearchPageComponent implements OnInit, OnDestroy {
     }
 
     const input = this.buildTextImportInput();
-    if (this.isDuplicateResearchSymbol(input.portfolioSymbol, input.querySymbol)) {
-      this.textImportStatus = 'Ya existe una especie con ese símbolo.';
+    const result = this.textImportService.preview(input);
+    const existing = this.findExistingResearchItem(input.portfolioSymbol, input.querySymbol);
+
+    if (existing) {
+      this.selectedAssets = this.selectedAssets.map((item) =>
+        item.id === existing.id ? this.applyTextImportToExistingItem(item, result) : item
+      );
+      this.expandedIds.add(existing.id);
+      this.textImportPreview = result;
+      this.textImportStatus = 'Especie existente actualizada desde texto.';
+      this.persist();
+      this.copyStatus = '';
+      this.exportStatus = '';
       return;
     }
 
@@ -312,6 +323,7 @@ export class ResearchPageComponent implements OnInit, OnDestroy {
     this.selectedAssets = [...this.selectedAssets, item];
     this.expandedIds.add(item.id);
     this.persist();
+    this.textImportPreview = result;
     this.textImportStatus = 'Especie agregada desde texto.';
     this.copyStatus = '';
     this.exportStatus = '';
@@ -368,6 +380,11 @@ export class ResearchPageComponent implements OnInit, OnDestroy {
     return this.templateService.templateFields(kind);
   }
 
+  get textImportActionLabel(): string {
+    const symbol = this.normalizeSymbol(this.textImportSymbol);
+    return this.findExistingResearchItem(symbol, symbol) ? 'Actualizar existente' : 'Agregar desde texto';
+  }
+
   private setAutofillState(itemId: string, status: AutofillUiState['status'], message: string): void {
     this.autofillStates = {
       ...this.autofillStates,
@@ -395,15 +412,35 @@ export class ResearchPageComponent implements OnInit, OnDestroy {
     return '';
   }
 
-  private isDuplicateResearchSymbol(portfolioSymbol: string, querySymbol: string): boolean {
+  private findExistingResearchItem(portfolioSymbol: string, querySymbol: string): ResearchAssetItem | null {
     const normalizedPortfolioSymbol = this.normalizeSymbol(portfolioSymbol);
     const normalizedQuerySymbol = this.normalizeSymbol(querySymbol);
-    return this.selectedAssets.some((item) =>
+
+    return this.selectedAssets.find((item) =>
       this.normalizeSymbol(item.portfolioSymbol) === normalizedPortfolioSymbol
       || this.normalizeSymbol(item.querySymbol) === normalizedPortfolioSymbol
       || this.normalizeSymbol(item.portfolioSymbol) === normalizedQuerySymbol
       || this.normalizeSymbol(item.querySymbol) === normalizedQuerySymbol
-    );
+    ) ?? null;
+  }
+
+  private applyTextImportToExistingItem(item: ResearchAssetItem, result: ResearchTextImportResult): ResearchAssetItem {
+    return {
+      ...item,
+      source: item.source === 'manual' ? 'manual' : 'mixed',
+      fields: item.fields.map((field) => {
+        const incoming = result.fields[field.label];
+        if (incoming === undefined || incoming === null || String(incoming).trim() === '') {
+          return field;
+        }
+
+        return {
+          ...field,
+          value: incoming
+        };
+      }),
+      updatedAt: new Date().toISOString()
+    };
   }
 
   private applyAutofillResult(item: ResearchAssetItem, result: ResearchAutofillResult, overwrite: boolean): ResearchAssetItem {
