@@ -7,6 +7,11 @@ interface NavItem {
   path: string;
 }
 
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
 @Component({
   selector: 'app-sidebar-nav',
   standalone: true,
@@ -15,18 +20,35 @@ interface NavItem {
   styleUrls: ['./sidebar-nav.component.scss'],
 })
 export class SidebarNavComponent {
-  readonly items: NavItem[] = [
-    { label: 'Resumen', path: '/resumen' },
-    { label: 'Distribucion', path: '/distribucion' },
-    { label: 'Posiciones', path: '/posiciones' },
-    { label: 'Historico', path: '/historico' },
-    { label: 'Alertas', path: '/alertas' },
-    { label: 'Concentracion', path: '/concentracion' },
-    { label: 'Decisiones', path: '/decisiones' },
-    { label: 'Estrategia', path: '/estrategia' },
-    { label: 'Datos GPT', path: '/datos-gpt' },
-    { label: 'Datos a revisar', path: '/datos-a-revisar' },
-    { label: 'Importacion', path: '/importacion' },
-    { label: 'Configuracion', path: '/configuracion' }
+  readonly groups: NavGroup[] = [
+    {
+      label: 'Principal',
+      items: [
+        { label: 'Resumen', path: '/resumen' },
+        { label: 'Posiciones', path: '/posiciones' },
+        { label: 'Decisiones', path: '/decisiones' }
+      ]
+    },
+    {
+      label: 'Análisis',
+      items: [
+        { label: 'Distribución', path: '/distribucion' },
+        { label: 'Concentración', path: '/concentracion' },
+        { label: 'Histórico', path: '/historico' },
+        { label: 'Alertas', path: '/alertas' }
+      ]
+    },
+    {
+      label: 'Herramientas',
+      items: [
+        { label: 'Datos GPT', path: '/datos-gpt' },
+        { label: 'Datos a revisar', path: '/datos-a-revisar' },
+        { label: 'Importación', path: '/importacion' }
+      ]
+    },
+    {
+      label: 'Sistema',
+      items: [{ label: 'Configuración', path: '/configuracion' }]
+    }
   ];
 }

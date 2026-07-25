@@ -1,5 +1,8 @@
-<nav class="sidebar">
-      <a *ngFor="let item of items" [routerLink]="item.path" routerLinkActive="active" class="nav-item">
-        <span>{{ item.label }}</span>
-      </a>
-    </nav>
+<nav class="sidebar" aria-label="Navegación principal">
+  <section class="nav-group" *ngFor="let group of groups">
+    <p class="nav-group__label">{{ group.label }}</p>
+    <a *ngFor="let item of group.items" [routerLink]="item.path" routerLinkActive="active" class="nav-item">
+      <span>{{ item.label }}</span>
+    </a>
+  </section>
+</nav>
