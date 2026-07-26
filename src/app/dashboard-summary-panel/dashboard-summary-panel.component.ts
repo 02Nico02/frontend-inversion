@@ -12,6 +12,7 @@ import { CurrencyMapperService } from '../core/services/currency-mapper.service'
 })
 export class DashboardSummaryPanelComponent {
   @Input() summary: PortfolioSummary | null = null;
+  @Input() compact = false;
 
   constructor(private readonly currencyMapper: CurrencyMapperService) {}
 

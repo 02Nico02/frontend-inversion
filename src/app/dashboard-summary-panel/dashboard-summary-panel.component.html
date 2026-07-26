@@ -1,4 +1,4 @@
-<section class="panel summary">
+<section class="panel summary" [class.summary--compact]="compact">
   <div class="currency-summary" *ngIf="summary; else emptySummary">
     <article class="metric metric-wide" *ngFor="let item of summary.byCurrency">
       <div class="metric-head">
@@ -29,7 +29,7 @@
       </div>
     </article>
 
-    <article class="metric metric-wide">
+    <article class="metric metric-wide metric-wide--summary">
       <div class="metric-head">
         <span>Resumen general sin conversión</span>
         <strong>Resumen operativo según Excel</strong>
@@ -70,17 +70,17 @@
           <strong>{{ summary.latestBalanceDate ? formatDateLabel(summary.latestBalanceDate) : 'N/D' }}</strong>
         </div>
       </div>
-      <p class="metric-note">
+      <p class="metric-note" [class.metric-note--compact]="compact">
         Los valores de resultado mostrados en este resumen son nominales: valor actual menos total invertido.
         El resultado del día es la variación agregada de las especies respecto del día anterior; no es el valor del portafolio.
       </p>
     </article>
   </div>
+
   <ng-template #emptySummary>
-    <div class="empty-state">
+    <div class="empty-state" [class.empty-state--compact]="compact">
       <h3>Sin datos todavía</h3>
       <p>Importa el workbook para construir el modelo interno y poblar el dashboard.</p>
     </div>
   </ng-template>
 </section>
-

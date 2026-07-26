@@ -8,7 +8,10 @@
   </header>
 
   <ng-container *ngIf="snapshot.dataset && snapshot.summary; else emptyState">
-    <app-dashboard-summary-panel [summary]="snapshot.summary"></app-dashboard-summary-panel>
+    <app-dashboard-summary-panel
+      [summary]="snapshot.summary"
+      [compact]="true">
+    </app-dashboard-summary-panel>
 
     <section class="summary-section">
       <div class="section-head">
@@ -114,7 +117,8 @@
       <div class="signals-grid">
         <app-pending-orders-panel
           [summary]="pendingOrders(snapshot)"
-          [privacyEnabled]="privacyMode.enabled">
+          [privacyEnabled]="privacyMode.enabled"
+          [compactEmpty]="true">
         </app-pending-orders-panel>
 
         <article class="panel signal-card">

@@ -12,6 +12,7 @@ import { PendingOrdersSummary } from '../../../core/models/pending-orders.model'
 export class PendingOrdersPanelComponent {
   @Input() summary: PendingOrdersSummary | null = null;
   @Input() privacyEnabled = false;
+  @Input() compactEmpty = false;
 
   formatMoney(value: number | null | undefined): string {
     if (this.privacyEnabled) {
