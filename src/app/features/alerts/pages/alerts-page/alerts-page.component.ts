@@ -65,6 +65,7 @@ interface AlertsPageViewModel {
   tabCounts: Record<AlertTab, number>;
   cards: AlertSummaryCard[];
   manualRows: AlertTableRow[];
+  calculatedRows: AlertTableRow[];
   signal5dRows: AlertTableRow[];
   signal30dRows: AlertTableRow[];
   emptyMessage: string | null;
@@ -220,7 +221,8 @@ export class AlertsPageComponent implements OnInit, OnDestroy {
     const allRows = hasWorkbook ? this.buildRows(snapshot) : [];
     const filteredRows = allRows.filter((row) => this.matchesFilters(row));
     const visibleRows = filteredRows.filter((row) => this.matchesTab(row));
-    const manualRows = this.sortManualRows(visibleRows.filter((row) => row.kind !== 'signal'));
+    const manualRows = this.sortManualRows(visibleRows.filter((row) => row.kind === 'manual'));
+    const calculatedRows = this.sortManualRows(visibleRows.filter((row) => row.kind === 'calculated'));
     const signal5dRows = this.sortSignalRows(visibleRows.filter((row) => row.kind === 'signal' && row.period === '5D'));
     const signal30dRows = this.sortSignalRows(visibleRows.filter((row) => row.kind === 'signal' && row.period === '30D'));
     const signalRows = [...signal5dRows, ...signal30dRows];
@@ -244,6 +246,7 @@ export class AlertsPageComponent implements OnInit, OnDestroy {
         { label: 'Señales recientes', value: signalRows.length, tone: 'info' }
       ],
       manualRows,
+      calculatedRows,
       signal5dRows,
       signal30dRows,
       emptyMessage: !hasWorkbook

@@ -2,7 +2,7 @@
   <header class="hero panel">
     <div class="hero__copy">
       <p class="eyebrow">Alertas</p>
-      <h2>Alertas manuales, calculadas y señales</h2>
+      <h2>Señales manuales, calculadas y técnicas</h2>
       <p class="hero__meta">
         {{ vm.filteredAlerts }} visibles de {{ vm.totalAlerts }} totales
       </p>
@@ -15,25 +15,25 @@
     </div>
   </header>
 
-  <nav class="tabs" aria-label="Secciones de alertas">
-    <button
-      *ngFor="let tab of tabs"
-      type="button"
-      class="tab"
-      [class.tab--active]="activeTab === tab.key"
-      [attr.aria-pressed]="activeTab === tab.key"
-      (click)="setActiveTab(tab.key)"
+  <section class="summary-grid" *ngIf="vm.cards.length">
+    <article
+      class="summary-card"
+      *ngFor="let card of vm.cards"
+      [class.summary-card--critical]="card.tone === 'critical'"
+      [class.summary-card--warning]="card.tone === 'warning'"
+      [class.summary-card--success]="card.tone === 'success'"
+      [class.summary-card--info]="card.tone === 'info'"
     >
-      <span>{{ tab.label }}</span>
-      <strong>{{ getTabCount(tab.key) }}</strong>
-    </button>
-  </nav>
+      <p>{{ card.label }}</p>
+      <strong>{{ card.value }}</strong>
+    </article>
+  </section>
 
   <section class="panel filters-panel">
     <div class="filters-panel__header">
       <div>
-        <p class="eyebrow">Filtros</p>
-        <h3>Filtrá por símbolo, tipo, severidad, distancia y moneda</h3>
+        <p class="eyebrow">Filtros principales</p>
+        <h3>Filtrá por especie, estado, tipo, severidad, distancia y moneda</h3>
       </div>
 
       <button type="button" class="ghost-button" (click)="clearFilters()">Limpiar filtros</button>
@@ -41,7 +41,7 @@
 
     <div class="filters-grid">
       <label class="field">
-        <span>Símbolo</span>
+        <span>Especie</span>
         <input
           name="symbolFilter"
           type="search"
@@ -118,12 +118,19 @@
     </label>
   </section>
 
-  <section class="summary-grid" *ngIf="vm.cards.length">
-    <article class="summary-card" *ngFor="let card of vm.cards" [class.summary-card--critical]="card.tone === 'critical'" [class.summary-card--warning]="card.tone === 'warning'" [class.summary-card--success]="card.tone === 'success'" [class.summary-card--info]="card.tone === 'info'">
-      <p>{{ card.label }}</p>
-      <strong>{{ card.value }}</strong>
-    </article>
-  </section>
+  <nav class="tabs" aria-label="Secciones de alertas">
+    <button
+      *ngFor="let tab of tabs"
+      type="button"
+      class="tab"
+      [class.tab--active]="activeTab === tab.key"
+      [attr.aria-pressed]="activeTab === tab.key"
+      (click)="setActiveTab(tab.key)"
+    >
+      <span>{{ tab.label }}</span>
+      <strong>{{ getTabCount(tab.key) }}</strong>
+    </button>
+  </nav>
 
   <section class="panel empty-state" *ngIf="vm.emptyMessage; else results">
     <h3>Sin resultados</h3>
@@ -131,13 +138,11 @@
   </section>
 
   <ng-template #results>
-    <section class="panel table-section" *ngIf="vm.manualRows.length">
+    <section class="panel table-section" *ngIf="(activeTab === 'all' || activeTab === 'manual') && vm.manualRows.length">
       <div class="section-header">
         <div>
-          <p class="eyebrow">Alertas operativas</p>
-          <h3>
-            {{ activeTab === 'manual' ? 'Manuales' : activeTab === 'calculated' ? 'Calculadas' : 'Manuales y calculadas' }}
-          </h3>
+          <p class="eyebrow">Alertas manuales</p>
+          <h3>Requieren revisión operativa</h3>
         </div>
         <span class="section-header__count">{{ vm.manualRows.length }} filas</span>
       </div>
@@ -146,7 +151,7 @@
         <table>
           <thead>
             <tr>
-              <th>Símbolo</th>
+              <th>Especie</th>
               <th>Estado</th>
               <th>Condición</th>
               <th>Severidad</th>
@@ -154,7 +159,7 @@
               <th>Actual</th>
               <th>Objetivo</th>
               <th>Distancia</th>
-              <th>Observación</th>
+              <th>Nota</th>
               <th>Acción</th>
             </tr>
           </thead>
@@ -181,7 +186,55 @@
       </div>
     </section>
 
-    <section class="panel table-section" *ngIf="vm.signal5dRows.length">
+    <section class="panel table-section" *ngIf="(activeTab === 'all' || activeTab === 'calculated') && vm.calculatedRows.length">
+      <div class="section-header">
+        <div>
+          <p class="eyebrow">Alertas calculadas</p>
+          <h3>Revisiones automáticas del sistema</h3>
+        </div>
+        <span class="section-header__count">{{ vm.calculatedRows.length }} filas</span>
+      </div>
+
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Especie</th>
+              <th>Estado</th>
+              <th>Condición</th>
+              <th>Severidad</th>
+              <th>Moneda</th>
+              <th>Actual</th>
+              <th>Objetivo</th>
+              <th>Distancia</th>
+              <th>Nota</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of vm.calculatedRows; trackBy: trackByRow">
+              <td>
+                <strong>{{ row.symbol }}</strong>
+                <small>{{ row.note }}</small>
+              </td>
+              <td><span class="chip chip--{{ row.stateKey }}">{{ row.status }}</span></td>
+              <td>{{ row.condition }}</td>
+              <td><span class="badge badge--{{ row.severity }}">{{ row.severity }}</span></td>
+              <td>{{ formatCurrencyLabel(row.currency) }}</td>
+              <td>{{ formatMoney(row.currentPrice, row.currency) }}</td>
+              <td>{{ formatMoney(row.targetPrice, row.currency) }}</td>
+              <td>{{ formatPercent(row.distancePercent) }}</td>
+              <td>{{ row.observation }}</td>
+              <td>
+                <a class="detail-link" [routerLink]="row.actionLink">Ver detalle</a>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel table-section" *ngIf="(activeTab === 'all' || activeTab === 'signal5d') && vm.signal5dRows.length">
       <div class="section-header">
         <div>
           <p class="eyebrow">Señales técnicas</p>
@@ -194,7 +247,7 @@
         <table>
           <thead>
             <tr>
-              <th>Símbolo</th>
+              <th>Especie</th>
               <th>Estado</th>
               <th>Inicio</th>
               <th>Fin</th>
@@ -202,7 +255,7 @@
               <th>Objetivo</th>
               <th>Variación</th>
               <th>Condición</th>
-              <th>Observación</th>
+              <th>Nota</th>
               <th>Acción</th>
             </tr>
           </thead>
@@ -229,7 +282,7 @@
       </div>
     </section>
 
-    <section class="panel table-section" *ngIf="vm.signal30dRows.length">
+    <section class="panel table-section" *ngIf="(activeTab === 'all' || activeTab === 'signal30d') && vm.signal30dRows.length">
       <div class="section-header">
         <div>
           <p class="eyebrow">Señales técnicas</p>
@@ -242,7 +295,7 @@
         <table>
           <thead>
             <tr>
-              <th>Símbolo</th>
+              <th>Especie</th>
               <th>Estado</th>
               <th>Inicio</th>
               <th>Fin</th>
@@ -250,7 +303,7 @@
               <th>Objetivo</th>
               <th>Variación</th>
               <th>Condición</th>
-              <th>Observación</th>
+              <th>Nota</th>
               <th>Acción</th>
             </tr>
           </thead>
