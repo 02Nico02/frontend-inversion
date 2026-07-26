@@ -145,6 +145,16 @@ export class SimpleChartComponent {
     return this.points.length > 0;
   }
 
+  get chartHeight(): number {
+    if (this.mode === 'bars') {
+      return Math.max(260, this.barRowCount * 28 + 88);
+    }
+    if (this.mode === 'waterfall') {
+      return 320;
+    }
+    return 320;
+  }
+
   onChartInit(instance: ECharts): void {
     this.chartInstance = instance;
   }
@@ -187,5 +197,18 @@ export class SimpleChartComponent {
       showZoom: this._showZoom ?? undefined,
       showZeroLine: this._showZeroLine
     });
+  }
+
+  private get barRowCount(): number {
+    if (this._mode !== 'bars') {
+      return 0;
+    }
+    const baseCount = this._points.length;
+    if (!baseCount) {
+      return 0;
+    }
+    const selected = Math.min(baseCount, this._topN);
+    const remainder = this._includeOther && baseCount > this._topN ? 1 : 0;
+    return selected + remainder;
   }
 }

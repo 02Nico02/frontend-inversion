@@ -8,7 +8,7 @@
       </div>
 
       <div class="chart-wrap" [class.line-mode]="mode === 'line'" [class.waterfall-mode]="mode === 'waterfall'" [class.bar-mode]="mode === 'bars'">
-        <div echarts class="chart" [options]="chartOptions" (chartInit)="onChartInit($event)"></div>
+        <div echarts class="chart" [style.height.px]="chartHeight" [options]="chartOptions" (chartInit)="onChartInit($event)"></div>
         <p class="footer-note" *ngIf="(mode === 'line' || mode === 'waterfall') && showSeriesHint">
           {{ seriesHint }}
         </p>
