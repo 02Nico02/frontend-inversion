@@ -20,7 +20,17 @@ type SortField =
   | 'minimumDifferencePercent';
 type SortDirection = 'asc' | 'desc';
 type PageSize = 10 | 25 | 50 | 'all';
-type FilterKey = 'symbol' | 'currency' | 'assetType' | 'sector' | 'subsector' | 'region' | 'resultDirection' | 'alerts' | 'classification';
+type FilterKey =
+  | 'symbol'
+  | 'currency'
+  | 'assetType'
+  | 'minimumBenchmark'
+  | 'sector'
+  | 'subsector'
+  | 'region'
+  | 'resultDirection'
+  | 'alerts'
+  | 'classification';
 type ColumnKey =
   | 'symbol'
   | 'currency'
@@ -54,6 +64,7 @@ interface ColumnDefinition {
 })
 export class PositionsTableComponent implements OnInit, OnChanges {
   private readonly storageKey = 'frontend-inversion.positions.visible-columns';
+
   readonly columnDefinitions: ColumnDefinition[] = [
     { key: 'symbol', label: 'Especie' },
     { key: 'currency', label: 'Moneda' },
@@ -68,10 +79,11 @@ export class PositionsTableComponent implements OnInit, OnChanges {
     { key: 'minimumExpected', label: 'Mínimo esperado' },
     { key: 'minimumDifferenceAmount', label: 'Vs mínimo' },
     { key: 'minimumDifferencePercent', label: '% vs mínimo' },
-    { key: 'minimumStatus', label: 'Estado real' },
+    { key: 'minimumStatus', label: 'Estado benchmark' },
     { key: 'alerts', label: 'Alertas' },
     { key: 'action', label: 'Acción' }
   ];
+
   readonly defaultVisibleColumns: ColumnKey[] = [
     'symbol',
     'currency',
@@ -81,11 +93,23 @@ export class PositionsTableComponent implements OnInit, OnChanges {
     'currentValue',
     'resultAmount',
     'resultPercent',
+    'minimumStatus',
     'minimumDifferenceAmount',
     'minimumDifferencePercent',
     'action'
   ];
-  readonly basicPresetColumns: ColumnKey[] = ['symbol', 'currency', 'quantity', 'currentPrice', 'currentValue', 'resultAmount', 'resultPercent', 'action'];
+
+  readonly basicPresetColumns: ColumnKey[] = [
+    'symbol',
+    'currency',
+    'quantity',
+    'currentPrice',
+    'currentValue',
+    'resultAmount',
+    'resultPercent',
+    'action'
+  ];
+
   readonly benchmarkPresetColumns: ColumnKey[] = [
     'symbol',
     'currency',
@@ -95,10 +119,12 @@ export class PositionsTableComponent implements OnInit, OnChanges {
     'currentValue',
     'resultAmount',
     'resultPercent',
+    'minimumStatus',
     'minimumDifferenceAmount',
     'minimumDifferencePercent',
     'action'
   ];
+
   readonly fullPresetColumns: ColumnKey[] = this.columnDefinitions.map((column) => column.key);
 
   @Input() positions: PortfolioPosition[] = [];
@@ -111,6 +137,7 @@ export class PositionsTableComponent implements OnInit, OnChanges {
     symbol: '',
     currency: '',
     assetType: '',
+    minimumBenchmark: 'all' as 'all' | 'above' | 'below' | 'missing',
     sector: '',
     subsector: '',
     region: '',
@@ -126,6 +153,7 @@ export class PositionsTableComponent implements OnInit, OnChanges {
   showAdvancedFilters = false;
   showColumnMenu = false;
   visibleColumns: ColumnKey[] = [];
+
   private minimumPerformanceMap = new Map<string, MinimumPerformanceBySymbol>();
   private movementSummaryMap = new Map<string, InvestmentMovementSummary>();
 
@@ -138,6 +166,7 @@ export class PositionsTableComponent implements OnInit, OnChanges {
       symbol: snapshot.symbol,
       currency: snapshot.currency,
       assetType: snapshot.assetType,
+      minimumBenchmark: snapshot.minimumBenchmark,
       sector: snapshot.sector,
       subsector: snapshot.subsector,
       region: snapshot.region,
@@ -163,6 +192,7 @@ export class PositionsTableComponent implements OnInit, OnChanges {
         this.minimumPerformance.map((item) => [this.minimumPerformanceKey(item.symbol, item.currency), item])
       );
     }
+
     if (changes['movementSummaries']) {
       this.movementSummaryMap = new Map(
         this.movementSummaries.map((item) => [this.movementSummaryKey(item.symbol, item.currency), item])
@@ -182,11 +212,13 @@ export class PositionsTableComponent implements OnInit, OnChanges {
         const hasClassification = Boolean(position.classification);
         const hasAlerts = this.hasAlert(position.symbol);
         const resultPositive = (this.displayResultAmount(position) ?? 0) >= 0;
+        const benchmarkStatus = this.minimumPerformanceFor(position)?.status ?? null;
 
         return (
           (!this.filters.symbol || symbol.includes(this.filters.symbol.toLowerCase())) &&
           (!this.filters.currency || currency === this.filters.currency) &&
           (!this.filters.assetType || assetType.includes(this.filters.assetType.toLowerCase())) &&
+          this.minimumBenchmarkMatches(benchmarkStatus) &&
           (!this.filters.sector || sector.includes(this.filters.sector.toLowerCase())) &&
           (!this.filters.subsector || subsector.includes(this.filters.subsector.toLowerCase())) &&
           (!this.filters.region || region.includes(this.filters.region.toLowerCase())) &&
@@ -207,6 +239,7 @@ export class PositionsTableComponent implements OnInit, OnChanges {
         const bValue = this.sortValue(b);
         const aNull = aValue === null || aValue === undefined;
         const bNull = bValue === null || bValue === undefined;
+
         if (aNull && bNull) {
           return 0;
         }
@@ -265,7 +298,15 @@ export class PositionsTableComponent implements OnInit, OnChanges {
       this.positions.map((position) => ({
         value: position.classification?.sector || position.sector || '',
         label: position.classification?.sector || position.sector || 'Sin sector',
-        searchText: [position.symbol, position.assetType, position.classification?.sector || position.sector, position.classification?.subsector || position.subsector, position.classification?.region || position.region].filter(Boolean).join(' ')
+        searchText: [
+          position.symbol,
+          position.assetType,
+          position.classification?.sector || position.sector,
+          position.classification?.subsector || position.subsector,
+          position.classification?.region || position.region
+        ]
+          .filter(Boolean)
+          .join(' ')
       }))
     );
   }
@@ -275,7 +316,15 @@ export class PositionsTableComponent implements OnInit, OnChanges {
       this.positions.map((position) => ({
         value: position.classification?.subsector || position.subsector || '',
         label: position.classification?.subsector || position.subsector || 'Sin subsector',
-        searchText: [position.symbol, position.assetType, position.classification?.sector || position.sector, position.classification?.subsector || position.subsector, position.classification?.region || position.region].filter(Boolean).join(' ')
+        searchText: [
+          position.symbol,
+          position.assetType,
+          position.classification?.sector || position.sector,
+          position.classification?.subsector || position.subsector,
+          position.classification?.region || position.region
+        ]
+          .filter(Boolean)
+          .join(' ')
       }))
     );
   }
@@ -285,7 +334,15 @@ export class PositionsTableComponent implements OnInit, OnChanges {
       this.positions.map((position) => ({
         value: position.classification?.region || position.region || '',
         label: position.classification?.region || position.region || 'Sin región',
-        searchText: [position.symbol, position.assetType, position.classification?.sector || position.sector, position.classification?.subsector || position.subsector, position.classification?.region || position.region].filter(Boolean).join(' ')
+        searchText: [
+          position.symbol,
+          position.assetType,
+          position.classification?.sector || position.sector,
+          position.classification?.subsector || position.subsector,
+          position.classification?.region || position.region
+        ]
+          .filter(Boolean)
+          .join(' ')
       }))
     );
   }
@@ -405,7 +462,9 @@ export class PositionsTableComponent implements OnInit, OnChanges {
       `Mínimo esperado ajustado: ${this.formatMoney(minimum.minimumExpectedValue, position.currency)}`,
       `Vs mínimo ajustado: ${this.formatMoney(minimum.valueVsMinimumAmount, position.currency)}`
     ].join(' ');
-  }  minimumStatusLabel(status: MinimumPerformanceBySymbol['status'] | null | undefined): string {
+  }
+
+  minimumStatusLabel(status: MinimumPerformanceBySymbol['status'] | null | undefined): string {
     switch (status) {
       case 'beats-minimum':
         return 'Supera mínimo';
@@ -426,6 +485,7 @@ export class PositionsTableComponent implements OnInit, OnChanges {
       symbol: '',
       currency: '',
       assetType: '',
+      minimumBenchmark: 'all',
       sector: '',
       subsector: '',
       region: '',
@@ -449,11 +509,13 @@ export class PositionsTableComponent implements OnInit, OnChanges {
     if (typeof localStorage === 'undefined') {
       return [...this.defaultVisibleColumns];
     }
+
     try {
       const raw = localStorage.getItem(this.storageKey);
       if (!raw) {
         return [...this.defaultVisibleColumns];
       }
+
       const parsed = JSON.parse(raw) as unknown;
       const keys = Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [];
       return this.normalizeVisibleColumns(keys);
@@ -466,6 +528,7 @@ export class PositionsTableComponent implements OnInit, OnChanges {
     if (typeof localStorage === 'undefined') {
       return;
     }
+
     localStorage.setItem(this.storageKey, JSON.stringify(this.visibleColumns));
   }
 
@@ -473,14 +536,6 @@ export class PositionsTableComponent implements OnInit, OnChanges {
     const allowed = new Set(this.columnDefinitions.map((column) => column.key));
     const filtered = keys.filter((key): key is ColumnKey => allowed.has(key as ColumnKey));
     return filtered.length ? filtered : [...this.defaultVisibleColumns];
-  }
-
-  private minimumPerformanceKey(symbol: string, currency: string): string {
-    return `${symbol.trim().toUpperCase()}__${this.currencyMapper.normalizeCurrency(currency)}`;
-  }
-
-  private movementSummaryKey(symbol: string, currency: string): string {
-    return `${symbol.trim().toUpperCase()}__${this.currencyMapper.normalizeCurrency(currency)}`;
   }
 
   firstPage(): void {
@@ -547,6 +602,15 @@ export class PositionsTableComponent implements OnInit, OnChanges {
     if (this.filters.symbol) items.push({ label: 'Especie', value: this.filters.symbol, reset: 'symbol' });
     if (this.filters.currency) items.push({ label: 'Moneda', value: this.currencyLabel(this.filters.currency), reset: 'currency' });
     if (this.filters.assetType) items.push({ label: 'Tipo activo', value: this.filters.assetType, reset: 'assetType' });
+    if (this.filters.minimumBenchmark !== 'all') {
+      const benchmarkLabel =
+        this.filters.minimumBenchmark === 'above'
+          ? 'Sobre mínimo'
+          : this.filters.minimumBenchmark === 'below'
+            ? 'Bajo mínimo'
+            : 'Sin benchmark';
+      items.push({ label: 'Benchmark', value: benchmarkLabel, reset: 'minimumBenchmark' });
+    }
     if (this.filters.sector) items.push({ label: 'Sector', value: this.filters.sector, reset: 'sector' });
     if (this.filters.subsector) items.push({ label: 'Subsector', value: this.filters.subsector, reset: 'subsector' });
     if (this.filters.region) items.push({ label: 'Región', value: this.filters.region, reset: 'region' });
@@ -572,6 +636,8 @@ export class PositionsTableComponent implements OnInit, OnChanges {
       this.filters.alerts = 'all';
     } else if (key === 'classification') {
       this.filters.classification = 'all';
+    } else if (key === 'minimumBenchmark') {
+      this.filters.minimumBenchmark = 'all';
     } else {
       this.filters[key] = '';
     }
@@ -598,6 +664,20 @@ export class PositionsTableComponent implements OnInit, OnChanges {
       pageIndex: this.pageIndex,
       advancedOpen: this.showAdvancedFilters
     });
+  }
+
+  private minimumBenchmarkMatches(status: MinimumPerformanceBySymbol['status'] | null): boolean {
+    switch (this.filters.minimumBenchmark) {
+      case 'above':
+        return status === 'beats-minimum';
+      case 'below':
+        return status === 'below-minimum';
+      case 'missing':
+        return status !== 'beats-minimum' && status !== 'below-minimum';
+      case 'all':
+      default:
+        return true;
+    }
   }
 
   private sortValue(position: PortfolioPosition): string | number | null {
@@ -640,6 +720,14 @@ export class PositionsTableComponent implements OnInit, OnChanges {
       default:
         return 'Total actual';
     }
+  }
+
+  private minimumPerformanceKey(symbol: string, currency: string): string {
+    return `${symbol.trim().toUpperCase()}__${this.currencyMapper.normalizeCurrency(currency)}`;
+  }
+
+  private movementSummaryKey(symbol: string, currency: string): string {
+    return `${symbol.trim().toUpperCase()}__${this.currencyMapper.normalizeCurrency(currency)}`;
   }
 
   private displayResultAmount(position: PortfolioPosition): number {

@@ -62,6 +62,16 @@
     </label>
 
     <label>
+      <span>Benchmark</span>
+      <select [(ngModel)]="filters.minimumBenchmark" (ngModelChange)="onFilterChange()">
+        <option value="all">Todos</option>
+        <option value="above">Sobre mínimo</option>
+        <option value="below">Bajo mínimo</option>
+        <option value="missing">Sin benchmark</option>
+      </select>
+    </label>
+
+    <label>
       <span>Orden</span>
       <select [(ngModel)]="sortField" (ngModelChange)="onSortChange()">
         <option value="symbol">Especie</option>
@@ -198,7 +208,7 @@
           <th class="num" *ngIf="isColumnVisible('minimumExpected')">Mínimo esperado</th>
           <th class="num" *ngIf="isColumnVisible('minimumDifferenceAmount')">Vs mínimo</th>
           <th class="num" *ngIf="isColumnVisible('minimumDifferencePercent')">% vs mínimo</th>
-          <th *ngIf="isColumnVisible('minimumStatus')">Estado real</th>
+          <th *ngIf="isColumnVisible('minimumStatus')">Estado</th>
           <th class="num" *ngIf="isColumnVisible('alerts')">Alertas</th>
           <th *ngIf="isColumnVisible('action')">Acción</th>
         </tr>
@@ -240,12 +250,16 @@
               <span *ngIf="minimumUsesAdjustedComparableValue(position)" class="adjusted-info" [attr.title]="minimumAdjustmentTooltip(position) || undefined" aria-label="Benchmark ajustado por movimientos de inversión">i</span>
             </span>
           </td>
-          <td *ngIf="isColumnVisible('minimumStatus')">{{ minimumStatusLabel(minimumPerformanceFor(position)?.status) }}</td>
+          <td *ngIf="isColumnVisible('minimumStatus')">
+            <span class="status-pill" [class.status-pill--positive]="minimumPerformanceFor(position)?.status === 'beats-minimum'" [class.status-pill--negative]="minimumPerformanceFor(position)?.status === 'below-minimum'" [class.status-pill--muted]="minimumPerformanceFor(position)?.status !== 'beats-minimum' && minimumPerformanceFor(position)?.status !== 'below-minimum'">
+              {{ minimumStatusLabel(minimumPerformanceFor(position)?.status) }}
+            </span>
+          </td>
           <td class="num" *ngIf="isColumnVisible('alerts')">
             <span class="alert-pill" [class.alerted]="hasAlert(position.symbol)">{{ alertCount(position.symbol) }}</span>
           </td>
           <td *ngIf="isColumnVisible('action')">
-            <button type="button" class="toggle" (click)="requestDetail(position.symbol)">Detalle</button>
+            <button type="button" class="toggle" (click)="requestDetail(position.symbol)">Ver detalle</button>
           </td>
         </tr>
       </tbody>

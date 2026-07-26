@@ -4,6 +4,7 @@ export interface PositionsFilterState {
   symbol: string;
   currency: string;
   assetType: string;
+  minimumBenchmark: 'all' | 'above' | 'below' | 'missing';
   sector: string;
   subsector: string;
   region: string;
@@ -23,6 +24,7 @@ const defaultState: PositionsFilterState = {
   symbol: '',
   currency: '',
   assetType: '',
+  minimumBenchmark: 'all',
   sector: '',
   subsector: '',
   region: '',

@@ -43,6 +43,26 @@ export class PositionsPageComponent implements OnInit, OnDestroy {
     this.subscription?.unsubscribe();
   }
 
+  get totalPositions(): number {
+    return this.positions.length;
+  }
+
+  get totalCurrentValue(): number {
+    return this.positions.reduce((sum, position) => sum + position.currentValue, 0);
+  }
+
+  get totalResult(): number {
+    return this.positions.reduce((sum, position) => sum + position.resultAmount, 0);
+  }
+
+  get belowMinimumCount(): number {
+    return this.minimumPerformance.filter((item) => item.status === 'below-minimum').length;
+  }
+
+  get withoutBenchmarkCount(): number {
+    return this.minimumPerformance.filter((item) => item.status !== 'beats-minimum' && item.status !== 'below-minimum').length;
+  }
+
   openDetail(symbol: string): void {
     this.router.navigate(['/posiciones', symbol]);
   }

@@ -2,12 +2,41 @@
   <header class="page-header">
     <div>
       <p class="eyebrow">Posiciones</p>
-      <h2>Tabla operativa y búsqueda de especies</h2>
-      <p class="lead">Filtrá, ordená y abrí el detalle completo de cada especie.</p>
+      <h2>Vista operativa del portafolio</h2>
+      <p class="lead">Buscá, filtrá y abrí el detalle de cada especie con una tabla más clara y enfocada en la acción.</p>
     </div>
   </header>
 
-  <ng-container *ngIf="snapshot.dataset; else emptyState">
+  <ng-container *ngIf="snapshot.dataset && snapshot.summary; else emptyState">
+    <section class="positions-summary">
+      <article class="summary-card">
+        <span>Total de especies</span>
+        <strong>{{ totalPositions }}</strong>
+      </article>
+      <article class="summary-card">
+        <span>Valor actual total</span>
+        <strong>{{ snapshot.summary.totalCurrentValue | currency:'ARS':'symbol-narrow':'1.0-0' }}</strong>
+      </article>
+      <article class="summary-card">
+        <span>Resultado total</span>
+        <strong [class.positive]="snapshot.summary.totalResult >= 0" [class.negative]="snapshot.summary.totalResult < 0">
+          {{ snapshot.summary.totalResult | currency:'ARS':'symbol-narrow':'1.0-0' }}
+        </strong>
+      </article>
+      <article class="summary-card">
+        <span>Bajo mínimo</span>
+        <strong>{{ belowMinimumCount }}</strong>
+      </article>
+      <article class="summary-card">
+        <span>Sin benchmark</span>
+        <strong>{{ withoutBenchmarkCount }}</strong>
+      </article>
+    </section>
+
+    <p class="summary-note">
+      La tabla muestra la vista operativa. Usá los filtros para encontrar rápido qué tenés, cuánto pesa y qué requiere revisión.
+    </p>
+
     <app-positions-table
       [positions]="positions"
       [alerts]="snapshot.combinedAlerts"
