@@ -15,7 +15,7 @@ import {
 } from '../../../../core/services/portfolio-minimum-balance-trend.service';
 import { PortfolioMinimumBalanceTrendService } from '../../../../core/services/portfolio-minimum-balance-trend.service';
 
-type DetailTab = 'summary' | 'operations' | 'alerts' | 'history' | 'classification';
+type DetailTab = 'summary' | 'lots' | 'movements' | 'alerts' | 'history' | 'data';
 type SortDirection = 'asc' | 'desc';
 type PageSize = 10 | 25 | 50 | 'all';
 type Period = 'ALL' | '1M' | '3M' | '6M' | 'YTD' | '1Y';
@@ -28,7 +28,7 @@ type MinimumBalanceTrendViewMode = 'monthly' | 'daily';
   styleUrls: ['./position-detail-page.component.scss']
 })
 export class PositionDetailPageComponent implements OnInit, OnDestroy {
-  tab: DetailTab = 'summary';
+  activeTab: DetailTab = 'summary';
   operationSortDirection: SortDirection = 'desc';
   operationPageSize: PageSize = 25;
   operationPageIndex = 0;
@@ -80,6 +80,10 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
     this.subscription?.unsubscribe();
   }
 
+  setTab(tab: DetailTab): void {
+    this.activeTab = tab;
+  }
+
   back(): void {
     this.router.navigateByUrl('/posiciones');
   }
@@ -94,16 +98,16 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
     this.refreshHistory();
   }
 
-  sortedOperations(detail: AssetDetailViewModel) {
+  sortedOperations(detail: AssetDetailViewModel): AssetDetailViewModel['operations'] {
     const direction = this.operationSortDirection === 'asc' ? 1 : -1;
-    return [...detail.operations].sort((a, b) => {
-      const left = this.dateValue(a.date);
-      const right = this.dateValue(b.date);
+    return [...detail.operations].sort((leftOperation, rightOperation) => {
+      const left = this.dateValue(leftOperation.date);
+      const right = this.dateValue(rightOperation.date);
       return left > right ? direction : left < right ? -direction : 0;
     });
   }
 
-  pagedOperations(detail: AssetDetailViewModel) {
+  pagedOperations(detail: AssetDetailViewModel): AssetDetailViewModel['operations'] {
     const operations = this.sortedOperations(detail);
     if (this.operationPageSize === 'all') {
       return operations;
@@ -137,12 +141,16 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
   }
 
   previousOperationPage(): void {
-    if (!this.detail || this.operationPageSize === 'all') return;
+    if (!this.detail || this.operationPageSize === 'all') {
+      return;
+    }
     this.operationPageIndex = Math.max(0, this.currentOperationPageIndex - 1);
   }
 
   nextOperationPage(detail: AssetDetailViewModel): void {
-    if (this.operationPageSize === 'all') return;
+    if (this.operationPageSize === 'all') {
+      return;
+    }
     this.operationPageIndex = Math.min(this.operationPageCount(detail) - 1, this.currentOperationPageIndex + 1);
   }
 
@@ -184,7 +192,9 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
 
   minimumUsesAdjustedComparableValue(detail: AssetDetailViewModel): boolean {
     return Boolean(this.minimumPerformance?.usesAmortizationAdjustedBenchmark);
-  }  minimumAdjustmentTooltip(detail: AssetDetailViewModel): string | null {
+  }
+
+  minimumAdjustmentTooltip(detail: AssetDetailViewModel): string | null {
     const minimum = this.minimumPerformance;
     if (!minimum || !minimum.usesAmortizationAdjustedBenchmark) {
       return null;
@@ -205,7 +215,9 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
       `Mínimo esperado ajustado: ${this.formatMoney(minimum.minimumExpectedValue, detail.position.currency)}`,
       `Vs mínimo ajustado: ${this.formatMoney(minimum.valueVsMinimumAmount, detail.position.currency)}`
     ].join(' ');
-  }  movementTooltip(detail: AssetDetailViewModel): string | null {
+  }
+
+  movementTooltip(detail: AssetDetailViewModel): string | null {
     if (!detail.movementSummary || !detail.movementSummary.hasAdjustments) {
       return detail.movementEntries.length ? 'Movimientos detectados, pero no se pudieron asignar completamente a lotes.' : null;
     }
@@ -255,7 +267,9 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
 
   lotMinimumUsesAdjustedComparableValue(lot: MinimumPerformanceLot): boolean {
     return Boolean(lot.usesAmortizationAdjustedBenchmark);
-  }  lotMinimumAdjustmentTooltip(lot: MinimumPerformanceLot, currency: string): string | null {
+  }
+
+  lotMinimumAdjustmentTooltip(lot: MinimumPerformanceLot, currency: string): string | null {
     if (!lot.usesAmortizationAdjustedBenchmark) {
       return null;
     }
@@ -275,7 +289,9 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
       `Mínimo esperado ajustado: ${this.formatMoney(lot.minimumExpectedValue, currency)}`,
       `Vs mínimo ajustado: ${this.formatMoney(lot.valueVsMinimumAmount, currency)}`
     ].join(' ');
-  }  lotAdjustmentFor(operation: AssetDetailViewModel['operations'][number], detail: AssetDetailViewModel): InvestmentMovementLotAdjustment | null {
+  }
+
+  lotAdjustmentFor(operation: AssetDetailViewModel['operations'][number], detail: AssetDetailViewModel): InvestmentMovementLotAdjustment | null {
     return detail.movementLots.find((lot) => lot.operationId === operation.id) ?? null;
   }
 
@@ -291,11 +307,11 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
     return Boolean(this.lotAdjustmentFor(operation, detail)?.movementsCount);
   }
 
-  movementRows(detail: AssetDetailViewModel) {
-    return [...detail.movementEntries].sort((a, b) => {
-      const left = this.dateValue(a.date);
-      const right = this.dateValue(b.date);
-      return left > right ? -1 : left < right ? 1 : 0;
+  movementRows(detail: AssetDetailViewModel): AssetDetailViewModel['movementEntries'] {
+    return [...detail.movementEntries].sort((left, right) => {
+      const leftValue = this.dateValue(left.date);
+      const rightValue = this.dateValue(right.date);
+      return leftValue > rightValue ? -1 : leftValue < rightValue ? 1 : 0;
     });
   }
 
@@ -365,9 +381,9 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
   minimumStatusLabel(status: MinimumPerformanceBySymbol['status'] | MinimumPerformanceLot['status'] | null | undefined): string {
     switch (status) {
       case 'beats-minimum':
-        return 'Supera minimo';
+        return 'Supera mínimo';
       case 'below-minimum':
-        return 'Debajo minimo';
+        return 'Debajo mínimo';
       case 'missing-calendar':
         return 'Sin calendario';
       case 'not-applicable':
@@ -391,6 +407,7 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
       this.minimumBalanceTrendStats = null;
       return;
     }
+
     const filtered = this.assetDetail.filterHistory(this.detail.historicalPrices, this.historyPeriod);
     this.historyChartSeries = this.assetDetail.seriesForHistory(filtered, this.detail.symbol);
     this.historyStats = this.assetDetail.historyStats(filtered);
@@ -456,16 +473,19 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
 
     const minimums = this.minimumPerformanceService.buildMinimumPerformanceBySymbol(snapshot);
     const positionCurrency = this.detail?.position.currency ?? null;
-    const match = minimums.find((item) => item.symbol.toUpperCase() === this.symbol && (!positionCurrency || item.currency.toUpperCase() === positionCurrency.toUpperCase()))
-      ?? minimums.find((item) => item.symbol.toUpperCase() === this.symbol)
-      ?? null;
+    const match =
+      minimums.find((item) => item.symbol.toUpperCase() === this.symbol && (!positionCurrency || item.currency.toUpperCase() === positionCurrency.toUpperCase())) ??
+      minimums.find((item) => item.symbol.toUpperCase() === this.symbol) ??
+      null;
 
     this.minimumPerformance = match;
     this.minimumPerformanceLots = match?.lots ?? [];
   }
 
   private dateValue(value: string | Date | null | undefined): number {
-    if (!value) return 0;
+    if (!value) {
+      return 0;
+    }
     const date = value instanceof Date ? value : new Date(value);
     return Number.isNaN(date.getTime()) ? 0 : date.getTime();
   }
