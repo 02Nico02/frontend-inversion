@@ -3,11 +3,12 @@
     <div>
       <p class="eyebrow">Decisiones</p>
       <h3>Alertas activadas</h3>
+      <p class="lead">Alertas manuales o calculadas que conviene revisar antes de seguir con la semana.</p>
     </div>
   </div>
 
   <div class="summary-box" *ngIf="vm.items.length; else emptyState">
-    <strong>Hay {{ vm.total }} alertas activadas en posiciones no-signal.</strong>
+    <strong>Hay {{ vm.total }} alertas activadas en posiciones no señal.</strong>
     <p>Se muestran solo las más relevantes para no duplicar la página de Alertas.</p>
   </div>
 

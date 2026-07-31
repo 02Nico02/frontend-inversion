@@ -1,9 +1,11 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { FileDownloadService } from '../../../../core/services/file-download.service';
 import { PortfolioAppState, PortfolioStateService } from '../../../../core/services/portfolio-state.service';
 import { PrivacyModeService } from '../../../../core/services/privacy-mode.service';
+import { PendingOrdersPanelComponent } from '../../../../shared/components/pending-orders-panel/pending-orders-panel.component';
 import { DecisionActivatedAlertsComponent } from '../../components/decision-activated-alerts/decision-activated-alerts.component';
 import { DecisionExportPanelComponent } from '../../components/decision-export-panel/decision-export-panel.component';
 import { DecisionLiquidityPanelComponent } from '../../components/decision-liquidity-panel/decision-liquidity-panel.component';
@@ -19,12 +21,12 @@ import { DecisionInsightsService } from '../../services/decision-insights.servic
 import { DecisionOpportunitiesService } from '../../services/decision-opportunities.service';
 import { ExportCurrencyScope, ExportFormat, ExportMode, ExportSimulationCurrency, GptPortfolioExportOptions, GptPortfolioExportService, WeeklyManualContext } from '../../services/gpt-portfolio-export.service';
 import { MovementDateRange, MovementDateRangeService, MovementRangePreset } from '../../services/movement-date-range.service';
-import { PendingOrdersPanelComponent } from '../../../../shared/components/pending-orders-panel/pending-orders-panel.component';
 
 @Component({
   standalone: true,
   imports: [
     CommonModule,
+    RouterLink,
     DecisionSummaryPanelComponent,
     DecisionLiquidityPanelComponent,
     DecisionMovementsPanelComponent,
@@ -49,6 +51,13 @@ export class DecisionsPageComponent implements OnInit, OnDestroy {
     { preset: '30d', label: 'Últimos 30 días' },
     { preset: 'currentMonth', label: 'Mes actual' },
     { preset: 'custom', label: 'Personalizado' }
+  ];
+
+  readonly quickLinks = [
+    { label: 'Datos GPT', path: '/datos-gpt', note: 'Preparar contexto para análisis profundo.' },
+    { label: 'Alertas', path: '/alertas', note: 'Revisar señales y estados activados.' },
+    { label: 'Posiciones', path: '/posiciones', note: 'Abrir la mesa operativa del portafolio.' },
+    { label: 'Importación', path: '/importacion', note: 'Cargar o reemplazar el Excel.' }
   ];
 
   vm: any = null;
@@ -128,6 +137,32 @@ export class DecisionsPageComponent implements OnInit, OnDestroy {
 
   trackByItem(index: number, item: any): string {
     return String(item.label ?? item.symbol ?? item.title ?? index);
+  }
+
+  actionToneLabel(tone: 'success' | 'warning' | 'critical' | 'info'): string {
+    switch (tone) {
+      case 'critical':
+        return 'Prioridad crítica';
+      case 'warning':
+        return 'Revisión prioritaria';
+      case 'success':
+        return 'Seguimiento táctico';
+      default:
+        return 'Información útil';
+    }
+  }
+
+  actionToneDescription(tone: 'success' | 'warning' | 'critical' | 'info'): string {
+    switch (tone) {
+      case 'critical':
+        return 'Hay un punto que conviene resolver antes de tomar decisiones nuevas.';
+      case 'warning':
+        return 'Revisalo antes de avanzar con compras o cambios de límites.';
+      case 'success':
+        return 'Sirve como señal de contexto para seguir monitoreando.';
+      default:
+        return 'Dato de apoyo para ordenar la semana.';
+    }
   }
 
   exportContext(snapshot: PortfolioAppState): void {

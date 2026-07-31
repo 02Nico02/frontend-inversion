@@ -2,96 +2,227 @@
   <ng-container *ngIf="vm; else emptyState">
     <app-decision-summary-panel [dashboard]="vm" [currencyScope]="currencyScope"></app-decision-summary-panel>
 
-    <app-decision-liquidity-panel
-      [liquidity]="vm.liquidityCards"
-      [privacyEnabled]="privacyMode.enabled">
-    </app-decision-liquidity-panel>
+    <section class="panel section-block">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Resumen semanal</p>
+          <h3>Qué revisar primero</h3>
+          <p class="lead">Priorizá lo que requiere atención antes de decidir compras, límites u órdenes para la próxima semana.</p>
+        </div>
+      </div>
 
-    <app-pending-orders-panel
-      [summary]="snapshot.dataset?.pendingOrders ?? null"
-      [privacyEnabled]="privacyMode.enabled">
-    </app-pending-orders-panel>
+      <div class="priority-grid">
+        <article class="priority-card priority-card--critical">
+          <p>Bajo mínimo</p>
+          <strong>{{ vm.minimumBenchmarkReview.totalBelowMinimum }}</strong>
+          <small>Posiciones ARS por debajo del benchmark mínimo</small>
+          <a routerLink="/posiciones" class="secondary-link">Ver posiciones</a>
+        </article>
 
-    <app-decision-movements-panel
-      [movements]="vm.movements"
-      [movementDateRange]="movementDateRange"
-      [movementPresets]="movementPresets"
-      [privacyEnabled]="privacyMode.enabled"
-      (movementDateRangeChange)="movementDateRange = $event; persistMovementRange(); refreshVm()"
-      (presetSelected)="setMovementPreset($event)">
-    </app-decision-movements-panel>
+        <article class="priority-card priority-card--warning">
+          <p>Alertas activadas</p>
+          <strong>{{ vm.activatedAlerts.total }}</strong>
+          <small>Alertas manuales o calculadas que requieren revisión</small>
+          <a routerLink="/alertas" class="secondary-link">Ver alertas</a>
+        </article>
 
-    <app-decision-minimum-benchmark-review
-      [review]="vm.minimumBenchmarkReview"
-      [privacyEnabled]="privacyMode.enabled">
-    </app-decision-minimum-benchmark-review>
+        <article class="priority-card priority-card--info">
+          <p>Órdenes pendientes</p>
+          <strong>{{ snapshot.dataset?.pendingOrders?.totalOrders ?? 0 }}</strong>
+          <small>{{ snapshot.dataset?.pendingOrders?.totalReservedARS ? (snapshot.dataset?.pendingOrders?.totalReservedARS | currency:'ARS':'symbol-narrow':'1.0-0') : 'Capital ya reservado' }}</small>
+          <a routerLink="/datos-gpt" class="secondary-link">Preparar contexto</a>
+        </article>
 
-    <app-decision-misleading-positions
-      [review]="vm.misleadingPositions"
-      [privacyEnabled]="privacyMode.enabled">
-    </app-decision-misleading-positions>
+        <article class="priority-card priority-card--info">
+          <p>Señales 30D</p>
+          <strong>{{ vm.signalSummary.total30D }}</strong>
+          <small>Caídas: {{ vm.signalSummary.caidas30D.length }} · Recuperaciones: {{ vm.signalSummary.recuperaciones30D.length }}</small>
+          <a routerLink="/alertas" class="secondary-link">Ver señales</a>
+        </article>
 
-    <app-decision-activated-alerts
-      [activatedAlerts]="vm.activatedAlerts"
-      [privacyEnabled]="privacyMode.enabled">
-    </app-decision-activated-alerts>
+        <article class="priority-card priority-card--neutral">
+          <p>Posiciones engañosas</p>
+          <strong>{{ vm.misleadingPositions.total }}</strong>
+          <small>Posiciones con ganancia nominal pero bajo mínimo esperado</small>
+          <a routerLink="/posiciones" class="secondary-link">Ver detalle</a>
+        </article>
+      </div>
 
-    <app-decision-simulator-panel
-      [simulation]="vm.simulation"
-      [simulationCurrency]="simulationCurrency"
-      [monthlyContribution]="monthlyContribution"
-      [months]="months"
-      [annualReturnPercent]="annualReturnPercent"
-      [simulationRateMode]="simulationRateMode"
-      [performanceReferences]="vm.performance"
-      [privacyEnabled]="privacyMode.enabled"
-      (simulationCurrencyChange)="simulationCurrency = $event; onControlsChange()"
-      (monthlyContributionChange)="monthlyContribution = $event; onControlsChange()"
-      (monthsChange)="months = $event; onControlsChange()"
-      (annualReturnPercentChange)="annualReturnPercent = $event; onControlsChange()"
-      (simulationRateModeChange)="simulationRateMode = $event; onControlsChange()">
-    </app-decision-simulator-panel>
+      <div class="action-grid">
+        <article class="box">
+          <h4>Acciones sugeridas</h4>
+          <div class="action-list" *ngIf="vm.actions.length; else noActions">
+            <div class="action" *ngFor="let action of vm.actions; trackBy: trackByItem" [attr.data-tone]="action.tone">
+              <strong>{{ actionToneLabel(action.tone) }}</strong>
+              <p>{{ actionToneDescription(action.tone) }}</p>
+            </div>
+          </div>
+          <ng-template #noActions>
+            <p class="empty">No hay alertas críticas por ahora. Seguí monitoreando el portafolio.</p>
+          </ng-template>
+        </article>
 
-    <app-decision-performance-panel
-      [performance]="vm.performance"
-      [privacyEnabled]="privacyMode.enabled">
-    </app-decision-performance-panel>
+        <article class="box">
+          <h4>Referencias de concentración</h4>
+          <div class="objective-list">
+            <div class="objective" *ngFor="let objective of vm.objectives; trackBy: trackByItem" [attr.data-tone]="objective.tone">
+              <div class="objective-label">
+                <strong>{{ objective.label }}</strong>
+                <span>{{ objective.currentPercent | number:'1.0-2' }}% vs {{ objective.targetPercent | number:'1.0-2' }}%</span>
+              </div>
+              <div class="objective-bar">
+                <span class="current" [style.width.%]="objective.currentPercent"></span>
+              </div>
+              <small>Brecha: {{ objective.gapPercent | number:'1.0-2' }}%</small>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
 
-    <app-decision-export-panel
-      [exportMode]="exportMode"
-      [exportFormat]="exportFormat"
-      [includeFullPurchases]="includeFullPurchases"
-      [includeMonthlyHistory]="includeMonthlyHistory"
-      [includeSignals]="includeSignals"
-      [includeDataReview]="includeDataReview"
-      [includeSimulation]="includeSimulation"
-      [maskSensitiveExports]="maskSensitiveExports"
-      [privacyEnabled]="privacyMode.enabled"
-      [weeklyContext]="weeklyContext"
-      [rangeLabel]="vm.movements.rangeLabel"
-      [rangePresetLabel]="vm.movements.rangePresetLabel"
-      (exportModeChange)="exportMode = $event; onControlsChange()"
-      (exportFormatChange)="exportFormat = $event; onControlsChange()"
-      (includeFullPurchasesChange)="includeFullPurchases = $event; onControlsChange()"
-      (includeMonthlyHistoryChange)="includeMonthlyHistory = $event; onControlsChange()"
-      (includeSignalsChange)="includeSignals = $event; onControlsChange()"
-      (includeDataReviewChange)="includeDataReview = $event; onControlsChange()"
-      (includeSimulationChange)="includeSimulation = $event; onControlsChange()"
-      (maskSensitiveExportsChange)="maskSensitiveExports = $event; onControlsChange()"
-      (cashArsChange)="weeklyContext.cashArs = $event; persistWeeklyContext(); onControlsChange()"
-      (cashUsdChange)="weeklyContext.cashUsd = $event; persistWeeklyContext(); onControlsChange()"
-      (clearCash)="clearWeeklyContext(); onControlsChange()"
-      (copyExport)="copySummary(snapshot)"
-      (downloadExport)="exportContext(snapshot)">
-    </app-decision-export-panel>
+    <section class="panel section-block">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Mesa de decisiones</p>
+          <h3>Especies que requieren revisión</h3>
+          <p class="lead">Lo importante arriba. Cada bloque apunta a una especie o a un tema que merece revisión.</p>
+        </div>
+      </div>
 
-    <app-decision-signals-summary [signalsSummary]="vm.signalSummary"></app-decision-signals-summary>
+      <div class="decision-stack">
+        <app-decision-minimum-benchmark-review
+          [review]="vm.minimumBenchmarkReview"
+          [privacyEnabled]="privacyMode.enabled">
+        </app-decision-minimum-benchmark-review>
+
+        <app-decision-activated-alerts
+          [activatedAlerts]="vm.activatedAlerts"
+          [privacyEnabled]="privacyMode.enabled">
+        </app-decision-activated-alerts>
+
+        <app-decision-misleading-positions
+          [review]="vm.misleadingPositions"
+          [privacyEnabled]="privacyMode.enabled">
+        </app-decision-misleading-positions>
+      </div>
+    </section>
+
+    <section class="panel section-block">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Contexto operativo</p>
+          <h3>Liquidez, movimientos y señales</h3>
+          <p class="lead">Datos de apoyo para completar la revisión semanal sin salir de esta pantalla.</p>
+        </div>
+      </div>
+
+      <div class="operational-grid">
+        <app-pending-orders-panel
+          [summary]="snapshot.dataset?.pendingOrders ?? null"
+          [privacyEnabled]="privacyMode.enabled"
+          [compactEmpty]="true">
+        </app-pending-orders-panel>
+
+        <app-decision-liquidity-panel
+          [liquidity]="vm.liquidityCards"
+          [privacyEnabled]="privacyMode.enabled">
+        </app-decision-liquidity-panel>
+
+        <app-decision-movements-panel
+          [movements]="vm.movements"
+          [movementDateRange]="movementDateRange"
+          [movementPresets]="movementPresets"
+          [privacyEnabled]="privacyMode.enabled"
+          (movementDateRangeChange)="movementDateRange = $event; persistMovementRange(); refreshVm()"
+          (presetSelected)="setMovementPreset($event)">
+        </app-decision-movements-panel>
+
+        <app-decision-signals-summary [signalsSummary]="vm.signalSummary"></app-decision-signals-summary>
+      </div>
+    </section>
+
+    <section class="panel section-block">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Apoyo al análisis</p>
+          <h3>Simulación, rendimiento y exportación</h3>
+          <p class="lead">Herramientas secundarias para validar hipótesis y preparar contexto para GPT.</p>
+        </div>
+      </div>
+
+      <div class="support-grid">
+        <app-decision-performance-panel
+          [performance]="vm.performance"
+          [privacyEnabled]="privacyMode.enabled">
+        </app-decision-performance-panel>
+
+        <app-decision-simulator-panel
+          [simulation]="vm.simulation"
+          [simulationCurrency]="simulationCurrency"
+          [monthlyContribution]="monthlyContribution"
+          [months]="months"
+          [annualReturnPercent]="annualReturnPercent"
+          [simulationRateMode]="simulationRateMode"
+          [performanceReferences]="vm.performance"
+          [privacyEnabled]="privacyMode.enabled"
+          (simulationCurrencyChange)="simulationCurrency = $event; onControlsChange()"
+          (monthlyContributionChange)="monthlyContribution = $event; onControlsChange()"
+          (monthsChange)="months = $event; onControlsChange()"
+          (annualReturnPercentChange)="annualReturnPercent = $event; onControlsChange()"
+          (simulationRateModeChange)="simulationRateMode = $event; onControlsChange()">
+        </app-decision-simulator-panel>
+
+        <app-decision-export-panel
+          [exportMode]="exportMode"
+          [exportFormat]="exportFormat"
+          [includeFullPurchases]="includeFullPurchases"
+          [includeMonthlyHistory]="includeMonthlyHistory"
+          [includeSignals]="includeSignals"
+          [includeDataReview]="includeDataReview"
+          [includeSimulation]="includeSimulation"
+          [maskSensitiveExports]="maskSensitiveExports"
+          [privacyEnabled]="privacyMode.enabled"
+          [weeklyContext]="weeklyContext"
+          [rangeLabel]="vm.movements.rangeLabel"
+          [rangePresetLabel]="vm.movements.rangePresetLabel"
+          (exportModeChange)="exportMode = $event; onControlsChange()"
+          (exportFormatChange)="exportFormat = $event; onControlsChange()"
+          (includeFullPurchasesChange)="includeFullPurchases = $event; onControlsChange()"
+          (includeMonthlyHistoryChange)="includeMonthlyHistory = $event; onControlsChange()"
+          (includeSignalsChange)="includeSignals = $event; onControlsChange()"
+          (includeDataReviewChange)="includeDataReview = $event; onControlsChange()"
+          (includeSimulationChange)="includeSimulation = $event; onControlsChange()"
+          (maskSensitiveExportsChange)="maskSensitiveExports = $event; onControlsChange()"
+          (cashArsChange)="weeklyContext.cashArs = $event; persistWeeklyContext(); onControlsChange()"
+          (cashUsdChange)="weeklyContext.cashUsd = $event; persistWeeklyContext(); onControlsChange()"
+          (clearCash)="clearWeeklyContext(); onControlsChange()"
+          (copyExport)="copySummary(snapshot)"
+          (downloadExport)="exportContext(snapshot)">
+        </app-decision-export-panel>
+      </div>
+    </section>
+
+    <section class="panel section-block">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Accesos rápidos</p>
+          <h3>Ir directo al siguiente paso</h3>
+        </div>
+      </div>
+
+      <div class="quick-links">
+        <a *ngFor="let link of quickLinks" [routerLink]="link.path" class="quick-link">
+          <strong>{{ link.label }}</strong>
+          <span>{{ link.note }}</span>
+        </a>
+      </div>
+    </section>
   </ng-container>
 
   <ng-template #emptyState>
     <article class="panel">
       <h3>No hay datos para decisiones</h3>
-      <p>Importa el Excel para habilitar el semáforo, las acciones sugeridas y el simulador.</p>
+      <p>Importá el Excel para habilitar el semáforo, las acciones sugeridas y el simulador.</p>
     </article>
   </ng-template>
 </section>

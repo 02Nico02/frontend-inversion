@@ -3,13 +3,12 @@
     <div>
       <p class="eyebrow">Decisiones</p>
       <h3>Revisión por benchmark mínimo</h3>
+      <p class="lead">Especies ARS que quedaron por debajo del mínimo esperado y conviene repasar primero.</p>
     </div>
   </div>
 
   <div class="summary-box" *ngIf="vm.items.length; else emptyState">
-    <strong>
-      {{ vm.totalBelowMinimum }} posiciones ARS están por debajo del benchmark mínimo.
-    </strong>
+    <strong>{{ vm.totalBelowMinimum }} posiciones ARS están por debajo del benchmark mínimo.</strong>
     <p>Déficit total: {{ totalDeficitLabel(vm.totalDeficitAmount) }}</p>
   </div>
 

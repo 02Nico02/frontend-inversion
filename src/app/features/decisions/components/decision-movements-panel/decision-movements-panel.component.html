@@ -3,6 +3,7 @@
     <div>
       <p class="eyebrow">Movimientos recientes</p>
       <h3>Compras, ventas y flujo operativo detectado</h3>
+      <p class="lead">Rango de movimientos útil para revisar la semana sin mezclarlo con el análisis histórico profundo.</p>
     </div>
   </div>
 
@@ -118,7 +119,7 @@
               <th>Especie</th>
               <th>Fecha</th>
               <th>Moneda</th>
-              <th>Nota</th>
+              <th>Estado</th>
             </tr>
           </thead>
           <tbody>
@@ -126,7 +127,7 @@
               <td>{{ row.symbol }}</td>
               <td>{{ row.date }}</td>
               <td>{{ row.currency }}</td>
-              <td>{{ row.note }}</td>
+              <td>{{ row.currency === 'ARS' ? 'Movimiento operativo' : 'Cierre detectado' }}</td>
             </tr>
           </tbody>
         </table>
@@ -145,7 +146,7 @@
               <th>Especie</th>
               <th>Fecha</th>
               <th>Moneda</th>
-              <th>Nota</th>
+              <th>Estado</th>
             </tr>
           </thead>
           <tbody>
@@ -153,7 +154,7 @@
               <td>{{ row.symbol }}</td>
               <td>{{ row.date }}</td>
               <td>{{ row.currency }}</td>
-              <td>{{ row.note }}</td>
+              <td>Nueva posición detectada</td>
             </tr>
           </tbody>
         </table>

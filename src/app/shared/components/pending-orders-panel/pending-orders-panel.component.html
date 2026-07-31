@@ -8,15 +8,15 @@
     <span class="badge">{{ summary?.totalOrders }} órdenes</span>
   </div>
 
-    <div class="metric-grid compact">
-      <div class="metric-cell">
-        <span>Reservado total</span>
-        <strong>{{ formatMoney(summary?.totalReservedARS) }}</strong>
-      </div>
-      <div class="metric-cell">
-        <span>Especies</span>
-        <strong>{{ summary?.summaryBySymbol?.length }}</strong>
-      </div>
+  <div class="metric-grid compact">
+    <div class="metric-cell">
+      <span>Reservado total</span>
+      <strong>{{ formatMoney(summary?.totalReservedARS) }}</strong>
+    </div>
+    <div class="metric-cell">
+      <span>Especies</span>
+      <strong>{{ summary?.summaryBySymbol?.length }}</strong>
+    </div>
     <div class="metric-cell">
       <span>Tratamiento</span>
       <strong>Reservado no disponible</strong>
