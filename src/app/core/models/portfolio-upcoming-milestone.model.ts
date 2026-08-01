@@ -30,6 +30,10 @@ export interface PortfolioUpcomingMilestone {
   currency: 'ARS' | 'USD' | null;
   monthlyContribution?: number | null;
   estimatedMonths?: number | null;
+  estimationMode?: 'growth-and-contribution' | 'contribution-only' | 'not-estimable';
+  estimationNote?: string | null;
+  estimationAnnualRatePercent?: number | null;
+  estimationMonthlyRatePercent?: number | null;
   breakdown?: PortfolioUpcomingMilestoneBreakdown[];
   source: string;
 }

@@ -218,8 +218,9 @@
                   <strong>{{ goalPercent(goal.remainingPercent) }}</strong>
                 </div>
                 <div class="goal-metric">
-                  <span>Con aporte mensual</span>
+                  <span>{{ goalProjectionLabel(goal) }}</span>
                   <strong>{{ goalMonths(goal.estimatedMonths) }}</strong>
+                  <small>{{ goalProjectionNote(goal) }}</small>
                 </div>
               </div>
             </ng-container>

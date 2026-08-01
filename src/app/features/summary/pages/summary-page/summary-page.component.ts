@@ -221,6 +221,32 @@ export class SummaryPageComponent {
     return `${value} mes${value === 1 ? '' : 'es'}`;
   }
 
+  goalProjectionLabel(goal: PortfolioUpcomingMilestone): string {
+    switch (goal.estimationMode) {
+      case 'growth-and-contribution':
+        return 'Con aporte + rendimiento 12M';
+      case 'contribution-only':
+        return 'Estimado solo con aportes';
+      default:
+        return 'No estimable';
+    }
+  }
+
+  goalProjectionNote(goal: PortfolioUpcomingMilestone): string {
+    if (goal.estimationNote) {
+      return goal.estimationNote;
+    }
+
+    switch (goal.estimationMode) {
+      case 'growth-and-contribution':
+        return 'La estimación usa el aporte mensual y el rendimiento nominal de los últimos 12 meses. No es una predicción, solo una proyección orientativa.';
+      case 'contribution-only':
+        return 'Proyección calculada solo con aportes por falta de rendimiento nominal 12M.';
+      default:
+        return 'No hay datos suficientes para estimar este objetivo.';
+    }
+  }
+
   pendingOrders(snapshot: PortfolioAppState): PendingOrdersSummary | null {
     return snapshot.dataset?.pendingOrders ?? null;
   }
