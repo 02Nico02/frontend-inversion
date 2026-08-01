@@ -3,7 +3,7 @@
     <div>
       <p class="eyebrow">Decisiones</p>
       <h3>Revisión por benchmark mínimo</h3>
-      <p class="lead">Especies ARS que quedaron por debajo del mínimo esperado y conviene repasar primero.</p>
+      <p class="lead">Especies ARS que quedaron por debajo del benchmark mínimo y conviene repasar primero.</p>
     </div>
   </div>
 
@@ -11,6 +11,10 @@
     <strong>{{ vm.totalBelowMinimum }} posiciones ARS están por debajo del benchmark mínimo.</strong>
     <p>Déficit total: {{ totalDeficitLabel(vm.totalDeficitAmount) }}</p>
   </div>
+
+  <p class="lead" *ngIf="vm.items.length">
+    Estas especies están por debajo del benchmark mínimo. Revisá primero las mayores brechas.
+  </p>
 
   <ng-template #emptyState>
     <div class="summary-box summary-box--empty">
@@ -25,7 +29,6 @@
           <th>Especie</th>
           <th class="num">% vs mínimo</th>
           <th class="num">Vs mínimo $</th>
-          <th>Motivo</th>
           <th>Acción</th>
         </tr>
       </thead>
@@ -34,7 +37,6 @@
           <td><strong>{{ item.symbol }}</strong></td>
           <td class="num negative">{{ formatPercent(item.valueVsMinimumPercent) }}</td>
           <td class="num negative">{{ formatMoney(item.valueVsMinimumAmount, item.currency) }}</td>
-          <td>{{ item.reason }}</td>
           <td>
             <a class="secondary-link" [routerLink]="['/posiciones', item.symbol]">Ver detalle</a>
           </td>

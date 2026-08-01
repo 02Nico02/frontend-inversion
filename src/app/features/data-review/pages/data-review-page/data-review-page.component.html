@@ -2,22 +2,22 @@
   <header class="hero panel">
     <div class="hero__copy">
       <p class="eyebrow">Datos a revisar</p>
-      <h2>Auditoría del workbook y hallazgos de salud</h2>
-      <p class="hero__meta">
-        {{ vm.filteredIssues }} problemas visibles de {{ vm.totalIssues }} totales
-      </p>
+      <h2>Auditoría del Excel</h2>
+      <p class="hero__meta">Detecta inconsistencias que pueden afectar el análisis.</p>
     </div>
 
     <div class="hero__status">
       <span class="status-pill" [class.status-pill--ok]="vm.hasWorkbook" [class.status-pill--muted]="!vm.hasWorkbook">
         {{ vm.hasWorkbook ? 'Excel cargado' : 'Esperando archivo' }}
       </span>
+      <strong>{{ vm.hasWorkbook ? 'Revisión activa' : 'Sin workbook para auditar' }}</strong>
+      <span>{{ vm.hasWorkbook ? vm.filteredIssues + ' problemas visibles' : 'Importá el Excel para revisar la salud de los datos.' }}</span>
     </div>
   </header>
 
   <section class="summary-grid" *ngIf="vm.hasWorkbook">
     <article class="summary-card summary-card--critical">
-      <span>Críticas</span>
+      <span>Críticos</span>
       <strong>{{ vm.criticalCount }}</strong>
     </article>
     <article class="summary-card summary-card--warning">
@@ -25,7 +25,7 @@
       <strong>{{ vm.warningCount }}</strong>
     </article>
     <article class="summary-card summary-card--info">
-      <span>Informativas</span>
+      <span>Informativos</span>
       <strong>{{ vm.infoCount }}</strong>
     </article>
     <article class="summary-card summary-card--neutral">
@@ -36,6 +36,31 @@
       <span>Especies afectadas</span>
       <strong>{{ vm.symbols.length }}</strong>
     </article>
+  </section>
+
+  <section class="panel compact-panel" *ngIf="vm.hasWorkbook">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">Lectura rápida</p>
+        <h3>Estado general</h3>
+        <p class="lead">Usá este bloque para entender si el Excel está listo para análisis o necesita correcciones.</p>
+      </div>
+    </div>
+
+    <div class="status-strip">
+      <article class="status-card" [class.status-card--critical]="vm.criticalCount > 0" [class.status-card--warning]="vm.criticalCount === 0 && vm.warningCount > 0" [class.status-card--ok]="vm.criticalCount === 0 && vm.warningCount === 0">
+        <span>Estado</span>
+        <strong>{{ vm.criticalCount > 0 ? 'Crítico' : vm.warningCount > 0 ? 'Advertencias' : 'OK' }}</strong>
+      </article>
+      <article class="status-card">
+        <span>Tablas detectadas</span>
+        <strong>{{ vm.sourceGroups.length }}</strong>
+      </article>
+      <article class="status-card">
+        <span>Filas visibles</span>
+        <strong>{{ vm.filteredIssues }}</strong>
+      </article>
+    </div>
   </section>
 
   <section class="panel filters-panel" *ngIf="vm.hasWorkbook">
@@ -155,6 +180,16 @@
               </tr>
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <section class="panel help-panel">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Ayuda</p>
+            <h3>Dónde corregir cada problema</h3>
+            <p class="lead">Los problemas críticos suelen resolverse en el Excel o en la importación; los informativos sirven para ordenar la revisión.</p>
+          </div>
         </div>
       </section>
     </ng-template>

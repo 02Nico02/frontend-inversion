@@ -1,18 +1,100 @@
 <section class="page" *ngIf="state.snapshot as snapshot">
-      <header class="page-header">
-        <div>
-          <p class="eyebrow">Importación</p>
-          <h2>Cargar o reemplazar Excel</h2>
-        </div>
-      </header>
+  <header class="hero panel">
+    <div class="hero__copy">
+      <p class="eyebrow">Importación</p>
+      <h2>Carga del Excel</h2>
+      <p class="hero__meta">Importá o reemplazá el archivo que alimenta el dashboard.</p>
+    </div>
 
-      <app-import-panel (fileSelected)="handleFile($event)"></app-import-panel>
-      <app-validation-summary [report]="snapshot.workbook?.validation || null"></app-validation-summary>
+    <div class="hero__status" [class.hero__status--ok]="snapshot.workbook" [class.hero__status--idle]="!snapshot.workbook">
+      <span class="status-pill">{{ snapshot.workbook ? 'Excel cargado' : 'Sin archivo cargado' }}</span>
+      <strong>{{ snapshot.fileName || 'Ningún archivo seleccionado' }}</strong>
+      <span>{{ snapshot.importedAt ? ('Última lectura: ' + (snapshot.importedAt | date:'dd-MM-yyyy, HH:mm')) : 'Importá un archivo para habilitar el análisis del portafolio.' }}</span>
+    </div>
+  </header>
 
-      <article class="panel" *ngIf="snapshot.workbook">
-        <h3>Workbook</h3>
-        <p>Archivo: {{ snapshot.fileName || 'N/D' }}</p>
-        <p>Tablas detectadas: {{ snapshot.workbook.validation.detectedTables.length }}</p>
-        <p>Estado: {{ snapshot.status }}</p>
+  <section class="summary-grid">
+    <article class="summary-card summary-card--info">
+      <span>Estado</span>
+      <strong>{{ snapshot.status | titlecase }}</strong>
+    </article>
+    <article class="summary-card summary-card--neutral">
+      <span>Archivo cargado</span>
+      <strong>{{ snapshot.fileName || 'N/D' }}</strong>
+    </article>
+    <article class="summary-card summary-card--neutral">
+      <span>Última actualización</span>
+      <strong>{{ snapshot.importedAt ? (snapshot.importedAt | date:'dd-MM-yyyy, HH:mm') : 'N/D' }}</strong>
+    </article>
+    <article class="summary-card summary-card--info">
+      <span>Tablas detectadas</span>
+      <strong>{{ snapshot.workbook?.validation?.detectedTables?.length ?? 0 }}</strong>
+    </article>
+    <article class="summary-card summary-card--info">
+      <span>Posiciones cargadas</span>
+      <strong>{{ snapshot.dataset?.positions?.length ?? 0 }}</strong>
+    </article>
+  </section>
+
+  <section class="panel action-panel">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">Acción principal</p>
+        <h3>Seleccioná o reemplazá el archivo</h3>
+        <p class="lead">Usá este bloque para actualizar el workbook que alimenta el dashboard.</p>
+      </div>
+    </div>
+
+    <app-import-panel (fileSelected)="handleFile($event)"></app-import-panel>
+
+    <p class="action-note">
+      Al reemplazar el archivo, el estado actual se sobrescribe con los datos nuevos.
+    </p>
+  </section>
+
+  <section class="panel result-panel">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">Resultado de importación</p>
+        <h3>Estado de lectura</h3>
+        <p class="lead">Resumen breve del último archivo cargado. Los detalles técnicos quedan colapsados.</p>
+      </div>
+    </div>
+
+    <ng-container *ngIf="snapshot.workbook; else noWorkbook">
+      <app-validation-summary [report]="snapshot.workbook.validation || null"></app-validation-summary>
+    </ng-container>
+
+    <ng-template #noWorkbook>
+      <article class="empty-state">
+        <h3>No hay Excel cargado</h3>
+        <p>Seleccioná un archivo para habilitar la lectura y el análisis del portafolio.</p>
       </article>
-    </section>
+    </ng-template>
+  </section>
+
+  <details class="panel tech-panel">
+    <summary class="tech-panel__summary">
+      <div>
+        <p class="eyebrow">Ayuda breve</p>
+        <h3>Ver detalles de importación</h3>
+      </div>
+      <span class="status-pill">Secundario</span>
+    </summary>
+
+    <div class="tech-grid">
+      <article class="tech-card">
+        <h4>Qué espera la app</h4>
+        <p>Un archivo Excel con las tablas usadas por el dashboard. Podés reemplazarlo cuando tengas una versión nueva.</p>
+      </article>
+      <article class="tech-card">
+        <h4>Qué pasa al reemplazar</h4>
+        <p>El estado actual se sobrescribe con el archivo nuevo y la app vuelve a calcular el snapshot local.</p>
+      </article>
+      <article class="tech-card">
+        <h4>Qué no se sube</h4>
+        <p>El archivo se procesa localmente en este navegador. No se envía a ningún servidor.</p>
+      </article>
+    </div>
+  </details>
+</section>
