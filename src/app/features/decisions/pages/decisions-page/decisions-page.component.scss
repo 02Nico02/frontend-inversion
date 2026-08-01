@@ -128,12 +128,14 @@
 
 .operational-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 1rem;
 }
 
 .support-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
 }
 
 .quick-links {
@@ -176,8 +178,6 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .operational-grid,
-  .support-grid,
   .action-grid {
     grid-template-columns: 1fr;
   }

@@ -117,16 +117,16 @@
       </div>
 
       <div class="operational-grid">
+        <app-decision-liquidity-panel
+          [liquidity]="vm.liquidityCards"
+          [privacyEnabled]="privacyMode.enabled">
+        </app-decision-liquidity-panel>
+
         <app-pending-orders-panel
           [summary]="snapshot.dataset?.pendingOrders ?? null"
           [privacyEnabled]="privacyMode.enabled"
           [compactEmpty]="true">
         </app-pending-orders-panel>
-
-        <app-decision-liquidity-panel
-          [liquidity]="vm.liquidityCards"
-          [privacyEnabled]="privacyMode.enabled">
-        </app-decision-liquidity-panel>
 
         <app-decision-movements-panel
           [movements]="vm.movements"
@@ -145,17 +145,12 @@
       <div class="section-head">
         <div>
           <p class="eyebrow">Apoyo al análisis</p>
-          <h3>Simulación, rendimiento y exportación</h3>
+          <h3>Simulación, exportación y referencias</h3>
           <p class="lead">Herramientas secundarias para validar hipótesis y preparar contexto para GPT.</p>
         </div>
       </div>
 
       <div class="support-grid">
-        <app-decision-performance-panel
-          [performance]="vm.performance"
-          [privacyEnabled]="privacyMode.enabled">
-        </app-decision-performance-panel>
-
         <app-decision-simulator-panel
           [simulation]="vm.simulation"
           [simulationCurrency]="simulationCurrency"
@@ -199,6 +194,7 @@
           (copyExport)="copySummary(snapshot)"
           (downloadExport)="exportContext(snapshot)">
         </app-decision-export-panel>
+
       </div>
     </section>
 

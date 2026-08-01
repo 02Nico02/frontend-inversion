@@ -12,7 +12,6 @@ import { DecisionLiquidityPanelComponent } from '../../components/decision-liqui
 import { DecisionMisleadingPositionsComponent } from '../../components/decision-misleading-positions/decision-misleading-positions.component';
 import { DecisionMinimumBenchmarkReviewComponent } from '../../components/decision-minimum-benchmark-review/decision-minimum-benchmark-review.component';
 import { DecisionMovementsPanelComponent } from '../../components/decision-movements-panel/decision-movements-panel.component';
-import { DecisionPerformancePanelComponent } from '../../components/decision-performance-panel/decision-performance-panel.component';
 import { DecisionSignalsSummaryComponent } from '../../components/decision-signals-summary/decision-signals-summary.component';
 import { DecisionSimulatorPanelComponent } from '../../components/decision-simulator-panel/decision-simulator-panel.component';
 import { DecisionSummaryPanelComponent } from '../../components/decision-summary-panel/decision-summary-panel.component';
@@ -33,7 +32,6 @@ import { MovementDateRange, MovementDateRangeService, MovementRangePreset } from
     DecisionMinimumBenchmarkReviewComponent,
     DecisionActivatedAlertsComponent,
     DecisionSimulatorPanelComponent,
-    DecisionPerformancePanelComponent,
     DecisionExportPanelComponent,
     DecisionSignalsSummaryComponent,
     DecisionMisleadingPositionsComponent,
