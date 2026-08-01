@@ -1,25 +1,25 @@
 <section class="page">
   <header class="hero panel">
     <div class="hero__copy">
-      <p class="eyebrow">Configuraci&oacute;n</p>
+      <p class="eyebrow">Ayuda y configuración</p>
       <h2>Preferencias locales</h2>
       <p class="hero__meta">Opciones guardadas en este navegador para adaptar la vista y la privacidad.</p>
     </div>
     <div class="hero__status">
       <span class="status-pill status-pill--muted">Panel de sistema</span>
-      <strong>Configuraci&oacute;n del frontend</strong>
-      <span>Us&aacute; estas opciones para ajustar privacidad, formato y datos locales.</span>
+      <strong>Configuración del frontend</strong>
+      <span>Usá estas opciones para ajustar privacidad, formato y datos locales.</span>
     </div>
   </header>
 
   <section class="summary-grid">
     <article class="summary-card summary-card--info">
       <span>Privacidad</span>
-      <strong>Activa si est&aacute; disponible</strong>
+      <strong>{{ privacyMode.enabled ? 'Activa' : 'Inactiva' }}</strong>
     </article>
     <article class="summary-card summary-card--neutral">
-      <span>Visualizaci&oacute;n</span>
-      <strong>Formato local</strong>
+      <span>Visualización</span>
+      <strong>Preferencias locales</strong>
     </article>
     <article class="summary-card summary-card--neutral">
       <span>Datos locales</span>
@@ -38,42 +38,45 @@
           <p class="eyebrow">Privacidad</p>
           <h3>Ocultar importes</h3>
         </div>
-        <span class="preference-pill preference-pill--ok">Local</span>
+        <span class="preference-pill preference-pill--ok">{{ privacyMode.enabled ? 'Activa' : 'Inactiva' }}</span>
       </div>
-      <p>Si la opci&oacute;n est&aacute; habilitada, los importes se ocultan en las pantallas operativas y de an&aacute;lisis.</p>
+      <p>Cuando está activa, la app oculta importes sensibles en las pantallas que ya la soportan.</p>
+      <button type="button" class="toggle-button" (click)="togglePrivacy()">
+        {{ privacyMode.enabled ? 'Desactivar privacidad' : 'Activar privacidad' }}
+      </button>
     </article>
 
     <article class="preference-card">
       <div class="preference-card__head">
         <div>
-          <p class="eyebrow">Visualizaci&oacute;n</p>
+          <p class="eyebrow">Visualización</p>
           <h3>Moneda y formato</h3>
         </div>
-        <span class="preference-pill">Vista</span>
+        <span class="preference-pill">Info</span>
       </div>
-      <p>Las preferencias de moneda por defecto, formato num&eacute;rico o tema se respetan en las pantallas que ya las utilizan.</p>
+      <p>Algunas pantallas permiten elegir moneda, filtros o columnas. Esas preferencias se guardan localmente en este navegador.</p>
     </article>
 
     <article class="preference-card">
       <div class="preference-card__head">
         <div>
           <p class="eyebrow">Datos locales</p>
-          <h3>Informaci&oacute;n guardada</h3>
+          <h3>Información guardada</h3>
         </div>
         <span class="preference-pill preference-pill--warning">Navegador</span>
       </div>
-      <p>La aplicaci&oacute;n guarda aqu&iacute; preferencias y estados de uso. Si existe una acci&oacute;n de limpieza, debe usarse con cuidado.</p>
+      <p>La aplicación guarda aquí preferencias y estados de uso. No se suben a ningún servidor.</p>
     </article>
 
     <article class="preference-card">
       <div class="preference-card__head">
         <div>
           <p class="eyebrow">Ayuda</p>
-          <h3>Qu&eacute; cambia y qu&eacute; no</h3>
+          <h3>Qué cambia y qué no</h3>
         </div>
         <span class="preference-pill preference-pill--muted">Info</span>
       </div>
-      <p>Estas opciones no modifican c&aacute;lculos financieros ni la estructura del Excel. Solo ajustan la experiencia local.</p>
+      <p>Estas opciones no modifican cálculos financieros ni la estructura del Excel. Solo ajustan la experiencia local.</p>
     </article>
   </section>
 </section>

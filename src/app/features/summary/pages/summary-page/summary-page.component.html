@@ -20,85 +20,77 @@
           <h3>Portafolio vs mínimo esperado</h3>
           <p class="lead">Resumen rápido para saber si el portafolio está arriba o abajo del benchmark mínimo.</p>
         </div>
-        <a routerLink="/historico" class="link">Ver histórico</a>
+        <div class="section-head__actions">
+          <a routerLink="/historico" class="link">Ver histórico</a>
+          <a routerLink="/posiciones" class="link">Ver posiciones</a>
+        </div>
       </div>
 
-      <div class="summary-grid summary-grid--benchmark">
-        <article class="panel benchmark-panel" *ngIf="minimumPerformanceSummary(snapshot) as minimumSummary" [ngClass]="minimumPerformanceStatusClass(minimumSummary.status)">
+      <article class="panel benchmark-panel" *ngIf="minimumPerformanceSummary(snapshot) as minimumSummary" [ngClass]="minimumPerformanceStatusClass(minimumSummary.status)">
+        <ng-container *ngIf="minimumBalanceTrend(snapshot) as trend">
           <div class="metric-head">
             <div>
-              <p class="eyebrow">Estado vs mínimo ARS</p>
-              <h3>{{ minimumPerformanceStatusLabel(minimumSummary.status) }}</h3>
+              <p class="eyebrow">Benchmark mínimo ARS</p>
+              <h3>Portafolio vs mínimo esperado</h3>
             </div>
             <strong class="badge">{{ minimumSummary.comparableLotsCount }} lotes</strong>
           </div>
 
-          <div class="metric-grid compact" *ngIf="minimumSummary.status !== 'missing'; else missingBenchmark">
-            <div class="metric-cell">
-              <span>Vs mínimo %</span>
-              <strong [class.positive]="(minimumSummary.balanceVsMinimumPercentArs ?? 0) >= 0" [class.negative]="(minimumSummary.balanceVsMinimumPercentArs ?? 0) < 0">
-                {{ minimumSummary.balanceVsMinimumArs !== null ? percent(minimumSummary.balanceVsMinimumPercentArs ?? 0) : 'N/D' }}
-              </strong>
-            </div>
-            <div class="metric-cell">
-              <span>Vs mínimo $</span>
+          <div class="benchmark-state">
+            <span class="benchmark-state__label">{{ minimumPerformanceStatusLabel(minimumSummary.status) }}</span>
+            <p class="benchmark-state__text">
+              {{
+                minimumSummary.status === 'positive'
+                  ? 'El portafolio supera el mínimo esperado.'
+                  : minimumSummary.status === 'negative'
+                    ? 'El portafolio está por debajo del mínimo esperado.'
+                    : minimumSummary.status === 'neutral'
+                      ? 'El portafolio está en línea con el mínimo esperado.'
+                      : 'No hay datos suficientes para calcular el benchmark mínimo.'
+              }}
+            </p>
+          </div>
+
+          <div class="metric-grid compact metric-grid--benchmark">
+            <div class="metric-cell metric-cell--highlight">
+              <span>VS mínimo</span>
               <strong [class.positive]="(minimumSummary.balanceVsMinimumArs ?? 0) >= 0" [class.negative]="(minimumSummary.balanceVsMinimumArs ?? 0) < 0">
-                {{ minimumSummary.balanceVsMinimumArs !== null ? (minimumSummary.balanceVsMinimumArs | currency:'ARS':'symbol-narrow':'1.2-2') : 'N/D' }}
+                {{ minimumSummary.balanceVsMinimumArs !== null ? ((minimumSummary.balanceVsMinimumArs | currency:'ARS':'symbol-narrow':'1.2-2') + ' / ' + percent(minimumSummary.balanceVsMinimumPercentArs ?? 0)) : 'N/D' }}
               </strong>
             </div>
+
             <div class="metric-cell">
-              <span>Valor comparable ARS</span>
+              <span>Valor usado para comparar</span>
               <strong>{{ minimumSummary.currentComparableArs !== null ? (minimumSummary.currentComparableArs | currency:'ARS':'symbol-narrow':'1.2-2') : 'N/D' }}</strong>
+              <small>Incluye el valor actual más movimientos aplicables, como rentas, dividendos o amortizaciones, para comparar contra el mínimo esperado.</small>
             </div>
+
             <div class="metric-cell">
-              <span>Mínimo esperado ARS</span>
+              <span>Mínimo esperado</span>
               <strong>{{ minimumSummary.minimumExpectedArs !== null ? (minimumSummary.minimumExpectedArs | currency:'ARS':'symbol-narrow':'1.2-2') : 'N/D' }}</strong>
+              <small>Referencia mínima calculada para medir si el portafolio acompaña el benchmark definido.</small>
             </div>
-          </div>
 
-          <ng-template #missingBenchmark>
-            <div class="empty-benchmark">
-              <strong>N/D</strong>
-              <p>No hay datos suficientes para calcular el benchmark mínimo.</p>
-            </div>
-          </ng-template>
-
-          <p class="benchmark-note">Comparación resumida. El detalle completo vive en Histórico y Posiciones.</p>
-        </article>
-
-        <article class="panel balance-trend-panel" *ngIf="minimumBalanceTrend(snapshot) as trend">
-          <div class="metric-head">
-            <div>
-              <p class="eyebrow">Balance vs mínimo ARS</p>
-              <h3>Evolución contra el benchmark mínimo</h3>
-            </div>
-            <strong class="badge">{{ trend.trendLabel }}</strong>
-          </div>
-
-          <div class="metric-grid compact">
-            <div class="metric-cell">
-              <span>Resultado actual</span>
-              <strong>{{ trend.currentBalanceVsMinimumARS !== null ? (privacyMode.enabled ? 'Oculto' : (trend.currentBalanceVsMinimumARS | currency:'ARS':'symbol-narrow':'1.2-2')) : 'N/D' }}</strong>
-            </div>
-            <div class="metric-cell">
-              <span>% vs mínimo</span>
-              <strong>{{ trend.currentBalanceVsMinimumPercent !== null ? (privacyMode.enabled ? 'Oculto' : percent(trend.currentBalanceVsMinimumPercent)) : 'N/D' }}</strong>
-            </div>
             <div class="metric-cell">
               <span>Posiciones bajo mínimo</span>
               <strong>{{ trend.positionsBelowMinimumCount }}</strong>
+              <small>Posiciones individuales que siguen por debajo del benchmark.</small>
             </div>
+
             <div class="metric-cell">
-              <span>Déficit total</span>
+              <span>Brecha acumulada bajo mínimo</span>
               <strong>{{ privacyMode.enabled ? 'Oculto' : (trend.totalDeficitBelowMinimumARS | currency:'ARS':'symbol-narrow':'1.2-2') }}</strong>
+              <small>Suma solo los faltantes de las posiciones individuales que están por debajo del mínimo. El portafolio total puede estar arriba del mínimo y aun así tener esta brecha.</small>
             </div>
           </div>
 
-          <p class="benchmark-note">Estado actual del portafolio frente al benchmark mínimo.</p>
+          <p class="benchmark-note">
+            El portafolio puede superar el mínimo total aunque algunas posiciones individuales sigan por debajo. La brecha acumulada suma solo los faltantes de esas posiciones.
+          </p>
           <p class="benchmark-note warning" *ngIf="!trend.points.length">Sin historial suficiente para tendencia.</p>
           <p class="benchmark-note warning" *ngIf="trend.warnings.length">{{ trend.warnings[0] }}</p>
-        </article>
-      </div>
+        </ng-container>
+      </article>
     </section>
 
     <section class="summary-section signals-section">

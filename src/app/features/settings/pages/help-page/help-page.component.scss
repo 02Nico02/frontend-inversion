@@ -125,6 +125,19 @@
   line-height: 1.5;
 }
 
+.toggle-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  padding: 0.55rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  cursor: pointer;
+}
+
 .preference-pill {
   display: inline-flex;
   align-items: center;

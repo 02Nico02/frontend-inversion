@@ -77,7 +77,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
       case '/datos-gpt': return 'Datos GPT';
       case '/datos-a-revisar': return 'Datos a revisar';
       case '/importacion': return 'Importación';
-      case '/configuracion': return 'Configuración';
+      case '/configuracion': return 'Ayuda y configuración';
       default: return 'Resumen';
     }
   }

@@ -48,7 +48,7 @@ export class SidebarNavComponent {
     },
     {
       label: 'Sistema',
-      items: [{ label: 'Configuración', path: '/configuracion' }]
+      items: [{ label: 'Ayuda y configuración', path: '/configuracion' }]
     }
   ];
 }
