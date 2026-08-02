@@ -84,13 +84,6 @@
   align-items: center;
 }
 
-.strategic-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 0.85rem;
-}
-
-.strategic-objective-card,
 .strategic-summary-box {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--panel-border);
@@ -98,7 +91,6 @@
   padding: 0.9rem;
 }
 
-.strategic-objective-card__head,
 .strategic-summary-box h4 {
   display: flex;
   justify-content: space-between;
@@ -106,14 +98,6 @@
   align-items: center;
 }
 
-.strategic-objective-metrics {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-  margin-top: 0.8rem;
-}
-
-.strategic-objective-metrics span,
 .strategic-summary-box span {
   color: var(--muted);
   font-size: 0.82rem;
@@ -140,6 +124,93 @@
   align-items: center;
 }
 
+.strategic-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.strategic-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--panel-border);
+  border-radius: 18px;
+}
+
+.strategic-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 820px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.strategic-table th,
+.strategic-table td {
+  padding: 0.85rem 0.9rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  vertical-align: middle;
+}
+
+.strategic-table th {
+  text-align: left;
+  color: var(--muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.strategic-name strong {
+  display: block;
+}
+
+.strategic-bars {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.strategic-bar-row {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.strategic-bar-row span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.strategic-bar-track {
+  height: 0.55rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.strategic-bar {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.strategic-bar--target {
+  background: linear-gradient(90deg, rgba(102, 187, 255, 0.65), rgba(102, 187, 255, 0.95));
+}
+
+.strategic-bar--actual {
+  background: linear-gradient(90deg, rgba(72, 184, 145, 0.7), rgba(72, 184, 145, 1));
+}
+
+.positive {
+  color: #6de0b5;
+}
+
+.negative {
+  color: #ff9b87;
+}
+
+.muted {
+  color: var(--muted);
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -153,6 +224,10 @@
 
 @media (max-width: 1100px) {
   .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .strategic-summary-lists {
     grid-template-columns: 1fr;
   }
 }

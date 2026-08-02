@@ -61,8 +61,9 @@ export class DistributionPageComponent {
     return this.chartData.distributionByRegion(this.visiblePositions(snapshot), this.currencyFilter);
   }
 
-  strategicObjectiveRows(snapshot: PortfolioAppState): StrategicObjectiveRow[] {
+  strategicRows(snapshot: PortfolioAppState): StrategicObjectiveRow[] {
     return [...(snapshot.dataset?.strategicSectorObjectives ?? [])]
+      .filter((item) => String(item.macroSector ?? '').trim().toLowerCase() !== 'total')
       .map((item) => ({
         ...item,
         status: this.strategicObjectiveStatus(item.differencePercent)
@@ -70,16 +71,35 @@ export class DistributionPageComponent {
       .sort((a, b) => Math.abs(b.differencePercent ?? 0) - Math.abs(a.differencePercent ?? 0));
   }
 
+  strategicObjectiveRows(snapshot: PortfolioAppState): StrategicObjectiveRow[] {
+    return this.strategicRows(snapshot);
+  }
+
   strategicReinforcementRows(snapshot: PortfolioAppState): StrategicObjectiveRow[] {
-    return this.strategicObjectiveRows(snapshot)
+    return this.strategicRows(snapshot)
       .filter((item) => (item.differencePercent ?? 0) > 0.5)
       .slice(0, 3);
   }
 
   strategicOverweightRows(snapshot: PortfolioAppState): StrategicObjectiveRow[] {
-    return this.strategicObjectiveRows(snapshot)
+    return this.strategicRows(snapshot)
       .filter((item) => (item.differencePercent ?? 0) < -0.5)
       .slice(0, 3);
+  }
+
+  strategicComparisonMax(snapshot: PortfolioAppState): number {
+    const values = this.strategicRows(snapshot)
+      .flatMap((row) => [row.targetPercent, row.currentPercent])
+      .filter((value): value is number => value !== null && value !== undefined && Number.isFinite(value));
+
+    return Math.max(1, ...values);
+  }
+
+  strategicBarWidth(value: number | null, max: number): number {
+    if (value === null || value === undefined || !Number.isFinite(value) || max <= 0) {
+      return 0;
+    }
+    return Math.min(100, Math.max(0, (value / max) * 100));
   }
 
   strategicObjectiveStatus(differencePercent: number | null): StrategicObjectiveRow['status'] {
