@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+﻿import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -42,7 +42,10 @@ interface StrategicProjectionView {
   rows: StrategicProjectionRow[];
   totalRealArs: number;
   totalProjectedArs: number;
+  totalChangeArs: number;
   operationsCount: number;
+  selectedSymbol: string | null;
+  comparisonMaxPercent: number;
   improvingRows: StrategicProjectionRow[];
   worseningRows: StrategicProjectionRow[];
   inRangeRows: StrategicProjectionRow[];
@@ -76,12 +79,13 @@ export class StrategicAllocationSimulatorPageComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.ensureDefaultSymbol();
+    this.ensureDefaultSymbol(this.state.snapshot);
   }
 
   projection(snapshot: PortfolioAppState): StrategicProjectionView {
     const assets = this.availableAssets(snapshot);
     const objectives = this.availableObjectives(snapshot);
+    const selectedSymbol = this.ensureDefaultSymbol(snapshot);
 
     if (!assets.length || !objectives.length) {
       return {
@@ -89,7 +93,10 @@ export class StrategicAllocationSimulatorPageComponent implements OnInit {
         rows: [],
         totalRealArs: 0,
         totalProjectedArs: 0,
+        totalChangeArs: 0,
         operationsCount: this.operations.length,
+        selectedSymbol,
+        comparisonMaxPercent: 1,
         improvingRows: [],
         worseningRows: [],
         inRangeRows: [],
@@ -100,16 +107,13 @@ export class StrategicAllocationSimulatorPageComponent implements OnInit {
 
     const normalizedAssets = assets
       .map((asset) => ({
-        asset,
         symbol: this.normalizeSymbol(asset.symbol),
         macroSector: this.normalizeSector(asset.macroSector),
         valueArs: this.safeNumber(asset.currentValueArs)
       }))
       .filter((item) => item.symbol && item.macroSector);
 
-    const objectiveBySector = new Map(
-      objectives.map((objective) => [this.normalizeSector(objective.macroSector), objective] as const)
-    );
+    const objectiveBySector = new Map(objectives.map((objective) => [this.normalizeSector(objective.macroSector), objective] as const));
     const assetValueBySector = new Map<string, number>();
     const sectorBySymbol = new Map<string, string>();
     const symbolProjectedValues = new Map<string, number>();
@@ -124,20 +128,20 @@ export class StrategicAllocationSimulatorPageComponent implements OnInit {
     objectiveBySector.forEach((_, sector) => sectors.add(sector));
     assetValueBySector.forEach((_, sector) => sectors.add(sector));
 
+    const baseTotal = this.totalBaseValue(sectors, objectiveBySector, assetValueBySector);
     const baseRows = Array.from(sectors).map((macroSector) => {
       const objective = objectiveBySector.get(macroSector) ?? null;
       const realValueArs = objective?.currentValueArs ?? assetValueBySector.get(macroSector) ?? 0;
       const targetPercent = objective?.targetPercent ?? null;
-      const realPercent = objective?.currentPercent ?? (this.totalBaseValue(sectors, objectiveBySector, assetValueBySector) > 0
-        ? (realValueArs / this.totalBaseValue(sectors, objectiveBySector, assetValueBySector)) * 100
-        : null);
+      const realPercent = objective?.currentPercent ?? (baseTotal > 0 ? (realValueArs / baseTotal) * 100 : null);
+      const realDifferencePercent = this.differencePercent(targetPercent, realPercent);
       return {
         macroSector,
         targetPercent,
         realValueArs,
         realPercent,
-        realDifferencePercent: this.differencePercent(targetPercent, realPercent),
-        realStatus: this.statusFor(this.differencePercent(targetPercent, realPercent))
+        realDifferencePercent,
+        realStatus: this.statusFor(realDifferencePercent)
       };
     });
 
@@ -167,6 +171,7 @@ export class StrategicAllocationSimulatorPageComponent implements OnInit {
     }
 
     const totalProjectedArs = Array.from(sectorProjectedValues.values()).reduce((sum, value) => sum + value, 0);
+    const totalChangeArs = totalProjectedArs - totalRealArs;
 
     const rows = baseRows
       .map((baseRow) => {
@@ -191,6 +196,11 @@ export class StrategicAllocationSimulatorPageComponent implements OnInit {
       })
       .sort((left, right) => Math.abs(right.projectedDifferencePercent ?? 0) - Math.abs(left.projectedDifferencePercent ?? 0));
 
+    const comparisonMaxPercent = Math.max(
+      1,
+      ...rows.flatMap((row) => [row.targetPercent, row.projectedPercent].filter((value): value is number => value !== null && value !== undefined && Number.isFinite(value)))
+    );
+
     const improvingRows = rows
       .filter((row) => this.isImproving(row))
       .sort((left, right) => this.improvementScore(right) - this.improvementScore(left))
@@ -206,7 +216,10 @@ export class StrategicAllocationSimulatorPageComponent implements OnInit {
       rows,
       totalRealArs,
       totalProjectedArs,
+      totalChangeArs,
       operationsCount: this.operations.length,
+      selectedSymbol,
+      comparisonMaxPercent,
       improvingRows,
       worseningRows,
       inRangeRows,
@@ -218,7 +231,7 @@ export class StrategicAllocationSimulatorPageComponent implements OnInit {
   addOperation(snapshot: PortfolioAppState): void {
     this.errorMessage = null;
     const assets = this.availableAssets(snapshot);
-    const symbol = this.normalizeSymbol(this.form.symbol);
+    const symbol = this.ensureDefaultSymbol(snapshot) ?? this.normalizeSymbol(this.form.symbol);
     const amountArs = Number(this.form.amountArs);
 
     if (!assets.length) {
@@ -264,6 +277,15 @@ export class StrategicAllocationSimulatorPageComponent implements OnInit {
     this.form.amountArs = null;
   }
 
+  updateOperationAmount(operationId: string, value: number | string | null | undefined): void {
+    const amountArs = Number(value);
+    if (!Number.isFinite(amountArs) || amountArs <= 0) {
+      return;
+    }
+    this.operations = this.operations.map((operation) => (operation.id === operationId ? { ...operation, amountArs } : operation));
+    this.persistOperations();
+  }
+
   removeOperation(operationId: string): void {
     this.operations = this.operations.filter((operation) => operation.id !== operationId);
     this.persistOperations();
@@ -276,11 +298,10 @@ export class StrategicAllocationSimulatorPageComponent implements OnInit {
   }
 
   availableAssets(snapshot: PortfolioAppState): StrategicAllocationAsset[] {
-    const items = [...(snapshot.dataset?.strategicAllocationAssets ?? [])]
-      .filter((item) => {
-        const sector = this.normalizeSector(item.macroSector);
-        return this.normalizeSymbol(item.symbol) && sector && sector.toLowerCase() !== 'total';
-      });
+    const items = [...(snapshot.dataset?.strategicAllocationAssets ?? [])].filter((item) => {
+      const sector = this.normalizeSector(item.macroSector);
+      return this.normalizeSymbol(item.symbol) && sector && sector.toLowerCase() !== 'total';
+    });
     const bySymbol = new Map<string, StrategicAllocationAsset>();
     for (const item of items) {
       const symbol = this.normalizeSymbol(item.symbol);
@@ -304,6 +325,14 @@ export class StrategicAllocationSimulatorPageComponent implements OnInit {
     return this.currencyMapper.formatCurrency(value, 'ARS');
   }
 
+  formatMoneySigned(value: number | null | undefined): string {
+    if (value === null || value === undefined || Number.isNaN(value)) {
+      return 'N/D';
+    }
+    const sign = value > 0 ? '+' : value < 0 ? '-' : '';
+    return `${sign}${this.formatMoney(Math.abs(value))}`;
+  }
+
   formatPercent(value: number | null | undefined): string {
     return this.currencyMapper.formatPercentage(value);
   }
@@ -313,6 +342,14 @@ export class StrategicAllocationSimulatorPageComponent implements OnInit {
       return 'N/D';
     }
     return `${value > 0 ? '+' : ''}${this.currencyMapper.formatPercentage(value)}`;
+  }
+
+  formatPercentPointsSigned(value: number | null | undefined): string {
+    if (value === null || value === undefined || Number.isNaN(value)) {
+      return 'N/D';
+    }
+    const sign = value > 0 ? '+' : '';
+    return `${sign}${value.toFixed(2)} pp`;
   }
 
   statusClass(status: StrategicAllocationStatus): string {
@@ -328,16 +365,23 @@ export class StrategicAllocationSimulatorPageComponent implements OnInit {
     }
   }
 
-  trackByOperation(_: number, operation: StrategicSimulationOperation): string {
+  trackByOperation = (_: number, operation: StrategicSimulationOperation): string => {
     return operation.id;
-  }
+  };
 
-  trackByRow(_: number, row: StrategicProjectionRow): string {
+  trackByRow = (_: number, row: StrategicProjectionRow): string => {
     return row.macroSector;
-  }
+  };
 
-  trackByAsset(_: number, asset: StrategicAllocationAsset): string {
+  trackByAsset = (_: number, asset: StrategicAllocationAsset): string => {
     return this.normalizeSymbol(asset.symbol);
+  };
+
+  barWidth(value: number | null | undefined, max: number): number {
+    if (value === null || value === undefined || !Number.isFinite(value) || max <= 0) {
+      return 0;
+    }
+    return Math.min(100, Math.max(0, (value / max) * 100));
   }
 
   private loadOperations(): StrategicSimulationOperation[] {
@@ -372,16 +416,17 @@ export class StrategicAllocationSimulatorPageComponent implements OnInit {
     }
   }
 
-  private ensureDefaultSymbol(): void {
-    const snapshot = this.state.snapshot;
+  private ensureDefaultSymbol(snapshot: PortfolioAppState): string | null {
     const assets = this.availableAssets(snapshot);
     if (!assets.length) {
-      return;
+      this.form.symbol = '';
+      return null;
     }
     const normalized = this.normalizeSymbol(this.form.symbol);
     if (!normalized || !assets.some((asset) => this.normalizeSymbol(asset.symbol) === normalized)) {
       this.form.symbol = assets[0].symbol;
     }
+    return this.form.symbol;
   }
 
   private totalBaseValue(

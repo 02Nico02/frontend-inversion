@@ -7,210 +7,255 @@
           <p class="eyebrow">Simulador de asignación estratégica</p>
           <h2>Simulador de asignación estratégica</h2>
           <p class="lead">Probá compras o ventas hipotéticas sin modificar el portafolio real.</p>
-      </div>
-      <button type="button" class="secondary-button" (click)="clearSimulation()">Limpiar simulación</button>
+        </div>
+        <button type="button" class="secondary-button" (click)="clearSimulation()">Limpiar simulación</button>
       </header>
 
-    <section class="panel note-panel">
-      <p>Esta simulación no modifica el portafolio real ni el Excel. Sirve solo para evaluar escenarios hipotéticos.</p>
-      <p>Que un macrosector quede por debajo del objetivo no implica comprar automáticamente. Evaluar precio, riesgo, liquidez y contexto antes de operar.</p>
-    </section>
+      <section class="panel note-panel">
+        <p>Esta simulación no modifica el portafolio real ni el Excel. Sirve solo para evaluar escenarios hipotéticos.</p>
+        <p>Que un macrosector quede por debajo del objetivo no implica comprar automáticamente. Evaluá precio, riesgo, liquidez y contexto antes de operar.</p>
+      </section>
 
       <section class="summary-grid">
-      <article class="panel summary-card">
-        <p class="eyebrow">Estado base</p>
-        <strong>{{ formatMoney(projection.totalRealArs) }}</strong>
-        <span>Total actual ARS</span>
-      </article>
-      <article class="panel summary-card summary-card--highlight">
-        <p class="eyebrow">Estado proyectado</p>
-        <strong>{{ formatMoney(projection.totalProjectedArs) }}</strong>
-        <span>Total proyectado ARS</span>
-      </article>
-      <article class="panel summary-card">
-        <p class="eyebrow">Operaciones</p>
-        <strong>{{ projection.operationsCount }}</strong>
-        <span>Simuladas en memoria</span>
-      </article>
+        <article class="panel summary-card">
+          <p class="eyebrow">Estado base</p>
+          <strong>{{ formatMoney(projection.totalRealArs) }}</strong>
+          <span>Total actual ARS</span>
+        </article>
+        <article class="panel summary-card summary-card--highlight">
+          <p class="eyebrow">Estado proyectado</p>
+          <strong>{{ formatMoney(projection.totalProjectedArs) }}</strong>
+          <span>Total proyectado ARS</span>
+        </article>
+        <article class="panel summary-card">
+          <p class="eyebrow">Cambio total</p>
+          <strong>{{ formatMoneySigned(projection.totalChangeArs) }}</strong>
+          <span>Variación proyectada</span>
+        </article>
+        <article class="panel summary-card">
+          <p class="eyebrow">Operaciones</p>
+          <strong>{{ projection.operationsCount }}</strong>
+          <span>Simuladas en memoria</span>
+        </article>
       </section>
 
       <section class="panel form-panel">
-      <div class="section-head">
-        <div>
-          <p class="eyebrow">Nueva operación</p>
-          <h3>Agregar simulación</h3>
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Nueva operación</p>
+            <h3>Agregar simulación</h3>
+          </div>
         </div>
-      </div>
 
-      <div class="form-grid">
-        <label>
-          <span>Tipo</span>
-          <select [(ngModel)]="form.type">
-            <option value="buy">Compra</option>
-            <option value="sell">Venta</option>
-          </select>
-        </label>
+        <div class="form-grid">
+          <label>
+            <span>Tipo</span>
+            <select [(ngModel)]="form.type">
+              <option value="buy">Compra</option>
+              <option value="sell">Venta</option>
+            </select>
+          </label>
 
-        <label>
-          <span>Especie</span>
-          <select [(ngModel)]="form.symbol">
-            <option value="" disabled>Elegí una especie</option>
-            <option *ngFor="let asset of projection.assets; trackBy: trackByAsset" [value]="asset.symbol">
-              {{ asset.symbol }} · {{ asset.macroSector || 'Sin macrosector' }} · {{ asset.currentValueArs === null ? 'N/D' : formatMoney(asset.currentValueArs) }}
-            </option>
-          </select>
-        </label>
+          <label>
+            <span>Especie</span>
+            <select [value]="form.symbol || projection.selectedSymbol || ''" (change)="form.symbol = $any($event.target).value">
+              <option value="" disabled>Elegí una especie</option>
+              <option *ngFor="let asset of projection.assets; trackBy: trackByAsset" [value]="asset.symbol">
+                {{ asset.symbol }} · {{ asset.macroSector || 'Sin macrosector' }} · {{ asset.currentValueArs === null ? 'N/D' : formatMoney(asset.currentValueArs) }}
+              </option>
+            </select>
+          </label>
 
-        <label>
-          <span>Monto ARS</span>
-          <input type="number" min="1" step="1" [(ngModel)]="form.amountArs" placeholder="300000" />
-        </label>
-      </div>
+          <label>
+            <span>Monto ARS</span>
+            <input type="number" min="1" step="1" [(ngModel)]="form.amountArs" placeholder="300000" />
+          </label>
+        </div>
 
-      <div class="form-actions">
-        <button type="button" class="primary-button" (click)="addOperation(snapshot)">Agregar simulación</button>
-      </div>
+        <div class="form-actions">
+          <button type="button" class="primary-button" (click)="addOperation(snapshot)">Agregar simulación</button>
+        </div>
 
-      <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
-      <p class="warning" *ngIf="projection.warnings.length">{{ projection.warnings[0] }}</p>
+        <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+        <p class="warning" *ngIf="projection.warnings.length">{{ projection.warnings[0] }}</p>
       </section>
 
       <section class="panel">
-      <div class="section-head">
-        <div>
-          <p class="eyebrow">Operaciones simuladas</p>
-          <h3>Escenarios cargados</h3>
+        <div class="section-head section-head--actions">
+          <div>
+            <p class="eyebrow">Operaciones simuladas</p>
+            <h3>Escenarios cargados</h3>
+            <p class="lead">Editá el monto o eliminá operaciones para ajustar el escenario hipotético.</p>
+          </div>
+          <button type="button" class="ghost-button" (click)="clearSimulation()" [disabled]="!operations.length">Limpiar simulación</button>
         </div>
-      </div>
 
-      <div class="table-wrap" *ngIf="operations.length; else emptyOperations">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Tipo</th>
-              <th>Especie</th>
-              <th>MacroSector</th>
-              <th>Monto</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let operation of operations; trackBy: trackByOperation">
-              <td>
-                <span class="status-pill" [class.status-pill--positive]="operation.type === 'buy'" [class.status-pill--negative]="operation.type === 'sell'">
-                  {{ operation.type === 'buy' ? 'Compra' : 'Venta' }}
-                </span>
-              </td>
-              <td><strong>{{ operation.symbol }}</strong></td>
-              <td>{{ operation.macroSector }}</td>
-              <td>{{ formatMoney(operation.amountArs) }}</td>
-              <td class="actions-cell">
-                <button type="button" class="ghost-button" (click)="removeOperation(operation.id)">Eliminar</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+        <div class="table-wrap" *ngIf="operations.length; else emptyOperations">
+          <table class="data-table operations-table">
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Especie</th>
+                <th>MacroSector</th>
+                <th>Monto ARS</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let operation of operations; trackBy: trackByOperation">
+                <td>
+                  <span class="status-pill" [class.status-pill--positive]="operation.type === 'buy'" [class.status-pill--negative]="operation.type === 'sell'">
+                    {{ operation.type === 'buy' ? 'Compra' : 'Venta' }}
+                  </span>
+                </td>
+                <td><strong>{{ operation.symbol }}</strong></td>
+                <td>{{ operation.macroSector }}</td>
+                <td>
+                  <input
+                    class="inline-amount-input"
+                    type="number"
+                    min="1"
+                    step="1"
+                    [ngModel]="operation.amountArs"
+                    (ngModelChange)="updateOperationAmount(operation.id, $event)"
+                  />
+                </td>
+                <td class="actions-cell">
+                  <button type="button" class="ghost-button" (click)="removeOperation(operation.id)">Eliminar</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-      <ng-template #emptyOperations>
-        <p class="empty-state">No hay operaciones simuladas todavía.</p>
-      </ng-template>
+        <ng-template #emptyOperations>
+          <p class="empty-state">No hay operaciones simuladas todavía.</p>
+        </ng-template>
       </section>
 
       <section class="panel">
-      <div class="section-head">
-        <div>
-          <p class="eyebrow">Resultado proyectado</p>
-          <h3>Objetivo vs actual proyectado por macrosector</h3>
-          <p class="lead">La tabla recalcula el peso por macrosector después de aplicar las compras y ventas hipotéticas.</p>
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Resultado proyectado</p>
+            <h3>Asignación estratégica por macrosector</h3>
+            <p class="lead">Así quedaría la distribución después de aplicar las compras y ventas simuladas.</p>
+          </div>
         </div>
-      </div>
 
-      <div class="table-wrap">
-        <table class="data-table strategic-table">
-          <thead>
-            <tr>
-              <th>MacroSector</th>
-              <th>Objetivo</th>
-              <th>Actual real</th>
-              <th>Actual proyectado</th>
-              <th>Diferencia real</th>
-              <th>Diferencia proyectada</th>
-              <th>Cambio</th>
-              <th>Valor proyectado ARS</th>
-              <th>Estado proyectado</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let row of projection.rows; trackBy: trackByRow">
-              <td><strong>{{ row.macroSector }}</strong></td>
-              <td>{{ row.targetPercent === null ? 'N/D' : formatPercent(row.targetPercent) }}</td>
-              <td>{{ row.realPercent === null ? 'N/D' : formatPercent(row.realPercent) }}</td>
-              <td>{{ row.projectedPercent === null ? 'N/D' : formatPercent(row.projectedPercent) }}</td>
-              <td [class.positive]="(row.realDifferencePercent ?? 0) > 0" [class.negative]="(row.realDifferencePercent ?? 0) < 0">
-                {{ row.realDifferencePercent === null ? 'N/D' : formatPercentSigned(row.realDifferencePercent) }}
-              </td>
-              <td [class.positive]="(row.projectedDifferencePercent ?? 0) > 0" [class.negative]="(row.projectedDifferencePercent ?? 0) < 0">
-                {{ row.projectedDifferencePercent === null ? 'N/D' : formatPercentSigned(row.projectedDifferencePercent) }}
-              </td>
-              <td [class.positive]="(row.changePercentPoints ?? 0) > 0" [class.negative]="(row.changePercentPoints ?? 0) < 0">
-                {{ row.changePercentPoints === null ? 'N/D' : formatPercentSigned(row.changePercentPoints) }}
-              </td>
-              <td>{{ formatMoney(row.projectedValueArs) }}</td>
-              <td>
-                <span class="status-pill" [ngClass]="statusClass(row.projectedStatus)">
-                  {{ row.projectedStatus }}
-                </span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+        <div class="strategic-summary-grid">
+          <article class="summary-chip">
+            <p class="eyebrow">Mejoran contra objetivo</p>
+            <strong>{{ projection.improvingRows.length }}</strong>
+          </article>
+          <article class="summary-chip">
+            <p class="eyebrow">Empeoran contra objetivo</p>
+            <strong>{{ projection.worseningRows.length }}</strong>
+          </article>
+          <article class="summary-chip">
+            <p class="eyebrow">Quedan en rango</p>
+            <strong>{{ projection.inRangeRows.length }}</strong>
+          </article>
+        </div>
+
+        <div class="projection-list">
+          <article class="projection-row" *ngFor="let row of projection.rows; trackBy: trackByRow">
+            <div class="projection-row__head">
+              <div>
+                <p class="projection-row__sector">{{ row.macroSector }}</p>
+                <p class="projection-row__meta">Actual real: {{ row.realPercent === null ? 'N/D' : formatPercent(row.realPercent) }}</p>
+              </div>
+              <span class="status-pill" [ngClass]="statusClass(row.projectedStatus)">
+                {{ row.projectedStatus }}
+              </span>
+            </div>
+
+            <div class="projection-row__bars">
+              <div class="projection-bar-row">
+                <div class="projection-bar-row__label">
+                  <span>Objetivo</span>
+                  <strong>{{ row.targetPercent === null ? 'N/D' : formatPercent(row.targetPercent) }}</strong>
+                </div>
+                <div class="projection-bar-track">
+                  <span class="projection-bar projection-bar--target" [style.width.%]="barWidth(row.targetPercent, projection.comparisonMaxPercent)"></span>
+                </div>
+              </div>
+
+              <div class="projection-bar-row">
+                <div class="projection-bar-row__label">
+                  <span>Proyectado</span>
+                  <strong>{{ row.projectedPercent === null ? 'N/D' : formatPercent(row.projectedPercent) }}</strong>
+                </div>
+                <div class="projection-bar-track">
+                  <span class="projection-bar projection-bar--projected" [style.width.%]="barWidth(row.projectedPercent, projection.comparisonMaxPercent)"></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="projection-row__metrics">
+              <div>
+                <span>Diferencia proyectada</span>
+                <strong [class.positive]="(row.projectedDifferencePercent ?? 0) > 0" [class.negative]="(row.projectedDifferencePercent ?? 0) < 0">
+                  {{ row.projectedDifferencePercent === null ? 'N/D' : formatPercentSigned(row.projectedDifferencePercent) }}
+                </strong>
+              </div>
+              <div>
+                <span>Valor proyectado ARS</span>
+                <strong>{{ formatMoney(row.projectedValueArs) }}</strong>
+              </div>
+              <div>
+                <span>Cambio</span>
+                <strong [class.positive]="(row.changePercentPoints ?? 0) > 0" [class.negative]="(row.changePercentPoints ?? 0) < 0">
+                  {{ row.changePercentPoints === null ? 'N/D' : formatPercentPointsSigned(row.changePercentPoints) }}
+                </strong>
+              </div>
+            </div>
+          </article>
+        </div>
       </section>
 
-    <section class="summary-grid summary-grid--three">
-      <article class="panel summary-list">
-        <p class="eyebrow">Macrosectores a reforzar</p>
-        <h3>Acercándose al objetivo</h3>
-        <ul *ngIf="projection.improvingRows.length; else noImproving">
-          <li *ngFor="let row of projection.improvingRows">
-            <strong>{{ row.macroSector }}</strong>
-            <span>{{ row.projectedDifferencePercent === null ? 'N/D' : formatPercentSigned(row.projectedDifferencePercent) }}</span>
-          </li>
-        </ul>
-        <ng-template #noImproving>
-          <p class="empty-state">No hay macrosectores que se acerquen al objetivo con esta simulación.</p>
-        </ng-template>
-      </article>
+      <section class="summary-grid summary-grid--three">
+        <article class="panel summary-list">
+          <p class="eyebrow">Macrosectores a reforzar</p>
+          <h3>Se acercan al objetivo</h3>
+          <ul *ngIf="projection.improvingRows.length; else noImproving">
+            <li *ngFor="let row of projection.improvingRows">
+              <strong>{{ row.macroSector }}</strong>
+              <span>{{ row.projectedDifferencePercent === null ? 'N/D' : formatPercentSigned(row.projectedDifferencePercent) }}</span>
+            </li>
+          </ul>
+          <ng-template #noImproving>
+            <p class="empty-state">No hay macrosectores que se acerquen al objetivo con esta simulación.</p>
+          </ng-template>
+        </article>
 
-      <article class="panel summary-list">
-        <p class="eyebrow">Macrosectores con sobrepeso</p>
-        <h3>Se alejan del objetivo</h3>
-        <ul *ngIf="projection.worseningRows.length; else noWorsening">
-          <li *ngFor="let row of projection.worseningRows">
-            <strong>{{ row.macroSector }}</strong>
-            <span>{{ row.projectedDifferencePercent === null ? 'N/D' : formatPercentSigned(row.projectedDifferencePercent) }}</span>
-          </li>
-        </ul>
-        <ng-template #noWorsening>
-          <p class="empty-state">No hay macrosectores que se alejen del objetivo con esta simulación.</p>
-        </ng-template>
-      </article>
+        <article class="panel summary-list">
+          <p class="eyebrow">Macrosectores con sobrepeso</p>
+          <h3>Se alejan del objetivo</h3>
+          <ul *ngIf="projection.worseningRows.length; else noWorsening">
+            <li *ngFor="let row of projection.worseningRows">
+              <strong>{{ row.macroSector }}</strong>
+              <span>{{ row.projectedDifferencePercent === null ? 'N/D' : formatPercentSigned(row.projectedDifferencePercent) }}</span>
+            </li>
+          </ul>
+          <ng-template #noWorsening>
+            <p class="empty-state">No hay macrosectores que se alejen del objetivo con esta simulación.</p>
+          </ng-template>
+        </article>
 
-      <article class="panel summary-list">
-        <p class="eyebrow">En rango</p>
-        <h3>Quedan dentro del objetivo</h3>
-        <ul *ngIf="projection.inRangeRows.length; else noRange">
-          <li *ngFor="let row of projection.inRangeRows">
-            <strong>{{ row.macroSector }}</strong>
-            <span>{{ row.projectedStatus }}</span>
-          </li>
-        </ul>
-        <ng-template #noRange>
-          <p class="empty-state">No hay macrosectores en rango con esta simulación.</p>
-        </ng-template>
-      </article>
-    </section>
+        <article class="panel summary-list">
+          <p class="eyebrow">En rango</p>
+          <h3>Quedan dentro del objetivo</h3>
+          <ul *ngIf="projection.inRangeRows.length; else noRange">
+            <li *ngFor="let row of projection.inRangeRows">
+              <strong>{{ row.macroSector }}</strong>
+              <span>{{ row.projectedStatus }}</span>
+            </li>
+          </ul>
+          <ng-template #noRange>
+            <p class="empty-state">No hay macrosectores en rango con esta simulación.</p>
+          </ng-template>
+        </article>
+      </section>
     </ng-container>
   </ng-container>
 </section>
