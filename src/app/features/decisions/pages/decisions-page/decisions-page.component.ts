@@ -20,6 +20,7 @@ import { DecisionInsightsService } from '../../services/decision-insights.servic
 import { DecisionOpportunitiesService } from '../../services/decision-opportunities.service';
 import { ExportCurrencyScope, ExportFormat, ExportMode, ExportSimulationCurrency, GptPortfolioExportOptions, GptPortfolioExportService, WeeklyManualContext } from '../../services/gpt-portfolio-export.service';
 import { MovementDateRange, MovementDateRangeService, MovementRangePreset } from '../../services/movement-date-range.service';
+import { StrategicSectorObjective } from '../../../../core/models/portfolio.models';
 
 @Component({
   standalone: true,
@@ -135,6 +136,40 @@ export class DecisionsPageComponent implements OnInit, OnDestroy {
 
   trackByItem(index: number, item: any): string {
     return String(item.label ?? item.symbol ?? item.title ?? index);
+  }
+
+  strategicObjectives(snapshot: PortfolioAppState): StrategicSectorObjective[] {
+    return [...(snapshot.dataset?.strategicSectorObjectives ?? [])].sort((left, right) =>
+      Math.abs((right.differencePercent ?? 0)) - Math.abs((left.differencePercent ?? 0))
+    );
+  }
+
+  strategicReinforcement(snapshot: PortfolioAppState): StrategicSectorObjective[] {
+    return this.strategicObjectives(snapshot).filter((item) => (item.differencePercent ?? 0) > 0.5).slice(0, 3);
+  }
+
+  strategicOverweight(snapshot: PortfolioAppState): StrategicSectorObjective[] {
+    return this.strategicObjectives(snapshot).filter((item) => (item.differencePercent ?? 0) < -0.5).slice(0, 3);
+  }
+
+  strategicObjectiveStatus(differencePercent: number | null | undefined): 'Falta peso' | 'Sobrepeso' | 'En rango' | 'Sin datos' {
+    if (differencePercent === null || differencePercent === undefined || Number.isNaN(differencePercent)) {
+      return 'Sin datos';
+    }
+    if (differencePercent > 0.5) {
+      return 'Falta peso';
+    }
+    if (differencePercent < -0.5) {
+      return 'Sobrepeso';
+    }
+    return 'En rango';
+  }
+
+  absolutePercent(value: number | null | undefined): number | null {
+    if (value === null || value === undefined || Number.isNaN(value)) {
+      return null;
+    }
+    return Math.abs(value);
   }
 
   actionToneLabel(tone: 'success' | 'warning' | 'critical' | 'info'): string {

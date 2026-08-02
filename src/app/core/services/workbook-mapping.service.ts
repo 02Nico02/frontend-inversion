@@ -71,6 +71,20 @@ export class WorkbookMappingService {
       expectedColumns: ['ESPECIE', 'VALORI. ACT.', 'Monto', 'Esperado', 'TIPO', 'SECTOR', 'SUBSECTOR', 'REGION']
     },
     {
+      key: 'strategicAllocationAssets',
+      primaryName: 'AsignacionEstrategica',
+      aliases: ['AsignacionEstrategica'],
+      critical: false,
+      expectedColumns: ['ESPECIE', 'Val. Actual', 'Moneda', 'Val. Act. AR', 'MacroSector']
+    },
+    {
+      key: 'strategicSectorObjectives',
+      primaryName: 'ObjetivosSectores',
+      aliases: ['ObjetivosSectores'],
+      critical: false,
+      expectedColumns: ['MacroSector', 'Objetivo', 'Val. Actual', 'Actual', 'Diferencia']
+    },
+    {
       key: 'manualAlerts',
       primaryName: 'ObjetivosPorEspecie',
       aliases: ['ObjetivosPorEspecie'],

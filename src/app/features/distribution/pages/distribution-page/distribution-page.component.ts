@@ -6,6 +6,11 @@ import { PortfolioAppState, PortfolioStateService } from '../../../../core/servi
 import { ChartDataService } from '../../../../core/services/chart-data.service';
 import { PortfolioCalculatorService } from '../../../../core/services/portfolio-calculator.service';
 import { CurrencyMapperService, CanonicalCurrency } from '../../../../core/services/currency-mapper.service';
+import { StrategicSectorObjective } from '../../../../core/models/portfolio.models';
+
+interface StrategicObjectiveRow extends StrategicSectorObjective {
+  status: 'Falta peso' | 'Sobrepeso' | 'En rango' | 'Sin datos';
+}
 
 @Component({
   standalone: true,
@@ -54,5 +59,46 @@ export class DistributionPageComponent {
 
   regionDistribution(snapshot: PortfolioAppState) {
     return this.chartData.distributionByRegion(this.visiblePositions(snapshot), this.currencyFilter);
+  }
+
+  strategicObjectiveRows(snapshot: PortfolioAppState): StrategicObjectiveRow[] {
+    return [...(snapshot.dataset?.strategicSectorObjectives ?? [])]
+      .map((item) => ({
+        ...item,
+        status: this.strategicObjectiveStatus(item.differencePercent)
+      }))
+      .sort((a, b) => Math.abs(b.differencePercent ?? 0) - Math.abs(a.differencePercent ?? 0));
+  }
+
+  strategicReinforcementRows(snapshot: PortfolioAppState): StrategicObjectiveRow[] {
+    return this.strategicObjectiveRows(snapshot)
+      .filter((item) => (item.differencePercent ?? 0) > 0.5)
+      .slice(0, 3);
+  }
+
+  strategicOverweightRows(snapshot: PortfolioAppState): StrategicObjectiveRow[] {
+    return this.strategicObjectiveRows(snapshot)
+      .filter((item) => (item.differencePercent ?? 0) < -0.5)
+      .slice(0, 3);
+  }
+
+  strategicObjectiveStatus(differencePercent: number | null): StrategicObjectiveRow['status'] {
+    if (differencePercent === null || differencePercent === undefined || Number.isNaN(differencePercent)) {
+      return 'Sin datos';
+    }
+    if (differencePercent > 0.5) {
+      return 'Falta peso';
+    }
+    if (differencePercent < -0.5) {
+      return 'Sobrepeso';
+    }
+    return 'En rango';
+  }
+
+  absolutePercent(value: number | null | undefined): number | null {
+    if (value === null || value === undefined || Number.isNaN(value)) {
+      return null;
+    }
+    return Math.abs(value);
   }
 }

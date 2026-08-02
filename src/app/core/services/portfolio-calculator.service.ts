@@ -17,6 +17,8 @@ import {
   PortfolioDataset,
   PortfolioPosition,
   PortfolioSummary,
+  StrategicAllocationAsset,
+  StrategicSectorObjective,
   StrategicSplit
 } from '../models/portfolio.models';
 import { WorkbookTableData } from '../models/workbook.models';
@@ -56,6 +58,8 @@ export class PortfolioCalculatorService {
     const annualSummary = this.mapAnnualSummary(this.findTable(tables, ['Tabla60']));
     const monthlyPerformance = this.mapMonthlyPerformance(this.findTable(tables, ['Tabla9']));
     const strategicSplit = this.mapStrategicSplit(this.findTable(tables, ['Tabla35']));
+    const strategicAllocationAssets = this.mapStrategicAllocationAssets(this.findTable(tables, ['AsignacionEstrategica']));
+    const strategicSectorObjectives = this.mapStrategicSectorObjectives(this.findTable(tables, ['ObjetivosSectores']));
     const platformDistribution = this.mapPlatforms(this.findTable(tables, ['Tabla38']));
     const pendingOrders = this.pendingOrdersService.buildSummary(this.findTable(tables, ['Tabla_OrdenesPendientes']));
     const calendarBenchmarks = [
@@ -79,6 +83,8 @@ export class PortfolioCalculatorService {
       annualSummary,
       monthlyPerformance,
       strategicSplit,
+      strategicAllocationAssets,
+      strategicSectorObjectives,
       platformDistribution,
       calendarBenchmarks,
       pendingOrders
@@ -534,6 +540,40 @@ export class PortfolioCalculatorService {
       savingsAmountARS: this.normalization.asNumber(this.normalization.pickValue(row, ['MONTO AHOR. AR'])),
       savingsAmountUSD: this.normalization.asNumber(this.normalization.pickValue(row, ['MONTO AHOR. USD']))
     }));
+  }
+
+  private mapStrategicAllocationAssets(table: WorkbookTableData | null): StrategicAllocationAsset[] {
+    if (!table) {
+      return [];
+    }
+
+    return table.rows
+      .map((row) => ({
+        symbol: this.normalization.normalizeSymbol(this.normalization.pickValue(row, ['ESPECIE'])) ?? '',
+        currentValue: this.normalization.asNumber(this.normalization.pickValue(row, ['Val. Actual', 'VAL. ACTUAL', 'VAL ACTUAL'])),
+        currency: this.currencyMapper.normalizeCurrency(this.normalization.pickValue(row, ['Moneda', 'MONEDA'])) === 'UNKNOWN'
+          ? null
+          : this.currencyMapper.normalizeCurrency(this.normalization.pickValue(row, ['Moneda', 'MONEDA'])),
+        currentValueArs: this.normalization.asNumber(this.normalization.pickValue(row, ['Val. Act. AR', 'VAL. ACT. AR', 'VAL ACT AR'])),
+        macroSector: this.normalization.asText(this.normalization.pickValue(row, ['MacroSector', 'MACROSECTOR']))
+      }))
+      .filter((item) => item.symbol);
+  }
+
+  private mapStrategicSectorObjectives(table: WorkbookTableData | null): StrategicSectorObjective[] {
+    if (!table) {
+      return [];
+    }
+
+    return table.rows
+      .map((row) => ({
+        macroSector: this.normalization.asText(this.normalization.pickValue(row, ['MacroSector', 'MACROSECTOR'])) ?? '',
+        targetPercent: this.normalization.asPercent(this.normalization.pickValue(row, ['Objetivo', 'OBJETIVO'])),
+        currentValueArs: this.normalization.asNumber(this.normalization.pickValue(row, ['Val. Actual', 'VAL. ACTUAL', 'VAL ACTUAL'])),
+        currentPercent: this.normalization.asPercent(this.normalization.pickValue(row, ['Actual', 'ACTUAL'])),
+        differencePercent: this.normalization.asPercent(this.normalization.pickValue(row, ['Diferencia', 'DIFERENCIA']))
+      }))
+      .filter((item) => item.macroSector);
   }
 
   private mapPlatforms(table: WorkbookTableData | null): PlatformDistribution[] {

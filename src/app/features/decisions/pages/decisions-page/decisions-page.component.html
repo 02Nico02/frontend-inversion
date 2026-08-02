@@ -80,6 +80,44 @@
       </div>
     </section>
 
+    <section class="panel section-block" *ngIf="snapshot.dataset?.strategicSectorObjectives?.length">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Asignación estratégica</p>
+          <h3>Macrosectores a reforzar y con sobrepeso</h3>
+          <p class="lead">Sirve para orientar nuevos aportes. No implica vender posiciones con sobrepeso.</p>
+        </div>
+      </div>
+
+      <div class="strategic-summary-grid">
+        <article class="strategic-summary-card">
+          <h4>Macrosectores a reforzar</h4>
+          <ul *ngIf="strategicReinforcement(snapshot).length; else noStrategicReinforcement">
+            <li *ngFor="let item of strategicReinforcement(snapshot)">
+              <strong>{{ item.macroSector }}</strong>
+              <span>Falta {{ item.differencePercent === null ? 'N/D' : (item.differencePercent | number:'1.0-2') + '%' }}</span>
+            </li>
+          </ul>
+          <ng-template #noStrategicReinforcement>
+            <p class="empty">No hay macrosectores por debajo del objetivo.</p>
+          </ng-template>
+        </article>
+
+        <article class="strategic-summary-card">
+          <h4>Macrosectores con sobrepeso</h4>
+          <ul *ngIf="strategicOverweight(snapshot).length; else noStrategicOverweight">
+            <li *ngFor="let item of strategicOverweight(snapshot)">
+              <strong>{{ item.macroSector }}</strong>
+              <span>Sobra {{ absolutePercent(item.differencePercent) === null ? 'N/D' : (absolutePercent(item.differencePercent) | number:'1.0-2') + '%' }}</span>
+            </li>
+          </ul>
+          <ng-template #noStrategicOverweight>
+            <p class="empty">No hay macrosectores por encima del objetivo.</p>
+          </ng-template>
+        </article>
+      </div>
+    </section>
+
     <section class="panel section-block">
       <div class="section-head">
         <div>

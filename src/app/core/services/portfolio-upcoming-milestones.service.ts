@@ -134,11 +134,11 @@ export class PortfolioUpcomingMilestonesService {
       remainingPercent: maxMonthly > 0 ? (remainingAmount / maxMonthly) * 100 : null,
       currency: 'ARS',
       monthlyContribution: monthlyContributionArs,
-      estimatedMonths: projection.months,
-      estimationMode: projection.mode,
-      estimationNote: projection.note,
-      estimationAnnualRatePercent: projection.annualRatePercent,
-      estimationMonthlyRatePercent: projection.monthlyRatePercent,
+      estimatedMonths: remainingAmount <= 0 ? null : projection.months,
+      estimationMode: remainingAmount <= 0 ? 'not-estimable' : projection.mode,
+      estimationNote: remainingAmount <= 0 ? 'El objetivo ya fue alcanzado.' : projection.note,
+      estimationAnnualRatePercent: remainingAmount <= 0 ? null : projection.annualRatePercent,
+      estimationMonthlyRatePercent: remainingAmount <= 0 ? null : projection.monthlyRatePercent,
       source: 'HistorialMensualReconstruido'
     };
   }

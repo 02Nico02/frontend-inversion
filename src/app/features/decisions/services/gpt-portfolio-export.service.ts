@@ -256,6 +256,27 @@ interface ExportPendingOrders {
   gptInstruction: string;
 }
 
+interface ExportStrategicAllocation {
+  description: string;
+  objectives: Array<{
+    macroSector: string;
+    targetPercent: string | null;
+    currentValueArs: string | null;
+    currentPercent: string | null;
+    differencePercent: string | null;
+    status: string;
+  }>;
+  reinforce: Array<{
+    macroSector: string;
+    differencePercent: string;
+  }>;
+  overweight: Array<{
+    macroSector: string;
+    differencePercent: string;
+  }>;
+  gptInstruction: string;
+}
+
 interface ExportRecentMovementCurrencySummary {
   currency: 'ALL' | 'ARS' | 'USD';
   purchasesGross: string;
@@ -371,6 +392,7 @@ interface GptPortfolioExport {
   } | null;
   benchmarkMinimum: ExportBenchmarkMinimum;
   pendingOrders: ExportPendingOrders;
+  strategicAllocation: ExportStrategicAllocation | null;
   movementAdjustments: ExportMovementAdjustmentRow[];
   simulation: ExportSimulation | null;
 }
@@ -444,6 +466,7 @@ export class GptPortfolioExportService {
     const monthlySummary = this.buildMonthlySummary(snapshot.dataset?.monthlySummary ?? [], options);
     const annualSummary = this.buildAnnualSummary(snapshot.dataset?.annualSummary ?? []);
     const strategicSplit = this.buildStrategicSplit(snapshot.dataset?.strategicSplit ?? [], totalPortfolioValue);
+    const strategicAllocation = this.buildStrategicAllocation(snapshot);
     const simulation = this.buildSimulation(viewModel, options);
     const opportunities = this.opportunities.build(snapshot);
     const benchmarkMinimum = this.buildBenchmarkMinimum(opportunities);
@@ -482,6 +505,7 @@ export class GptPortfolioExportService {
       monthlySummary,
       annualSummary,
       strategicSplit,
+      strategicAllocation,
       benchmarkMinimum,
       pendingOrders,
       movementAdjustments,
@@ -1077,6 +1101,44 @@ export class GptPortfolioExportService {
     };
   }
 
+  private buildStrategicAllocation(snapshot: PortfolioAppState): GptPortfolioExport['strategicAllocation'] {
+    const objectives = [...(snapshot.dataset?.strategicSectorObjectives ?? [])].sort(
+      (left, right) => Math.abs((right.differencePercent ?? 0)) - Math.abs((left.differencePercent ?? 0))
+    );
+    const assets = snapshot.dataset?.strategicAllocationAssets ?? [];
+
+    if (!objectives.length && !assets.length) {
+      return null;
+    }
+
+    return {
+      description: 'Asignación estratégica por macrosector definida en la hoja Alertas.',
+      objectives: objectives.map((item) => ({
+        macroSector: item.macroSector,
+        targetPercent: this.formatPercent(item.targetPercent),
+        currentValueArs: this.formatMoney(item.currentValueArs, 'ARS'),
+        currentPercent: this.formatPercent(item.currentPercent),
+        differencePercent: this.formatPercent(item.differencePercent),
+        status: this.strategicAllocationStatus(item.differencePercent)
+      })),
+      reinforce: objectives
+        .filter((item) => (item.differencePercent ?? 0) > 0.5)
+        .slice(0, 3)
+        .map((item) => ({
+          macroSector: item.macroSector,
+          differencePercent: this.formatPercent(item.differencePercent)
+        })),
+      overweight: objectives
+        .filter((item) => (item.differencePercent ?? 0) < -0.5)
+        .slice(0, 3)
+        .map((item) => ({
+          macroSector: item.macroSector,
+          differencePercent: this.formatPercent(item.differencePercent)
+        })),
+      gptInstruction: 'Usar esta capa como referencia estratégica. No implica comprar ni vender automáticamente.'
+    };
+  }
+
   private buildSimulation(viewModel: DecisionViewModel, options: GptPortfolioExportOptions): ExportSimulation | null {
     if (!viewModel.simulationInputs.active) {
       return null;
@@ -1539,6 +1601,7 @@ export class GptPortfolioExportService {
 
     lines.push(this.concentrationMarkdown(exportData.concentration), '');
     lines.push(this.distributionMarkdown(exportData.distributions, options), '');
+    lines.push(this.strategicAllocationMarkdown(exportData.strategicAllocation), '');
     lines.push(this.insightsMarkdown(exportData.decisionInsights), '');
 
     if (options.includeDataReview) {
@@ -2124,6 +2187,46 @@ export class GptPortfolioExportService {
     return lines.join('\n');
   }
 
+  private strategicAllocationMarkdown(strategicAllocation: GptPortfolioExport['strategicAllocation']): string {
+    if (!strategicAllocation) {
+      return '## Asignacion estrategica por macrosector\n\nSin datos de asignacion estrategica.';
+    }
+
+    const lines = [
+      '## Asignacion estrategica por macrosector',
+      strategicAllocation.description,
+      '',
+      this.tableFromRows(strategicAllocation.objectives, [
+        { header: 'MacroSector', key: 'macroSector' },
+        { header: 'Objetivo', key: 'targetPercent' },
+        { header: 'Actual', key: 'currentPercent' },
+        { header: 'Diferencia', key: 'differencePercent' },
+        { header: 'Valor actual ARS', key: 'currentValueArs' },
+        { header: 'Estado', key: 'status' }
+      ])
+    ];
+
+    if (strategicAllocation.reinforce.length || strategicAllocation.overweight.length) {
+      lines.push('');
+      if (strategicAllocation.reinforce.length) {
+        lines.push('### Macrosectores a reforzar');
+        for (const row of strategicAllocation.reinforce) {
+          lines.push(`- ${row.macroSector}: ${row.differencePercent}`);
+        }
+      }
+      if (strategicAllocation.overweight.length) {
+        lines.push('');
+        lines.push('### Macrosectores con sobrepeso');
+        for (const row of strategicAllocation.overweight) {
+          lines.push(`- ${row.macroSector}: ${row.differencePercent}`);
+        }
+      }
+    }
+
+    lines.push('', `- Aclaracion GPT: ${strategicAllocation.gptInstruction}`);
+    return lines.join('\n');
+  }
+
   private recentMovementsMarkdown(recentMovements: ExportRecentMovements): string {
     const lines = ['## Movimientos recientes detectados en el Excel'];
     const cashLines = [
@@ -2376,6 +2479,19 @@ export class GptPortfolioExportService {
     if (current <= reference) return 'OK';
     if (current <= reference + 10) return 'Revisar';
     return 'Revisar alto';
+  }
+
+  private strategicAllocationStatus(differencePercent: number | null): string {
+    if (differencePercent === null || differencePercent === undefined || Number.isNaN(differencePercent)) {
+      return 'Sin datos';
+    }
+    if (differencePercent > 0.5) {
+      return 'Falta peso';
+    }
+    if (differencePercent < -0.5) {
+      return 'Sobrepeso';
+    }
+    return 'En rango';
   }
 
   private manualStatus(condition: string | null | undefined, target: number | null | undefined, current: number | null | undefined, fallback: string | null | undefined): string {

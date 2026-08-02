@@ -133,6 +133,22 @@ describe('PortfolioCalculatorService', () => {
         ]
       }),
       buildWorkbookTable({
+        name: 'AsignacionEstrategica',
+        displayName: 'AsignacionEstrategica',
+        rows: [
+          { ESPECIE: 'AMD', 'Val. Actual': '$ 1.200,00', Moneda: 'AR', 'Val. Act. AR': '$ 1.200,00', MacroSector: 'Tecnologia' },
+          { ESPECIE: 'VIST', 'Val. Actual': 'US$ 10,00', Moneda: 'US', 'Val. Act. AR': '$ 15.000,00', MacroSector: 'Liquidez' }
+        ]
+      }),
+      buildWorkbookTable({
+        name: 'ObjetivosSectores',
+        displayName: 'ObjetivosSectores',
+        rows: [
+          { MacroSector: 'Tecnologia', Objetivo: '30%', 'Val. Actual': '$ 3.060.737,50', Actual: '29,07%', Diferencia: '0,93%' },
+          { MacroSector: 'Liquidez', Objetivo: '10%', 'Val. Actual': '$ 1.541.260,00', Actual: '14,64%', Diferencia: '-4,64%' }
+        ]
+      }),
+      buildWorkbookTable({
         name: 'Tabla_OrdenesPendientes',
         displayName: 'Tabla_OrdenesPendientes',
         rows: [
@@ -161,6 +177,10 @@ describe('PortfolioCalculatorService', () => {
     expect(dataset.pendingOrders?.totalOrders).toBe(3);
     expect(dataset.pendingOrders?.totalReservedARS).toBe(344000);
     expect(dataset.pendingOrders?.summaryBySymbol.map((item) => item.symbol)).toEqual(['META', 'VIST']);
+    expect(dataset.strategicAllocationAssets?.length).toBe(2);
+    expect(dataset.strategicAllocationAssets?.[0].macroSector).toBe('Tecnologia');
+    expect(dataset.strategicSectorObjectives?.length).toBe(2);
+    expect(dataset.strategicSectorObjectives?.[0].differencePercent).toBeCloseTo(0.93, 2);
   });
 
   it('keeps pending orders separated from positions and current value', () => {
@@ -196,6 +216,32 @@ describe('PortfolioCalculatorService', () => {
     expect(dataset.pendingOrders?.totalReservedARS).toBe(64000);
     expect(summary.totalCurrentValue).toBe(1200);
     expect(summary.totalInvested).toBe(1000);
+  });
+
+  it('builds empty strategic allocation slices when the workbook does not include the new tables', () => {
+    const dataset = service.buildDataset([
+      buildWorkbookTable({
+        name: 'TablaPosiciones',
+        displayName: 'TablaPosiciones',
+        rows: [
+          {
+            ESPECIE: 'AMD',
+            MONEDA: 'ARS',
+            TIPO: 'Accion',
+            CANTIDAD: 10,
+            'TOTAL INV': 1000,
+            'PRECIO ACT': 120,
+            'TOTAL ACTUAL': 1200,
+            'RESULTADO $': 200,
+            'RESULTADO %': 20,
+            'PRECIO PROM': 100
+          }
+        ]
+      })
+    ]);
+
+    expect(dataset.strategicAllocationAssets ?? []).toEqual([]);
+    expect(dataset.strategicSectorObjectives ?? []).toEqual([]);
   });
 
   it('builds portfolio summary totals by currency', () => {

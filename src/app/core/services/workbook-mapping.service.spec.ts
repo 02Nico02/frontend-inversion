@@ -25,6 +25,8 @@ describe('WorkbookMappingService', () => {
   it('includes the core tables and their expected columns', () => {
     const operations = service.expectations.find((item) => item.key === 'operations');
     const strategicSplit = service.expectations.find((item) => item.key === 'strategicSplit');
+    const strategicAllocationAssets = service.expectations.find((item) => item.key === 'strategicAllocationAssets');
+    const strategicSectorObjectives = service.expectations.find((item) => item.key === 'strategicSectorObjectives');
     const pendingOrders = service.expectations.find((item) => item.key === 'pendingOrders');
 
     expect(operations?.primaryName).toBe('Tabla6');
@@ -33,6 +35,10 @@ describe('WorkbookMappingService', () => {
     expect(strategicSplit?.primaryName).toBe('Tabla35');
     expect(strategicSplit?.expectedColumns).toContain('MONTO JUB. AR');
     expect(strategicSplit?.expectedColumns).toContain('MONTO AHOR. USD');
+    expect(strategicAllocationAssets?.primaryName).toBe('AsignacionEstrategica');
+    expect(strategicAllocationAssets?.expectedColumns).toContain('MacroSector');
+    expect(strategicSectorObjectives?.primaryName).toBe('ObjetivosSectores');
+    expect(strategicSectorObjectives?.expectedColumns).toContain('Diferencia');
     expect(pendingOrders?.primaryName).toBe('Tabla_OrdenesPendientes');
     expect(pendingOrders?.critical).toBeFalse();
     expect(pendingOrders?.expectedColumns).toEqual(['ESPECIE', 'Cant', 'PRECIO']);

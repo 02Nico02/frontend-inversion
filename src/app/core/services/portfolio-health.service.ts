@@ -12,6 +12,8 @@ export class PortfolioHealthService {
     const alerts = dataset.manualAlerts ?? [];
     const signals = dataset.signals ?? [];
     const strategicSplit = dataset.strategicSplit ?? [];
+    const strategicAllocationAssets = dataset.strategicAllocationAssets ?? [];
+    const strategicSectorObjectives = dataset.strategicSectorObjectives ?? [];
 
     const classificationBySymbol = new Map(classifications.map((item) => [item.symbol.toUpperCase(), item]));
     const historySymbols = new Set(histories.map((item) => item.symbol.toUpperCase()));
@@ -38,9 +40,10 @@ export class PortfolioHealthService {
     const manualAlerts = this.reviewManualAlerts(alerts, positions);
     const signalFindings = this.reviewSignals(signals, positions);
     const strategicFindings = this.reviewStrategicSplit(strategicSplit, positions);
+    const strategicAllocationFindings = this.reviewStrategicAllocation(strategicAllocationAssets, strategicSectorObjectives);
     const workbookFindings = this.reviewWorkbookWarnings(validation, positions, histories, alerts);
 
-    findings.push(...manualAlerts, ...signalFindings, ...strategicFindings, ...workbookFindings);
+    findings.push(...manualAlerts, ...signalFindings, ...strategicFindings, ...strategicAllocationFindings, ...workbookFindings);
 
     const summary: DataHealthSummary = {
       criticalProblems: findings.filter((item) => item.severity === 'critical').length,
@@ -237,6 +240,97 @@ export class PortfolioHealthService {
         suggestion: 'Se detectaron montos muy bajos frente al total del portafolio; revisar si los valores están en otra escala.'
       });
     }
+    return findings;
+  }
+
+  private reviewStrategicAllocation(
+    strategicAllocationAssets: PortfolioDataset['strategicAllocationAssets'],
+    strategicSectorObjectives: PortfolioDataset['strategicSectorObjectives']
+  ): DataReviewFinding[] {
+    const findings: DataReviewFinding[] = [];
+    const assets = strategicAllocationAssets ?? [];
+    const objectives = strategicSectorObjectives ?? [];
+
+    if (!assets.length && !objectives.length) {
+      return findings;
+    }
+
+    for (const asset of assets) {
+      if (!String(asset.macroSector ?? '').trim()) {
+        findings.push({
+          category: 'estrategico',
+          severity: 'warning',
+          symbol: asset.symbol,
+          currency: asset.currency ?? null,
+          currentValue: asset.currentValueArs ?? asset.currentValue ?? null,
+          problem: 'Asignación estratégica sin MacroSector',
+          source: 'AsignacionEstrategica',
+          suggestion: 'Completar el MacroSector para esta especie en la hoja Alertas.'
+        });
+      }
+    }
+
+    for (const objective of objectives) {
+      if (!String(objective.macroSector ?? '').trim()) {
+        findings.push({
+          category: 'estrategico',
+          severity: 'warning',
+          symbol: null,
+          currency: null,
+          currentValue: objective.currentValueArs ?? null,
+          problem: 'Objetivo estratégico sin MacroSector',
+          source: 'ObjetivosSectores',
+          suggestion: 'Completar el nombre del MacroSector en la tabla de objetivos.'
+        });
+      }
+      if (objective.targetPercent === null || objective.targetPercent === undefined) {
+        findings.push({
+          category: 'estrategico',
+          severity: 'warning',
+          symbol: null,
+          currency: null,
+          currentValue: objective.currentValueArs ?? null,
+          problem: `MacroSector ${objective.macroSector || 'sin nombre'} sin objetivo`,
+          source: 'ObjetivosSectores',
+          suggestion: 'Definir un objetivo porcentual para orientar la asignación estratégica.'
+        });
+      }
+    }
+
+    const assetSectors = new Set(assets.map((asset) => String(asset.macroSector ?? '').trim().toUpperCase()).filter(Boolean));
+    const objectiveSectors = new Set(objectives.map((objective) => String(objective.macroSector ?? '').trim().toUpperCase()).filter(Boolean));
+
+    for (const sector of assetSectors) {
+      if (!objectiveSectors.has(sector)) {
+        findings.push({
+          category: 'estrategico',
+          severity: 'info',
+          symbol: null,
+          currency: null,
+          currentValue: null,
+          problem: `MacroSector presente en AsignacionEstrategica pero ausente en ObjetivosSectores: ${sector}`,
+          source: 'AsignacionEstrategica',
+          suggestion: 'Agregar el MacroSector a la tabla ObjetivosSectores para poder comparar objetivo vs actual.'
+        });
+      }
+    }
+
+    for (const sector of objectiveSectors) {
+      const hasAssets = assets.some((asset) => String(asset.macroSector ?? '').trim().toUpperCase() === sector);
+      if (!hasAssets) {
+        findings.push({
+          category: 'estrategico',
+          severity: 'info',
+          symbol: null,
+          currency: null,
+          currentValue: null,
+          problem: `MacroSector presente en ObjetivosSectores pero sin especies: ${sector}`,
+          source: 'ObjetivosSectores',
+          suggestion: 'Revisar si el MacroSector quedó vacío en la tabla de asignación o si faltan especies asociadas.'
+        });
+      }
+    }
+
     return findings;
   }
 

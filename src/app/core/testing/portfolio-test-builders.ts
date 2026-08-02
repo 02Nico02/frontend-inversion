@@ -15,6 +15,8 @@ import {
   PortfolioDataset,
   PortfolioPosition,
   PortfolioSummary,
+  StrategicAllocationAsset,
+  StrategicSectorObjective,
   StrategicSplit
 } from '../models/portfolio.models';
 import { PendingOrdersSummary } from '../models/pending-orders.model';
@@ -232,6 +234,28 @@ export function buildStrategicSplit(overrides: Partial<StrategicSplit> = {}): St
   };
 }
 
+export function buildStrategicAllocationAsset(overrides: Partial<StrategicAllocationAsset> = {}): StrategicAllocationAsset {
+  return {
+    symbol: 'AAA',
+    currentValue: 0,
+    currency: 'ARS',
+    currentValueArs: 0,
+    macroSector: 'Tecnologia',
+    ...overrides
+  };
+}
+
+export function buildStrategicSectorObjective(overrides: Partial<StrategicSectorObjective> = {}): StrategicSectorObjective {
+  return {
+    macroSector: 'Tecnologia',
+    targetPercent: 30,
+    currentValueArs: 0,
+    currentPercent: 0,
+    differencePercent: 0,
+    ...overrides
+  };
+}
+
 export function buildPlatformDistribution(overrides: Partial<PlatformDistribution> = {}): PlatformDistribution {
   return {
     platform: 'Plataforma',
@@ -257,6 +281,8 @@ export function buildPortfolioDataset(overrides: Partial<PortfolioDataset> = {})
     annualSummary: [],
     monthlyPerformance: [],
     strategicSplit: [],
+    strategicAllocationAssets: [],
+    strategicSectorObjectives: [],
     platformDistribution: [],
     calendarBenchmarks: [],
     pendingOrders: {

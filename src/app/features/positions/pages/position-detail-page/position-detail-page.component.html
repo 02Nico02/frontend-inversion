@@ -533,6 +533,24 @@
       <div><span>Región</span><strong>{{ asset.classificationReview.region }}</strong></div>
       <div><span>Tipo posición</span><strong>{{ asset.classificationReview.positionType }}</strong></div>
       <div><span>Moneda</span><strong>{{ asset.classificationReview.currency }}</strong></div>
+      <div><span>Macrosector estratégico</span><strong>{{ asset.strategicMacroSector || 'Sin datos' }}</strong></div>
+      <div>
+        <span>Estado macrosector</span>
+        <strong *ngIf="asset.strategicMacroSectorObjective as strategicObjective; else noStrategicObjective">
+          {{ strategicObjective.macroSector }}
+          <ng-container *ngIf="strategicObjective.differencePercent === null">sin diferencia</ng-container>
+          <ng-container *ngIf="strategicObjective.differencePercent !== null && strategicObjective.differencePercent > 0">
+            está por debajo del objetivo en {{ strategicObjective.differencePercent | number:'1.0-2' }}%
+          </ng-container>
+          <ng-container *ngIf="strategicObjective.differencePercent !== null && strategicObjective.differencePercent < 0">
+            está por encima del objetivo en {{ absoluteStrategicDifference(strategicObjective.differencePercent) | number:'1.0-2' }}%
+          </ng-container>
+          <ng-container *ngIf="strategicObjective.differencePercent === 0">está en rango</ng-container>
+        </strong>
+        <ng-template #noStrategicObjective>
+          <strong>Sin datos</strong>
+        </ng-template>
+      </div>
       <div><span>Existe en Tabla47</span><strong>{{ asset.classificationReview.exists ? 'Sí' : 'No' }}</strong></div>
       <div><span>Faltantes</span><strong>{{ asset.classificationReview.missing }}</strong></div>
       <div><span>Fuente</span><strong>{{ asset.classificationReview.source }}</strong></div>

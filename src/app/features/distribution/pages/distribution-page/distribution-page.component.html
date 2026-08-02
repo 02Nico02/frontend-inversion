@@ -41,6 +41,75 @@
       </p>
     </section>
 
+    <section class="panel strategic-panel" *ngIf="snapshot.dataset?.strategicSectorObjectives?.length || snapshot.dataset?.strategicAllocationAssets?.length">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Asignación estratégica</p>
+          <h3>Asignación estratégica por macrosector</h3>
+          <p class="lead">Compara el peso actual de cada macrosector contra el objetivo definido en el Excel.</p>
+        </div>
+        <div class="strategic-summary">
+          <span class="status-pill status-pill--muted">A reforzar: {{ strategicReinforcementRows(snapshot).length }}</span>
+          <span class="status-pill status-pill--muted">Sobrepeso: {{ strategicOverweightRows(snapshot).length }}</span>
+        </div>
+      </div>
+
+      <div class="strategic-grid" *ngIf="strategicObjectiveRows(snapshot).length; else strategicEmpty">
+        <article class="strategic-objective-card" *ngFor="let item of strategicObjectiveRows(snapshot)">
+          <div class="strategic-objective-card__head">
+            <strong>{{ item.macroSector }}</strong>
+            <span class="status-pill"
+              [class.status-pill--positive]="item.status === 'En rango'"
+              [class.status-pill--negative]="item.status === 'Sobrepeso'"
+              [class.status-pill--muted]="item.status === 'Sin datos'">
+              {{ item.status }}
+            </span>
+          </div>
+
+          <div class="strategic-objective-metrics">
+            <div><span>Objetivo</span><strong>{{ item.targetPercent === null ? 'N/D' : (item.targetPercent | number:'1.0-2') + '%' }}</strong></div>
+            <div><span>Actual</span><strong>{{ item.currentPercent === null ? 'N/D' : (item.currentPercent | number:'1.0-2') + '%' }}</strong></div>
+            <div><span>Diferencia</span><strong [class.positive]="(item.differencePercent ?? 0) > 0" [class.negative]="(item.differencePercent ?? 0) < 0">
+              {{ item.differencePercent === null ? 'N/D' : (item.differencePercent | number:'1.0-2') + '%' }}
+            </strong></div>
+            <div><span>Valor actual</span><strong>{{ item.currentValueArs === null ? 'N/D' : (item.currentValueArs | currency:'ARS':'symbol-narrow':'1.0-0') }}</strong></div>
+          </div>
+        </article>
+      </div>
+
+      <ng-template #strategicEmpty>
+        <div class="empty-inline">No hay datos de asignación estratégica cargados.</div>
+      </ng-template>
+
+      <div class="strategic-summary-lists" *ngIf="strategicReinforcementRows(snapshot).length || strategicOverweightRows(snapshot).length">
+        <article class="strategic-summary-box">
+          <h4>Macrosectores a reforzar</h4>
+          <ul *ngIf="strategicReinforcementRows(snapshot).length; else noReinforcement">
+            <li *ngFor="let item of strategicReinforcementRows(snapshot)">
+              <strong>{{ item.macroSector }}</strong>
+              <span>Falta {{ item.differencePercent === null ? 'N/D' : (item.differencePercent | number:'1.0-2') + '%' }}</span>
+            </li>
+          </ul>
+          <ng-template #noReinforcement>
+            <p class="empty">No hay macrosectores por debajo del objetivo.</p>
+          </ng-template>
+        </article>
+
+        <article class="strategic-summary-box">
+          <h4>Macrosectores con sobrepeso</h4>
+          <ul *ngIf="strategicOverweightRows(snapshot).length; else noOverweight">
+            <li *ngFor="let item of strategicOverweightRows(snapshot)">
+              <strong>{{ item.macroSector }}</strong>
+              <span>Sobra {{ absolutePercent(item.differencePercent) === null ? 'N/D' : (absolutePercent(item.differencePercent) | number:'1.0-2') + '%' }}</span>
+            </li>
+          </ul>
+          <ng-template #noOverweight>
+            <p class="empty">No hay macrosectores por encima del objetivo.</p>
+          </ng-template>
+        </article>
+      </div>
+    </section>
+
     <section class="grid">
       <app-simple-chart
         title="Distribución"

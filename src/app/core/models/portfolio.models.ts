@@ -86,6 +86,22 @@ export interface AssetClassification {
   region: string | null;
 }
 
+export interface StrategicAllocationAsset {
+  symbol: string;
+  currentValue: number | null;
+  currency: string | null;
+  currentValueArs: number | null;
+  macroSector: string | null;
+}
+
+export interface StrategicSectorObjective {
+  macroSector: string;
+  targetPercent: number | null;
+  currentValueArs: number | null;
+  currentPercent: number | null;
+  differencePercent: number | null;
+}
+
 export interface ManualAlert {
   symbol: string;
   condition: string | null;
@@ -208,6 +224,8 @@ export interface PortfolioDataset {
   annualSummary: AnnualInvestmentSummary[];
   monthlyPerformance: MonthlyPerformanceRow[];
   strategicSplit: StrategicSplit[];
+  strategicAllocationAssets?: StrategicAllocationAsset[];
+  strategicSectorObjectives?: StrategicSectorObjective[];
   platformDistribution: PlatformDistribution[];
   calendarBenchmarks: CalendarBenchmarkRow[];
   pendingOrders?: PendingOrdersSummary;

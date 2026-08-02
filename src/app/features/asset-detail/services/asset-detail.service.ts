@@ -3,7 +3,8 @@ import {
   AssetClassification,
   HistoricalPrice,
   InvestmentOperation,
-  PortfolioPosition
+  PortfolioPosition,
+  StrategicSectorObjective
 } from '../../../core/models/portfolio.models';
 import { InvestmentMovement, InvestmentMovementLotAdjustment, InvestmentMovementSummary } from '../../../core/models/investment-movements.model';
 import { CombinedAlert } from '../../../core/services/alert-mapper.service';
@@ -77,6 +78,8 @@ export interface AssetDetailViewModel {
   symbol: string;
   position: PortfolioPosition;
   classification: AssetClassification | null;
+  strategicMacroSector: string | null;
+  strategicMacroSectorObjective: StrategicSectorObjective | null;
   operations: InvestmentOperation[];
   movementSummary: InvestmentMovementSummary | null;
   movementEntries: InvestmentMovement[];
@@ -110,6 +113,8 @@ export class AssetDetailService {
       return null;
     }
     const classification = this.classificationFor(position, snapshot.dataset?.classifications ?? []);
+    const strategicMacroSector = this.strategicMacroSectorFor(snapshot, normalized);
+    const strategicMacroSectorObjective = this.strategicMacroSectorObjectiveFor(snapshot, strategicMacroSector);
     const operations = this.operationsFor(snapshot.dataset?.operations ?? [], normalized);
     const movementSummaries = this.movementsPerformance.buildSummaryBySymbol(snapshot);
     const movementEntries = this.movementsPerformance.buildMovements(snapshot).filter((movement) => movement.symbol.toUpperCase() === normalized);
@@ -153,6 +158,8 @@ export class AssetDetailService {
         currentPrice
       },
       classification,
+      strategicMacroSector,
+      strategicMacroSectorObjective,
       operations,
       movementSummary,
       movementEntries,
@@ -242,6 +249,19 @@ export class AssetDetailService {
   private classificationFor(position: PortfolioPosition, classifications: AssetClassification[]): AssetClassification | null {
     const symbol = position.symbol.toUpperCase();
     return classifications.find((item) => item.symbol.toUpperCase() === symbol) ?? position.classification ?? null;
+  }
+
+  private strategicMacroSectorFor(snapshot: PortfolioAppState, symbol: string): string | null {
+    const row = snapshot.dataset?.strategicAllocationAssets?.find((item) => item.symbol.toUpperCase() === symbol) ?? null;
+    return row?.macroSector ?? null;
+  }
+
+  private strategicMacroSectorObjectiveFor(snapshot: PortfolioAppState, macroSector: string | null): StrategicSectorObjective | null {
+    if (!macroSector || !snapshot.dataset?.strategicSectorObjectives?.length) {
+      return null;
+    }
+    const normalized = macroSector.toUpperCase();
+    return snapshot.dataset.strategicSectorObjectives.find((item) => item.macroSector.toUpperCase() === normalized) ?? null;
   }
 
   private operationMetrics(operations: InvestmentOperation[], position: PortfolioPosition): AssetOperationMetrics {

@@ -378,6 +378,13 @@ export class PositionDetailPageComponent implements OnInit, OnDestroy {
     return `${day}-${month}-${year}`;
   }
 
+  absoluteStrategicDifference(value: number | null | undefined): number | null {
+    if (value === null || value === undefined || Number.isNaN(value)) {
+      return null;
+    }
+    return Math.abs(value);
+  }
+
   minimumStatusLabel(status: MinimumPerformanceBySymbol['status'] | MinimumPerformanceLot['status'] | null | undefined): string {
     switch (status) {
       case 'beats-minimum':
