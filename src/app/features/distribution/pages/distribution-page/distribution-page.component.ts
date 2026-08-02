@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { SimpleChartComponent } from '../../../../shared/components/simple-chart/simple-chart.component';
 import { PortfolioAppState, PortfolioStateService } from '../../../../core/services/portfolio-state.service';
 import { ChartDataService } from '../../../../core/services/chart-data.service';
@@ -14,7 +15,7 @@ interface StrategicObjectiveRow extends StrategicSectorObjective {
 
 @Component({
   standalone: true,
-  imports: [CommonModule, FormsModule, SimpleChartComponent],
+  imports: [CommonModule, FormsModule, RouterLink, SimpleChartComponent],
   templateUrl: './distribution-page.component.html',
   styleUrls: ['./distribution-page.component.scss'],
 })

@@ -69,6 +69,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
   private sectionFromUrl(url: string): string {
     switch (url.split('?')[0]) {
       case '/distribucion': return 'Distribución';
+      case '/distribucion/simulador': return 'Simulador estratégico';
       case '/posiciones': return 'Posiciones';
       case '/historico': return 'Histórico';
       case '/alertas': return 'Alertas';

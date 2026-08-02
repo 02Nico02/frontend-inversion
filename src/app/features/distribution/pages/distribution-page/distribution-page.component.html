@@ -48,9 +48,12 @@
           <h3>Asignación estratégica por macrosector</h3>
           <p class="lead">Compara el peso actual de cada macrosector contra el objetivo definido en el Excel.</p>
         </div>
-        <div class="strategic-summary">
-          <span class="status-pill status-pill--muted">A reforzar: {{ strategicReinforcementRows(snapshot).length }}</span>
-          <span class="status-pill status-pill--muted">Sobrepeso: {{ strategicOverweightRows(snapshot).length }}</span>
+        <div class="strategic-actions">
+          <div class="strategic-summary">
+            <span class="status-pill status-pill--muted">A reforzar: {{ strategicReinforcementRows(snapshot).length }}</span>
+            <span class="status-pill status-pill--muted">Sobrepeso: {{ strategicOverweightRows(snapshot).length }}</span>
+          </div>
+          <a routerLink="/distribucion/simulador" class="strategic-simulate-link">Simular compras / ventas</a>
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { SummaryPageComponent } from './features/summary/pages/summary-page/summary-page.component';
 import { DistributionPageComponent } from './features/distribution/pages/distribution-page/distribution-page.component';
+import { StrategicAllocationSimulatorPageComponent } from './features/distribution/pages/strategic-allocation-simulator-page/strategic-allocation-simulator-page.component';
 import { PositionsPageComponent } from './features/positions/pages/positions-page/positions-page.component';
 import { PositionDetailPageComponent } from './features/positions/pages/position-detail-page/position-detail-page.component';
 import { HistoricalPageComponent } from './features/historical/pages/historical-page/historical-page.component';
@@ -18,6 +19,7 @@ export const appRoutes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'resumen' },
   { path: 'resumen', component: SummaryPageComponent, canActivate: [workbookLoadedGuard] },
   { path: 'distribucion', component: DistributionPageComponent, canActivate: [workbookLoadedGuard] },
+  { path: 'distribucion/simulador', component: StrategicAllocationSimulatorPageComponent, canActivate: [workbookLoadedGuard] },
   { path: 'posiciones/:symbol', component: PositionDetailPageComponent, canActivate: [workbookLoadedGuard] },
   { path: 'posiciones', component: PositionsPageComponent, canActivate: [workbookLoadedGuard] },
   { path: 'historico', component: HistoricalPageComponent, canActivate: [workbookLoadedGuard] },
