@@ -274,6 +274,7 @@ interface ExportStrategicAllocation {
     macroSector: string;
     differencePercent: string;
   }>;
+  importantWarnings: string[];
   gptInstruction: string;
 }
 
@@ -381,7 +382,7 @@ interface GptPortfolioExport {
   annualSummary: Array<TableRow>;
   strategicSplit: {
     fecha: string;
-    jubilacionPercent: string | null;
+    jubilaciónPercent: string | null;
     ahorroPercent: string | null;
     desvioPercent: string | null;
     montoJubilacionARS: string | null;
@@ -439,11 +440,14 @@ export class GptPortfolioExportService {
       'Contexto semanal de portafolio',
       `- Fecha: ${data.metadata.generatedAt}`,
       `- Balance vs minimo ARS: ${data.benchmarkMinimum.summary?.balanceVsMinimumArs ?? 'N/D'}`,
+      data.strategicAllocation
+        ? `- Asignación estratégica: a reforzar ${data.strategicAllocation.reinforce.slice(0, 3).map((item) => item.macroSector).join(', ') || 'N/D'}; con sobrepeso ${data.strategicAllocation.overweight.slice(0, 3).map((item) => item.macroSector).join(', ') || 'N/D'}. Guía de largo plazo, no orden automática.`
+        : '- Asignación estratégica: no disponible.',
       `- Órdenes pendientes: ${data.pendingOrders.totalOrders} / ${data.pendingOrders.totalReservedARS}`,
       `- Alertas activadas: ${this.activatedAlertSymbols(data).join(', ') || 'N/D'}`,
       `- Semaforo: ${data.decisionInsights.semaforo}`,
-      `- Peor posicion: ${data.decisionInsights.peorPosicion?.symbol ?? 'N/D'}`,
-      `- Mejor posicion: ${data.decisionInsights.mejorPosicion?.symbol ?? 'N/D'}`
+      `- Peor posición: ${data.decisionInsights.peorPosicion?.symbol ?? 'N/D'}`,
+      `- Mejor posición: ${data.decisionInsights.mejorPosicion?.symbol ?? 'N/D'}`
     ].join('\n');
   }
 
@@ -767,7 +771,7 @@ export class GptPortfolioExportService {
       return 'FCI / liquidez. No usar señales tecnicas de precio.';
     }
     if (this.isCryptoPosition(position)) {
-      return 'Cripto con volatilidad alta; revisar exposicion y riesgo.';
+      return 'Cripto con volatilidad alta; revisar exposición y riesgo.';
     }
     if (effective?.resultWasAdjustedByMovements) {
       const adjusted = this.formatPercent(effective.effectiveResultPercent ?? effective.nominalResultPercent ?? 0);
@@ -786,7 +790,7 @@ export class GptPortfolioExportService {
     if ((position.portfolioWeight ?? 0) >= 5) {
       return `Peso relevante ${this.formatPercent(position.portfolioWeight)}`;
     }
-    return 'Revisar seguimiento de la posicion';
+    return 'Revisar seguimiento de la posición';
   }
 
   private positionEffectiveKey(symbol: string, currency: string): string {
@@ -958,7 +962,7 @@ export class GptPortfolioExportService {
         dimensionSummary('Region', (position) => position.region || 'Sin region')
       ].filter(Boolean) as ExportConcentration['dimensionSummaries'],
       currencyWarning: scope === 'ALL' && new Set(filtered.map((position) => this.normalizeCurrency(position.currency))).size > 1
-        ? 'Sin conversion mezcla ARS y USD: usar solo como referencia visual.'
+        ? 'Sin conversión mezcla ARS y USD: usar solo como referencia visual.'
         : null
     };
   }
@@ -1040,7 +1044,7 @@ export class GptPortfolioExportService {
         valorFin: this.formatMoney(row.endValue, 'ARS'),
         resultado: this.formatMoney(row.result, 'ARS'),
         variacionPercent: this.formatPercent(row.variationPercent),
-        inflacionPercent: this.formatPercent(row.inflationPercent),
+        inflaciónPercent: this.formatPercent(row.inflationPercent),
         rendimientoRealPercent: this.formatPercent(row.realReturnPercent),
         rendimientoRealAcumPercent: this.formatPercent(row.accumulatedRealReturnPercent),
         ratioAporte: this.formatPercent(row.contributionRatio),
@@ -1060,7 +1064,7 @@ export class GptPortfolioExportService {
         valorFin: this.formatMoney(row.endValue, 'ARS'),
         resultado: this.formatMoney(row.result, 'ARS'),
         rendimientoPercent: this.formatPercent(row.returnPercent),
-        inflacion: this.formatPercent(row.inflation),
+        inflación: this.formatPercent(row.inflation),
         rendimientoReal: this.formatPercent(row.realReturn),
         ratioAporte: this.formatPercent(row.contributionRatio)
       }));
@@ -1090,7 +1094,7 @@ export class GptPortfolioExportService {
 
     return {
       fecha: this.formatDate(last.date),
-      jubilacionPercent: this.formatPercent(retirementPercent),
+      jubilaciónPercent: this.formatPercent(retirementPercent),
       ahorroPercent: this.formatPercent(savingsPercent),
       desvioPercent: this.formatPercent(Math.abs((retirementPercent ?? 0) - 50)),
       montoJubilacionARS: scaleIssue ? 'N/D' : this.formatMoney(summedRetirementAmountARS, 'ARS'),
@@ -1102,9 +1106,9 @@ export class GptPortfolioExportService {
   }
 
   private buildStrategicAllocation(snapshot: PortfolioAppState): GptPortfolioExport['strategicAllocation'] {
-    const objectives = [...(snapshot.dataset?.strategicSectorObjectives ?? [])].sort(
-      (left, right) => Math.abs((right.differencePercent ?? 0)) - Math.abs((left.differencePercent ?? 0))
-    );
+    const objectives = [...(snapshot.dataset?.strategicSectorObjectives ?? [])]
+      .filter((item) => String(item.macroSector ?? '').trim().toLowerCase() !== 'total')
+      .sort((left, right) => Math.abs((right.differencePercent ?? 0)) - Math.abs((left.differencePercent ?? 0)));
     const assets = snapshot.dataset?.strategicAllocationAssets ?? [];
 
     if (!objectives.length && !assets.length) {
@@ -1135,7 +1139,14 @@ export class GptPortfolioExportService {
           macroSector: item.macroSector,
           differencePercent: this.formatPercent(item.differencePercent)
         })),
-      gptInstruction: 'Usar esta capa como referencia estratégica. No implica comprar ni vender automáticamente.'
+      importantWarnings: [
+        'No comprar automáticamente por falta de peso.',
+        'No vender automáticamente por sobrepeso.',
+        'Evaluar precio, valuación, riesgo, alertas, liquidez y contexto macro.',
+        'Para activos argentinos o bonos argentinos, considerar riesgo electoral, riesgo país y volatilidad local.'
+      ],
+      gptInstruction:
+        'Esta asignación estratégica es una referencia deseada de largo plazo para orientar aportes futuros. No implica comprar ni vender automáticamente. Una diferencia positiva indica subponderación relativa, pero no habilita comprar activos caros o asumir riesgo excesivo. Una diferencia negativa indica sobrepeso relativo, pero no obliga a vender. Antes de sugerir compras o rebalanceos, evaluar precio, valuación, riesgo, contexto macro, liquidez, alertas y volatilidad. En activos argentinos o bonos argentinos, considerar especialmente riesgo electoral, riesgo país y volatilidad local.'
     };
   }
 
@@ -1150,7 +1161,7 @@ export class GptPortfolioExportService {
       rendimientoAnualEsperadoPercent: this.formatPercent(viewModel.simulationInputs.annualReturnPercent),
       valorProyectado: viewModel.simulation.projectedValue,
       gananciaEstimada: viewModel.simulation.projectedGain,
-      aclaracion: 'Esta proyeccion es un escenario manual, no una prediccion.'
+      aclaracion: 'Esta proyección es un escenario manual, no una predicción.'
     };
   }
 
@@ -1471,7 +1482,7 @@ export class GptPortfolioExportService {
           currency: this.normalizeCurrency(sale.currency),
           saleDate: this.formatDate(sale.sellDate ?? sale.buyDate),
           buyDate: this.formatDate(sale.buyDate),
-          note: 'Venta reciente sin posicion actual en TablaPosiciones'
+          note: 'Venta reciente sin posición actual en TablaPosiciones'
         })),
       (item) => item.symbol
     );
@@ -1635,25 +1646,28 @@ export class GptPortfolioExportService {
       `- Balance vs mínimo ARS: ${exportData.benchmarkMinimum.summary?.balanceVsMinimumArs ?? 'N/D'} / ${exportData.benchmarkMinimum.summary?.balanceVsMinimumPercentArs ?? 'N/D'}`,
       `- Posiciones bajo benchmark mínimo: ${exportData.benchmarkMinimum.totalBelowMinimum}`,
       `- Peores posiciones bajo benchmark mínimo mostradas: ${exportData.benchmarkMinimum.positionsBelowMinimumShown}`,
+      exportData.strategicAllocation
+        ? `- Asignación estratégica: a reforzar ${exportData.strategicAllocation.reinforce.slice(0, 3).map((item) => item.macroSector).join(', ') || 'N/D'}; con sobrepeso ${exportData.strategicAllocation.overweight.slice(0, 3).map((item) => item.macroSector).join(', ') || 'N/D'}. Guía de largo plazo, no orden automática.`
+        : '- Asignación estratégica: no disponible.',
       `- Alertas activadas: ${this.activatedAlertSymbols(exportData).slice(0, 5).join(', ') || 'N/D'}`,
       `- Principales posiciones por peso: ${exportData.concentration.ranking.slice(0, 5).map((item) => item.symbol).join(', ') || 'N/D'}`,
-      `- Mayor concentracion por tipo de activo: ${exportData.concentration.largestAssetType?.label ?? 'N/D'}`,
+      `- Mayor concentración por tipo de activo: ${exportData.concentration.largestAssetType?.label ?? 'N/D'}`,
       `- Mayor sector: ${exportData.concentration.largestSector?.label ?? 'N/D'}`,
-      `- Mayor region: ${exportData.concentration.largestRegion?.label ?? 'N/D'}`,
+      `- Mayor región: ${exportData.concentration.largestRegion?.label ?? 'N/D'}`,
       `- Alertas cercanas: ${this.nearAlertSymbols(exportData).join(', ') || 'N/D'}`,
-      `- Peor posicion${exportData.decisionInsights.peorPosicion?.note ? ' (ajustada)' : ''}: ${exportData.decisionInsights.peorPosicion?.symbol ?? 'N/D'}`,
-      `- Mejor posicion${exportData.decisionInsights.mejorPosicion?.note ? ' (ajustada)' : ''}: ${exportData.decisionInsights.mejorPosicion?.symbol ?? 'N/D'}`,
-      `- Señales 30D de caida: ${this.signalSymbols(exportData.alerts.signals30D).join(', ') || 'N/D'}`,
-      `- Datos a revisar: ${exportData.dataReview.length ? 'Si' : 'No detectados por el frontend'}`
+      `- Peor posición${exportData.decisionInsights.peorPosicion?.note ? ' (ajustada)' : ''}: ${exportData.decisionInsights.peorPosicion?.symbol ?? 'N/D'}`,
+      `- Mejor posición${exportData.decisionInsights.mejorPosicion?.note ? ' (ajustada)' : ''}: ${exportData.decisionInsights.mejorPosicion?.symbol ?? 'N/D'}`,
+      `- Señales 30D de caída: ${this.signalSymbols(exportData.alerts.signals30D).join(', ') || 'N/D'}`,
+      `- Datos a revisar: ${exportData.dataReview.length ? 'Sí' : 'No detectados por el frontend'}`
     ].join('\n');
   }
 
   private glossaryMarkdown(): string {
     return [
-      '## Glosario de metricas',
-      '- Valor actual: valor de mercado actual de la posicion. No incluye rentas ni amortizaciones cobradas.',
+      '## Glosario de métricas',
+      '- Valor actual: valor de mercado actual de la posición. No incluye rentas ni amortizaciones cobradas.',
       '- Resultado nominal: Valor actual - Total invertido.',
-      '- Resultado efectivo: resultado usado para analisis cuando hay movimientos de inversion. En posiciones con rentas/amortizaciones, incluye Valor actual + rentas + amortizaciones - Total invertido. En posiciones sin movimientos coincide con el resultado nominal.',
+      '- Resultado efectivo: resultado usado para análisis cuando hay movimientos de inversion. En posiciones con rentas/amortizaciones, incluye Valor actual + rentas + amortizaciones - Total invertido. En posiciones sin movimientos coincide con el resultado nominal.',
       '- Minimo esperado: valor minimo que deberia alcanzar la inversion para empatar el benchmark minimo de TablaCalendario.',
       '- Vs minimo: diferencia entre el valor comparable y el minimo esperado.',
       '- % vs minimo: diferencia porcentual contra el minimo esperado. No es lo mismo que Resultado %.',
@@ -1663,7 +1677,7 @@ export class GptPortfolioExportService {
 
   private generalSummaryMarkdown(summary: ExportSummaryScope): string {
     return [
-      '## Resumen general sin conversion',
+      '## Resumen general sin conversión',
       'Este total mezcla ARS y USD sin convertir. Usar solo como referencia visual.',
       `- Valor actual total: ${summary.totalCurrentValue}`,
       `- Total invertido: ${summary.totalInvested}`,
@@ -2083,7 +2097,7 @@ export class GptPortfolioExportService {
       lines.push(`  - ${action.note}`);
     }
     if (insights.mejorPosicion) {
-      lines.push(`- Mejor posicion: ${insights.mejorPosicion.symbol}`);
+      lines.push(`- Mejor posición: ${insights.mejorPosicion.symbol}`);
       lines.push(`  - Resultado efectivo: ${insights.mejorPosicion.resultPercent}`);
       lines.push(`  - Valor actual: ${insights.mejorPosicion.currentValue}`);
       if (insights.mejorPosicion.note) {
@@ -2091,14 +2105,14 @@ export class GptPortfolioExportService {
       }
     }
     if (insights.peorPosicion) {
-      lines.push(`- Peor posicion: ${insights.peorPosicion.symbol}`);
+      lines.push(`- Peor posición: ${insights.peorPosicion.symbol}`);
       lines.push(`  - Resultado efectivo: ${insights.peorPosicion.resultPercent}`);
       lines.push(`  - Valor actual: ${insights.peorPosicion.currentValue}`);
       if (insights.peorPosicion.note) {
         lines.push(`  - Nota: ${insights.peorPosicion.note}`);
       }
     }
-    lines.push(`- Mayor concentracion por tipo de activo: ${insights.mayorConcentracion}`);
+    lines.push(`- Mayor concentración por tipo de activo: ${insights.mayorConcentracion}`);
     return lines.join('\n');
   }
 
@@ -2128,7 +2142,7 @@ export class GptPortfolioExportService {
         { header: 'Valor fin', key: 'valorFin' },
         { header: 'Resultado', key: 'resultado' },
         { header: 'Variacion %', key: 'variacionPercent' },
-        { header: 'Inflacion %', key: 'inflacionPercent' },
+        { header: 'Inflacion %', key: 'inflaciónPercent' },
         { header: 'Rendimiento real %', key: 'rendimientoRealPercent' },
         { header: 'Rendimiento real acum %', key: 'rendimientoRealAcumPercent' },
         { header: 'Ratio aporte', key: 'ratioAporte' },
@@ -2144,7 +2158,7 @@ export class GptPortfolioExportService {
         { header: 'Valor fin', key: 'valorFin' },
         { header: 'Resultado', key: 'resultado' },
         { header: 'Rendimiento %', key: 'rendimientoPercent' },
-        { header: 'Inflacion', key: 'inflacion' },
+        { header: 'Inflacion', key: 'inflación' },
         { header: 'Rendimiento real', key: 'rendimientoReal' },
         { header: 'Ratio aporte', key: 'ratioAporte' }
       ]) : 'Sin datos anuales.'
@@ -2175,13 +2189,13 @@ export class GptPortfolioExportService {
       lines.push('');
     }
     lines.push('Nota: los porcentajes se calculan como promedio entre ARS y USD, sin convertir monedas.');
-    lines.push(`- % Jubilacion: ${strategicSplit.jubilacionPercent ?? 'N/D'}`);
+    lines.push(`- % Jubilacion: ${strategicSplit.jubilaciónPercent ?? 'N/D'}`);
     lines.push(`- % Ahorro: ${strategicSplit.ahorroPercent ?? 'N/D'}`);
     lines.push(`- Desvio vs 50/50: ${strategicSplit.desvioPercent ?? 'N/D'}`);
     if (!strategicSplit.warning) {
-      lines.push(`- Monto jubilacion ARS: ${strategicSplit.montoJubilacionARS ?? 'N/D'}`);
+      lines.push(`- Monto jubilación ARS: ${strategicSplit.montoJubilacionARS ?? 'N/D'}`);
       lines.push(`- Monto ahorro ARS: ${strategicSplit.montoAhorroARS ?? 'N/D'}`);
-      lines.push(`- Monto jubilacion USD: ${strategicSplit.montoJubilacionUSD ?? 'N/D'}`);
+      lines.push(`- Monto jubilación USD: ${strategicSplit.montoJubilacionUSD ?? 'N/D'}`);
       lines.push(`- Monto ahorro USD: ${strategicSplit.montoAhorroUSD ?? 'N/D'}`);
     }
     return lines.join('\n');
@@ -2189,25 +2203,30 @@ export class GptPortfolioExportService {
 
   private strategicAllocationMarkdown(strategicAllocation: GptPortfolioExport['strategicAllocation']): string {
     if (!strategicAllocation) {
-      return '## Asignacion estrategica por macrosector\n\nSin datos de asignacion estrategica.';
+      return '## Asignación estratégica por macrosector\n\nSin datos de asignación estratégica.';
     }
 
     const lines = [
-      '## Asignacion estrategica por macrosector',
+      '## Asignación estratégica por macrosector',
       strategicAllocation.description,
+      '',
+      'Esta sección compara el peso actual de cada macrosector contra el objetivo estratégico definido en el Excel. Es una guía de largo plazo para orientar futuros aportes, no una obligación de compra o venta inmediata.',
+      'Importante: una diferencia positiva no significa comprar automáticamente; una diferencia negativa no significa vender automáticamente. Usar junto con valuación, riesgo, alertas, liquidez y contexto macro.',
       '',
       this.tableFromRows(strategicAllocation.objectives, [
         { header: 'MacroSector', key: 'macroSector' },
         { header: 'Objetivo', key: 'targetPercent' },
         { header: 'Actual', key: 'currentPercent' },
         { header: 'Diferencia', key: 'differencePercent' },
-        { header: 'Valor actual ARS', key: 'currentValueArs' },
-        { header: 'Estado', key: 'status' }
+        { header: 'Estado', key: 'status' },
+        { header: 'Valor actual ARS', key: 'currentValueArs' }
       ])
     ];
 
-    if (strategicAllocation.reinforce.length || strategicAllocation.overweight.length) {
-      lines.push('');
+    if (strategicAllocation.objectives.length) {
+      if (strategicAllocation.reinforce.length || strategicAllocation.overweight.length) {
+        lines.push('');
+      }
       if (strategicAllocation.reinforce.length) {
         lines.push('### Macrosectores a reforzar');
         for (const row of strategicAllocation.reinforce) {
@@ -2221,9 +2240,18 @@ export class GptPortfolioExportService {
           lines.push(`- ${row.macroSector}: ${row.differencePercent}`);
         }
       }
+    } else {
+      lines.push('', 'No hay objetivos estratégicos comparables cargados desde el Excel.');
     }
 
-    lines.push('', `- Aclaracion GPT: ${strategicAllocation.gptInstruction}`);
+    if (strategicAllocation.importantWarnings.length) {
+      lines.push('', '### Advertencias importantes');
+      for (const warning of strategicAllocation.importantWarnings) {
+        lines.push(`- ${warning}`);
+      }
+    }
+
+    lines.push('', `- Aclaración GPT: ${strategicAllocation.gptInstruction}`);
     return lines.join('\n');
   }
 
