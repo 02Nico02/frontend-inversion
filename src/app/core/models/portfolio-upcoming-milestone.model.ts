@@ -2,6 +2,7 @@ export type UpcomingMilestoneCategory =
   | 'portfolio-value'
   | 'historical-recovery'
   | 'strategy-balance'
+  | 'income-coverage'
   | 'manual-goal';
 
 export type UpcomingMilestoneStatus = 'pending' | 'reached' | 'not-available';

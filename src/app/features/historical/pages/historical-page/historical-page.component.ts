@@ -1,6 +1,7 @@
-import { CommonModule } from '@angular/common';
+﻿import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { HistoricalSymbolComboboxComponent, HistoricalSymbolOption } from '../../../../shared/components/historical-symbol-combobox/historical-symbol-combobox.component';
 import { SimpleChartComponent } from '../../../../shared/components/simple-chart/simple-chart.component';
 import { PortfolioStateService } from '../../../../core/services/portfolio-state.service';
@@ -23,9 +24,11 @@ import { parseExcelDate } from '../../../../core/utils/value-parsing.utils';
 type DatePeriod = 'ALL' | '1M' | '3M' | '6M' | 'YTD' | '1Y' | 'CUSTOM';
 type MinimumBalanceTrendViewMode = 'monthly' | 'daily';
 
+const UPCOMING_CONTRIBUTION_KEY = 'summary.upcomingGoals.monthlyContributionArs';
+
 @Component({
   standalone: true,
-  imports: [CommonModule, FormsModule, HistoricalSymbolComboboxComponent, SimpleChartComponent],
+  imports: [CommonModule, FormsModule, RouterLink, HistoricalSymbolComboboxComponent, SimpleChartComponent],
   templateUrl: './historical-page.component.html',
   styleUrls: ['./historical-page.component.scss'],
 })
@@ -74,6 +77,8 @@ export class HistoricalPageComponent implements OnInit, OnDestroy {
   }> = [];
   showAllMilestones = false;
   showUnavailableMilestones = false;
+  upcomingContributionArs = this.loadUpcomingContribution();
+  readonly allMilestonesPath = '/historico/hitos';
 
   constructor(
     public readonly state: PortfolioStateService,
@@ -160,12 +165,13 @@ export class HistoricalPageComponent implements OnInit, OnDestroy {
       snapshot.importedAt ?? '',
       snapshot.fileName ?? '',
       snapshot.dataset?.dailyBalances.length ?? 0,
-      snapshot.dataset?.monthlySummary.length ?? 0
+      snapshot.dataset?.monthlySummary.length ?? 0,
+      this.upcomingContributionArs ?? ''
     ].join('|');
     if (cacheKey === this.cachedMilestonesKey) {
       return this.cachedMilestoneReport;
     }
-    this.cachedMilestoneReport = this.milestonesService.buildMilestoneReport(snapshot);
+    this.cachedMilestoneReport = this.milestonesService.buildMilestoneReportWithContribution(snapshot, this.upcomingContributionArs);
     this.cachedMilestonesKey = cacheKey;
     return this.cachedMilestoneReport;
   }
@@ -193,6 +199,58 @@ export class HistoricalPageComponent implements OnInit, OnDestroy {
 
   latestMilestone(snapshot: PortfolioAppState): PortfolioMilestone | null {
     return this.milestonesService.getLatestMilestone(this.historicalMilestones(snapshot));
+  }
+
+  recentCompletedMilestones(snapshot: PortfolioAppState): PortfolioMilestone[] {
+    const milestones = this.historicalMilestones(snapshot);
+    return this.milestonesService.getCategoryOrder()
+      .map((category) => this.latestMilestoneInCategory(milestones.filter((milestone) => milestone.category === category)))
+      .filter((milestone): milestone is PortfolioMilestone => milestone !== null);
+  }
+
+  recentPendingMilestones(snapshot: PortfolioAppState): PortfolioUnavailableMilestone[] {
+    const unavailable = this.unavailableMilestones(snapshot);
+    return this.milestonesService.getCategoryOrder()
+      .map((category) => unavailable.find((milestone) => milestone.category === category) ?? null)
+      .filter((milestone): milestone is PortfolioUnavailableMilestone => milestone !== null);
+  }
+
+  completedMilestoneGroups(snapshot: PortfolioAppState): Array<{ category: PortfolioMilestoneCategory; label: string; items: PortfolioMilestone[] }> {
+    const milestones = this.historicalMilestones(snapshot);
+    return this.milestonesService.getCategoryOrder()
+      .map((category) => ({
+        category,
+        label: this.milestonesService.getCategoryLabel(category),
+        items: milestones.filter((milestone) => milestone.category === category)
+      }))
+      .filter((group) => group.items.length > 0);
+  }
+
+  pendingMilestoneGroups(snapshot: PortfolioAppState): Array<{ category: PortfolioMilestoneCategory; label: string; items: PortfolioUnavailableMilestone[] }> {
+    const milestones = this.unavailableMilestones(snapshot);
+    return this.milestonesService.getCategoryOrder()
+      .map((category) => ({
+        category,
+        label: this.milestonesService.getCategoryLabel(category),
+        items: milestones.filter((milestone) => milestone.category === category)
+      }))
+      .filter((group) => group.items.length > 0);
+  }
+
+  private latestMilestoneInCategory(items: PortfolioMilestone[]): PortfolioMilestone | null {
+    if (!items.length) {
+      return null;
+    }
+
+    return [...items].sort((left, right) => this.milestoneSortValue(right.date) - this.milestoneSortValue(left.date))[0] ?? null;
+  }
+
+  private milestoneSortValue(value: string | Date | null): number {
+    if (!value) {
+      return 0;
+    }
+    const date = value instanceof Date ? value : parseExcelDate(value);
+    return date ? date.getTime() : 0;
   }
 
   unavailableMilestones(snapshot: PortfolioAppState): PortfolioUnavailableMilestone[] {
@@ -410,6 +468,22 @@ export class HistoricalPageComponent implements OnInit, OnDestroy {
     }
   }
 
+  milestoneTooltip(milestone: PortfolioMilestone): string {
+    const parts = [milestone.description, `Fuente: ${milestone.source}`];
+    if (milestone.percent !== null && milestone.percent !== undefined) {
+      parts.push(`Referencia: ${this.milestonePercent(milestone)}`);
+    }
+    return parts.filter(Boolean).join(' · ');
+  }
+
+  unavailableMilestoneTooltip(item: PortfolioUnavailableMilestone): string {
+    const parts = [item.description];
+    if (item.requiredSource) {
+      parts.push(`Fuente requerida: ${item.requiredSource}`);
+    }
+    return parts.filter(Boolean).join(' · ');
+  }
+
   historicalPriceStats(snapshot: PortfolioAppState) {
     const series = this.historicalPriceSeries(snapshot);
     if (!series.length) return null;
@@ -444,6 +518,15 @@ export class HistoricalPageComponent implements OnInit, OnDestroy {
 
   percent(value: number | null | undefined): string {
     return this.currencyMapper.formatPercentage(value);
+  }
+
+  private loadUpcomingContribution(): number | null {
+    if (typeof localStorage === 'undefined') {
+      return null;
+    }
+    const raw = localStorage.getItem(UPCOMING_CONTRIBUTION_KEY);
+    const parsed = raw !== null ? Number(raw) : NaN;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
   }
 
   private filterHistoricalByPeriod<T extends { date: string | Date | null }>(values: T[], period: DatePeriod, startDate: string, endDate: string): T[] {
@@ -486,3 +569,4 @@ export class HistoricalPageComponent implements OnInit, OnDestroy {
     return date ? date.getTime() : 0;
   }
 }
+

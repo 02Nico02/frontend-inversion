@@ -3,6 +3,7 @@ export type PortfolioMilestoneCategory =
   | 'daily-balance'
   | 'monthly-performance'
   | 'real-performance'
+  | 'income-coverage'
   | 'benchmark-minimum'
   | 'contribution';
 

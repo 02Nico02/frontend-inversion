@@ -43,6 +43,11 @@ export class PortfolioUpcomingMilestonesService {
       goals.push(historicalRecovery);
     }
 
+    const incomeCoverage = this.buildMonthlyIncomeCoverageGoal(snapshot, monthlyContributionArs, nominal12mRatePercent);
+    if (incomeCoverage) {
+      goals.push(incomeCoverage);
+    }
+
     const strategyBalance = this.buildStrategyGuidanceGoal(snapshot);
     if (strategyBalance) {
       goals.push(strategyBalance);
@@ -193,6 +198,84 @@ export class PortfolioUpcomingMilestonesService {
       estimatedMonths: null,
       source: 'Tabla35',
       breakdown
+    };
+  }
+
+  private buildMonthlyIncomeCoverageGoal(
+    snapshot: PortfolioAppState,
+    monthlyContributionArs: number | null,
+    nominal12mRatePercent: number | null
+  ): PortfolioUpcomingMilestone | null {
+    if (monthlyContributionArs === null || monthlyContributionArs <= 0) {
+      return null;
+    }
+
+    const currentValue = this.currentArsValue(snapshot);
+    if (currentValue === null || currentValue < 0) {
+      return this.notAvailable(
+        'monthly-income-covers-contribution',
+        'Rendimiento mensual cubre aportes',
+        'No hay valor actual en ARS suficiente para estimar la cobertura de aportes mensuales.',
+        'PortfolioSummary.totalCurrentValue ARS + aporte mensual'
+      );
+    }
+
+    if (nominal12mRatePercent === null || !Number.isFinite(nominal12mRatePercent)) {
+      return this.notAvailable(
+        'monthly-income-covers-contribution',
+        'Rendimiento mensual cubre aportes',
+        'No hay rendimiento nominal 12M suficiente para estimar la cobertura de aportes mensuales.',
+        'Rendimiento nominal 12M'
+      );
+    }
+
+    const monthlyRatePercent = this.annualToMonthlyRatePercent(nominal12mRatePercent);
+    const monthlyRate = monthlyRatePercent / 100;
+    if (!Number.isFinite(monthlyRate) || monthlyRate <= 0) {
+      return this.notAvailable(
+        'monthly-income-covers-contribution',
+        'Rendimiento mensual cubre aportes',
+        'No hay una tasa mensual positiva suficiente para estimar la cobertura de aportes mensuales.',
+        'Rendimiento nominal 12M'
+      );
+    }
+
+    const currentMonthlyIncome = currentValue * monthlyRate;
+    if (currentMonthlyIncome >= monthlyContributionArs) {
+      return null;
+    }
+
+    const targetValue = monthlyContributionArs / monthlyRate;
+    const projection = this.estimateMonthsToTarget(currentValue, targetValue, monthlyContributionArs, nominal12mRatePercent);
+    if (projection.months === null) {
+      return this.notAvailable(
+        'monthly-income-covers-contribution',
+        'Rendimiento mensual cubre aportes',
+        'No se pudo estimar cuándo el rendimiento mensual alcanzará los aportes mensuales dentro del límite máximo de meses.',
+        'PortfolioSummary.totalCurrentValue ARS + rendimiento nominal 12M'
+      );
+    }
+
+    const remainingAmount = Math.max(0, monthlyContributionArs - currentMonthlyIncome);
+
+    return {
+      id: 'monthly-income-covers-contribution',
+      title: 'Rendimiento mensual cubre aportes',
+      description: 'Objetivo para que el rendimiento mensual estimado del portafolio iguale o supere el aporte mensual estimado.',
+      category: 'income-coverage',
+      status: 'pending',
+      currentValue: currentMonthlyIncome,
+      targetValue: monthlyContributionArs,
+      remainingAmount,
+      remainingPercent: monthlyContributionArs > 0 ? (remainingAmount / monthlyContributionArs) * 100 : null,
+      currency: 'ARS',
+      monthlyContribution: monthlyContributionArs,
+      estimatedMonths: projection.months,
+      estimationMode: projection.mode,
+      estimationNote: projection.note,
+      estimationAnnualRatePercent: projection.annualRatePercent,
+      estimationMonthlyRatePercent: projection.monthlyRatePercent,
+      source: 'PortfolioSummary.totalCurrentValue ARS + rendimiento nominal 12M'
     };
   }
 

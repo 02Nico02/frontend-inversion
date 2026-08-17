@@ -180,6 +180,8 @@ export class SummaryPageComponent {
         return 'Recuperación';
       case 'strategy-balance':
         return 'Estrategia';
+      case 'income-coverage':
+        return 'Cobertura de aportes';
       case 'manual-goal':
         return 'Meta manual';
       default:
@@ -222,6 +224,9 @@ export class SummaryPageComponent {
   }
 
   goalProjectionLabel(goal: PortfolioUpcomingMilestone): string {
+    if (goal.category === 'income-coverage') {
+      return 'Con aporte + rendimiento 12M';
+    }
     switch (goal.estimationMode) {
       case 'growth-and-contribution':
         return 'Con aporte + rendimiento 12M';

@@ -180,11 +180,177 @@
   flex-wrap: wrap;
 }
 
+.milestones-actions {
+  display: grid;
+  gap: 0.75rem;
+  justify-items: end;
+}
+
 .milestones-stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(140px, 1fr));
   gap: 0.6rem;
   min-width: min(520px, 100%);
+}
+
+.milestones-link {
+  text-decoration: none;
+}
+
+.milestone-shelf {
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 0.3rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.achievement-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.8rem;
+}
+
+.achievement-grid--muted {
+  opacity: 0.88;
+}
+
+.achievement-card {
+  position: relative;
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.9rem;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+  align-content: start;
+}
+
+.achievement-card--done {
+  border-color: rgba(16, 185, 129, 0.24);
+  box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.08);
+}
+
+.achievement-card--pending {
+  border-color: rgba(148, 163, 184, 0.14);
+  opacity: 0.88;
+}
+
+.achievement-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.chip.done {
+  background: rgba(16, 185, 129, 0.12);
+  color: #86efac;
+  border-color: rgba(16, 185, 129, 0.24);
+}
+
+.chip.pending {
+  background: rgba(100, 116, 139, 0.12);
+  color: #cbd5e1;
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+.info-dot {
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(77, 210, 200, 0.35);
+  background: rgba(77, 210, 200, 0.1);
+  color: #b7fff8;
+  font-size: 0.82rem;
+  display: inline-grid;
+  place-items: center;
+}
+
+.info-dot.muted {
+  border-color: rgba(148, 163, 184, 0.28);
+  background: rgba(148, 163, 184, 0.08);
+  color: #e2e8f0;
+}
+
+.info-tooltip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.info-tooltip__bubble {
+  position: absolute;
+  right: calc(100% + 0.5rem);
+  top: 50%;
+  transform: translateY(-50%) translateX(4px);
+  min-width: 180px;
+  max-width: 260px;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.98);
+  border: 1px solid rgba(148, 163, 184, 0.36);
+  color: var(--text);
+  font-size: 0.76rem;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 140ms ease, visibility 140ms ease, transform 140ms ease;
+  z-index: 10;
+}
+
+.info-tooltip__bubble::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  transform: translateY(-50%);
+  border-width: 7px;
+  border-style: solid;
+  border-color: transparent transparent transparent rgba(15, 23, 42, 0.98);
+}
+
+.info-tooltip:hover .info-tooltip__bubble,
+.info-tooltip:focus-within .info-tooltip__bubble {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(-50%) translateX(0);
+}
+
+.info-tooltip__bubble--muted {
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+.achievement-card h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.achievement-category {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.achievement-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  color: var(--text);
+}
+
+.achievement-meta span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.achievement-meta--pending strong {
+  color: #94a3b8;
 }
 
 .milestone-stat {
@@ -385,8 +551,28 @@
     grid-template-columns: 1fr;
   }
 
-  .milestones-stats {
+.milestones-stats {
     min-width: 100%;
     grid-template-columns: 1fr;
+  }
+
+  .info-tooltip__bubble {
+    right: auto;
+    left: 50%;
+    top: calc(100% + 0.5rem);
+    transform: translateX(-50%) translateY(4px);
+  }
+
+  .info-tooltip__bubble::after {
+    top: auto;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-color: transparent transparent rgba(15, 23, 42, 0.98) transparent;
+  }
+
+  .info-tooltip:hover .info-tooltip__bubble,
+  .info-tooltip:focus-within .info-tooltip__bubble {
+    transform: translateX(-50%) translateY(0);
   }
 }

@@ -5,6 +5,7 @@ import { StrategicAllocationSimulatorPageComponent } from './features/distributi
 import { PositionsPageComponent } from './features/positions/pages/positions-page/positions-page.component';
 import { PositionDetailPageComponent } from './features/positions/pages/position-detail-page/position-detail-page.component';
 import { HistoricalPageComponent } from './features/historical/pages/historical-page/historical-page.component';
+import { HistoricalMilestonesPageComponent } from './features/historical/pages/historical-milestones-page/historical-milestones-page.component';
 import { AlertsPageComponent } from './features/alerts/pages/alerts-page/alerts-page.component';
 import { ConcentrationPageComponent } from './features/concentration/pages/concentration-page/concentration-page.component';
 import { DecisionsPageComponent } from './features/decisions/pages/decisions-page/decisions-page.component';
@@ -23,6 +24,7 @@ export const appRoutes: Routes = [
   { path: 'posiciones/:symbol', component: PositionDetailPageComponent, canActivate: [workbookLoadedGuard] },
   { path: 'posiciones', component: PositionsPageComponent, canActivate: [workbookLoadedGuard] },
   { path: 'historico', component: HistoricalPageComponent, canActivate: [workbookLoadedGuard] },
+  { path: 'historico/hitos', component: HistoricalMilestonesPageComponent, canActivate: [workbookLoadedGuard] },
   { path: 'alertas', component: AlertsPageComponent, canActivate: [workbookLoadedGuard] },
   { path: 'concentracion', component: ConcentrationPageComponent, canActivate: [workbookLoadedGuard] },
   { path: 'decisiones', component: DecisionsPageComponent, canActivate: [workbookLoadedGuard] },

@@ -1,0 +1,130 @@
+﻿<section class="page" *ngIf="state.snapshot as snapshot">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Histórico</p>
+      <h2>Hitos del portafolio</h2>
+      <p class="lead">Logros alcanzados y objetivos pendientes en una vista tipo achievements.</p>
+    </div>
+
+    <a [routerLink]="backLink" class="back-link">Volver al histórico</a>
+  </header>
+
+  <ng-container *ngIf="snapshot.dataset; else emptyState">
+    <section class="panel summary-panel">
+      <div class="summary-grid">
+        <article class="summary-card">
+          <span>Hitos detectados</span>
+          <strong>{{ totalDetected(snapshot) }}</strong>
+        </article>
+        <article class="summary-card">
+          <span>Completados</span>
+          <strong>{{ totalDetected(snapshot) }}</strong>
+        </article>
+        <article class="summary-card">
+          <span>Pendientes</span>
+          <strong>{{ totalPending(snapshot) }}</strong>
+        </article>
+        <article class="summary-card" *ngIf="latestCompletedMilestone(snapshot) as latest">
+          <span>Último logro</span>
+          <strong>{{ latest.title }}</strong>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Completados</p>
+          <h3>Hitos alcanzados</h3>
+          <p class="lead">En esta vista aparece el último logro de cada categoría.</p>
+        </div>
+      </div>
+
+      <ng-container *ngIf="completedMilestoneGroups(snapshot).length; else noCompleted">
+        <section class="milestone-group-stack">
+          <section class="completed-group" *ngFor="let group of completedMilestoneGroups(snapshot)">
+            <div class="section-head section-head--compact">
+              <div>
+                <p class="eyebrow">{{ group.label }}</p>
+                <h4>{{ group.items.length }} logro{{ group.items.length > 1 ? 's' : '' }}</h4>
+              </div>
+            </div>
+
+            <div class="achievement-grid">
+              <article class="achievement-card achievement-card--done" *ngFor="let milestone of group.items">
+                <div class="achievement-head">
+                  <span class="chip done">Completado</span>
+                  <span class="info-tooltip">
+                    <button type="button" class="info-dot" aria-label="Ver aclaración">i</button>
+                    <span class="info-tooltip__bubble" role="tooltip">{{ milestoneTooltip(milestone) }}</span>
+                  </span>
+                </div>
+                <h4>{{ milestone.title }}</h4>
+                <p class="achievement-category">{{ milestoneCategoryLabel(milestone.category) }}</p>
+                <div class="achievement-meta">
+                  <span>{{ milestoneDate(milestone.date) }}</span>
+                  <strong>{{ milestoneValue(milestone) }}</strong>
+                </div>
+                <small>{{ milestoneSeverityLabel(milestone.severity) }}</small>
+              </article>
+            </div>
+          </section>
+        </section>
+      </ng-container>
+
+      <ng-template #noCompleted>
+        <div class="empty-state">
+          <h4>No hay hitos completados todavía</h4>
+          <p>Cuando el historial alcance nuevos umbrales, aparecerán acá como logros desbloqueados.</p>
+        </div>
+      </ng-template>
+    </section>
+
+    <section class="panel pending-panel" *ngIf="pendingMilestones(snapshot).length">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Pendientes</p>
+          <h3>Hitos por completar</h3>
+          <p class="lead">Los objetivos más cercanos aparecen primero para orientar el próximo paso.</p>
+        </div>
+      </div>
+
+      <div class="milestone-group-stack">
+        <section class="pending-group" *ngFor="let group of pendingMilestoneGroups(snapshot)">
+          <div class="section-head section-head--compact">
+            <div>
+              <p class="eyebrow">{{ group.label }}</p>
+              <h4>{{ group.items.length }} pendiente{{ group.items.length > 1 ? 's' : '' }}</h4>
+            </div>
+          </div>
+
+          <div class="achievement-grid achievement-grid--muted">
+            <article class="achievement-card achievement-card--pending" *ngFor="let item of group.items">
+              <div class="achievement-head">
+                <span class="chip pending">{{ pendingLabel(item) }}</span>
+                <span class="info-tooltip">
+                  <button type="button" class="info-dot muted" aria-label="Ver aclaración">i</button>
+                  <span class="info-tooltip__bubble info-tooltip__bubble--muted" role="tooltip">{{ pendingTooltip(item) }}</span>
+                </span>
+              </div>
+              <h4>{{ item.title }}</h4>
+              <p class="achievement-category">{{ item.requiredSource || 'Sin fuente requerida' }}</p>
+              <div class="achievement-meta achievement-meta--pending">
+                <span>{{ item.reason === 'not-reached' ? 'Aún no alcanzado' : 'Sin datos suficientes' }}</span>
+                <strong>{{ item.reason === 'not-reached' ? 'Pendiente' : 'No disponible' }}</strong>
+              </div>
+            </article>
+          </div>
+        </section>
+      </div>
+    </section>
+  </ng-container>
+
+  <ng-template #emptyState>
+    <article class="panel empty">
+      <h3>No hay datos cargados</h3>
+      <p>Importá el Excel para ver el histórico.</p>
+    </article>
+  </ng-template>
+</section>
+

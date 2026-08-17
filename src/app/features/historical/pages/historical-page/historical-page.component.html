@@ -174,93 +174,98 @@
       <div class="milestones-header">
         <div>
           <p class="eyebrow">Hitos del portafolio</p>
-          <h3>Momentos importantes detectados</h3>
-          <p class="lead">Resumen compacto de cruces de valor, balances diarios y mejores/peores meses detectados a partir del historial disponible.</p>
+          <h3>Logros recientes</h3>
+          <p class="lead">Vista compacta estilo logros: completados en primer plano y pendientes en segundo plano.</p>
         </div>
 
-        <div class="milestones-stats">
-          <div class="milestone-stat">
-            <span>Hitos detectados</span>
-            <strong>{{ totalDetectedMilestones(snapshot) }}</strong>
+        <div class="milestones-actions">
+          <div class="milestones-stats">
+            <div class="milestone-stat">
+              <span>Hitos detectados</span>
+              <strong>{{ totalDetectedMilestones(snapshot) }}</strong>
+            </div>
+            <div class="milestone-stat">
+              <span>Categorías</span>
+              <strong>{{ detectedCategoryCount(snapshot) }}</strong>
+            </div>
+            <div class="milestone-stat">
+              <span>No disponibles</span>
+              <strong>{{ totalUnavailableMilestones(snapshot) }}</strong>
+            </div>
+            <div class="milestone-stat" *ngIf="latestMilestone(snapshot) as latest">
+              <span>Último logro</span>
+              <strong>{{ latest.title }}</strong>
+            </div>
           </div>
-          <div class="milestone-stat">
-            <span>Categorías</span>
-            <strong>{{ detectedCategoryCount(snapshot) }}</strong>
-          </div>
-          <div class="milestone-stat">
-            <span>No disponibles</span>
-            <strong>{{ totalUnavailableMilestones(snapshot) }}</strong>
-          </div>
-          <div class="milestone-stat" *ngIf="latestMilestone(snapshot) as latest">
-            <span>Último hito</span>
-            <strong>{{ latest.title }}</strong>
-          </div>
+
+          <a routerLink="/historico/hitos" class="toggle-button milestones-link">Ver todos los hitos</a>
         </div>
       </div>
 
       <div class="milestones-empty" *ngIf="!totalDetectedMilestones(snapshot)">
         <h4>No hay hitos suficientes</h4>
-        <p>Importá más historial para detectar cruces, máximos y cambios relevantes.</p>
+        <p>Importá más historial para detectar logros, cruces y cambios relevantes.</p>
       </div>
 
-      <ng-container *ngIf="visibleMilestoneGroups(snapshot) as groups">
-        <section class="milestone-group" *ngFor="let group of groups">
+      <ng-container *ngIf="totalDetectedMilestones(snapshot)">
+        <section class="milestone-shelf">
           <div class="group-header">
             <div>
-              <p class="group-label">{{ group.label }}</p>
-              <h4>{{ group.items.length }} hito{{ group.items.length === 1 ? '' : 's' }}</h4>
+              <p class="group-label">Completados</p>
+              <h4>Últimos hitos alcanzados</h4>
             </div>
           </div>
 
-          <div class="milestone-grid">
-            <article class="milestone-card" *ngFor="let milestone of group.items">
-              <div class="milestone-head">
-                <span class="chip" [class.positive]="milestone.severity === 'positive'" [class.negative]="milestone.severity === 'negative'">
-                  {{ milestoneSeverityLabel(milestone.severity) }}
+          <div class="achievement-grid">
+            <article class="achievement-card achievement-card--done" *ngFor="let milestone of recentCompletedMilestones(snapshot)">
+              <div class="achievement-head">
+                <span class="chip done">Completado</span>
+                <span class="info-tooltip">
+                  <button type="button" class="info-dot" aria-label="Ver aclaración">i</button>
+                  <span class="info-tooltip__bubble" role="tooltip">{{ milestoneTooltip(milestone) }}</span>
                 </span>
               </div>
               <h4>{{ milestone.title }}</h4>
-              <div class="milestone-meta">
+              <p class="achievement-category">{{ milestoneCategoryLabel(milestone.category) }}</p>
+              <div class="achievement-meta">
                 <span>{{ milestoneDate(milestone.date) }}</span>
                 <strong>{{ milestoneValue(milestone) }}</strong>
               </div>
-              <p>{{ milestone.description }}</p>
-              <small>Fuente: {{ milestone.source }}</small>
-              <small *ngIf="milestone.percent !== null && milestone.percent !== undefined">
-                Referencia porcentual: {{ milestonePercent(milestone) }}
-              </small>
             </article>
           </div>
         </section>
-      </ng-container>
 
-      <div class="milestones-footer" *ngIf="hasMoreMilestones(snapshot)">
-        <button type="button" class="toggle-button" (click)="toggleMilestones()">
-          {{ showAllMilestones ? 'Ver menos' : 'Ver más' }}
-        </button>
-      </div>
+        <section class="milestone-shelf" *ngIf="recentPendingMilestones(snapshot).length">
+          <div class="group-header">
+            <div>
+              <p class="group-label">Por completar</p>
+              <h4>Próximos hitos</h4>
+            </div>
+          </div>
 
-      <div class="unavailable-panel" *ngIf="hasUnavailableMilestones(snapshot)">
-        <p class="benchmark-note">
-          Algunos hitos no se muestran porque no hay datos suficientes o todavía no fueron alcanzados.
+          <div class="achievement-grid achievement-grid--muted">
+            <article class="achievement-card achievement-card--pending" *ngFor="let item of recentPendingMilestones(snapshot)">
+              <div class="achievement-head">
+                <span class="chip pending">{{ unavailableMilestoneReasonLabel(item.reason) }}</span>
+                <span class="info-tooltip">
+                  <button type="button" class="info-dot muted" aria-label="Ver aclaración">i</button>
+                  <span class="info-tooltip__bubble info-tooltip__bubble--muted" role="tooltip">{{ unavailableMilestoneTooltip(item) }}</span>
+                </span>
+              </div>
+              <h4>{{ item.title }}</h4>
+              <p class="achievement-category">{{ item.requiredSource || 'Sin fuente requerida' }}</p>
+              <div class="achievement-meta achievement-meta--pending">
+                <span>{{ item.reason === 'not-reached' ? 'Aún no alcanzado' : 'Sin datos suficientes' }}</span>
+                <strong>{{ item.reason === 'not-reached' ? 'Pendiente' : 'No disponible' }}</strong>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <p class="benchmark-note" *ngIf="hasIncompleteMilestones(snapshot)">
+          Algunos hitos no se calcularon por falta de historial suficiente.
         </p>
-        <button type="button" class="toggle-link" (click)="showUnavailableMilestones = !showUnavailableMilestones">
-          {{ showUnavailableMilestones ? 'Ocultar hitos no disponibles' : 'Ver hitos no disponibles' }}
-        </button>
-
-        <ul class="unavailable-list" *ngIf="showUnavailableMilestones">
-          <li *ngFor="let item of unavailableMilestones(snapshot)">
-            <strong>{{ item.title }}</strong>
-            <span class="reason">{{ unavailableMilestoneReasonLabel(item.reason) }}</span>
-            <span>{{ item.description }}</span>
-            <small *ngIf="item.requiredSource">Fuente requerida: {{ item.requiredSource }}</small>
-          </li>
-        </ul>
-      </div>
-
-      <p class="benchmark-note" *ngIf="hasIncompleteMilestones(snapshot)">
-        Algunos hitos no se calcularon por falta de historial suficiente.
-      </p>
+      </ng-container>
     </section>
   </ng-container>
 

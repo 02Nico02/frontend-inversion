@@ -1,4 +1,4 @@
-<section class="page" *ngIf="state.snapshot as snapshot">
+﻿<section class="page" *ngIf="state.snapshot as snapshot">
   <header class="page-header">
     <div>
       <p class="eyebrow">Resumen</p>
@@ -199,33 +199,7 @@
             <h4>{{ goal.title }}</h4>
             <p class="goal-description">{{ goal.description }}</p>
 
-            <ng-container *ngIf="goal.category !== 'strategy-balance'; else strategyGoal">
-              <div class="goal-metrics" *ngIf="goal.status !== 'not-available'; else unavailableGoal">
-                <div class="goal-metric">
-                  <span>Actual</span>
-                  <strong>{{ goalAmount(goal.currentValue, goal.currency) }}</strong>
-                </div>
-                <div class="goal-metric">
-                  <span>Objetivo</span>
-                  <strong>{{ goalAmount(goal.targetValue, goal.currency) }}</strong>
-                </div>
-                <div class="goal-metric">
-                  <span>Faltante</span>
-                  <strong>{{ goalAmount(goal.remainingAmount, goal.currency) }}</strong>
-                </div>
-                <div class="goal-metric">
-                  <span>% faltante</span>
-                  <strong>{{ goalPercent(goal.remainingPercent) }}</strong>
-                </div>
-                <div class="goal-metric">
-                  <span>{{ goalProjectionLabel(goal) }}</span>
-                  <strong>{{ goalMonths(goal.estimatedMonths) }}</strong>
-                  <small>{{ goalProjectionNote(goal) }}</small>
-                </div>
-              </div>
-            </ng-container>
-
-            <ng-template #strategyGoal>
+            <ng-container *ngIf="goal.category === 'strategy-balance'; else standardGoal">
               <div class="goal-metrics strategy">
                 <div class="goal-metric wide">
                   <span>Referencia según aportes</span>
@@ -236,6 +210,59 @@
                   <span>{{ goalCurrencyLabel(item.currency) }}</span>
                   <strong>{{ strategyBreakdownLabel(item) }}</strong>
                   <small>Aportes acumulados: {{ goalAmount(item.retirementAmount, item.currency) }} / {{ goalAmount(item.savingsAmount, item.currency) }}</small>
+                </div>
+              </div>
+            </ng-container>
+
+            <ng-template #standardGoal>
+              <ng-container *ngIf="goal.category !== 'income-coverage'; else incomeCoverageGoal">
+                <div class="goal-metrics" *ngIf="goal.status !== 'not-available'; else unavailableGoal">
+                  <div class="goal-metric">
+                    <span>Actual</span>
+                    <strong>{{ goalAmount(goal.currentValue, goal.currency) }}</strong>
+                  </div>
+                  <div class="goal-metric">
+                    <span>Objetivo</span>
+                    <strong>{{ goalAmount(goal.targetValue, goal.currency) }}</strong>
+                  </div>
+                  <div class="goal-metric">
+                    <span>Faltante</span>
+                    <strong>{{ goalAmount(goal.remainingAmount, goal.currency) }}</strong>
+                  </div>
+                  <div class="goal-metric">
+                    <span>% faltante</span>
+                    <strong>{{ goalPercent(goal.remainingPercent) }}</strong>
+                  </div>
+                  <div class="goal-metric">
+                    <span>{{ goalProjectionLabel(goal) }}</span>
+                    <strong>{{ goalMonths(goal.estimatedMonths) }}</strong>
+                    <small>{{ goalProjectionNote(goal) }}</small>
+                  </div>
+                </div>
+              </ng-container>
+            </ng-template>
+
+            <ng-template #incomeCoverageGoal>
+              <div class="goal-metrics income-coverage" *ngIf="goal.status !== 'not-available'; else unavailableGoal">
+                <div class="goal-metric">
+                  <span>Rendimiento mensual estimado</span>
+                  <strong>{{ goalAmount(goal.currentValue, goal.currency) }}</strong>
+                  <small>Con rendimiento nominal 12M.</small>
+                </div>
+                <div class="goal-metric">
+                  <span>Aporte mensual</span>
+                  <strong>{{ goalAmount(goal.targetValue, goal.currency) }}</strong>
+                  <small>Objetivo a cubrir cada mes.</small>
+                </div>
+                <div class="goal-metric">
+                  <span>Faltante</span>
+                  <strong>{{ goalAmount(goal.remainingAmount, goal.currency) }}</strong>
+                  <small>{{ goalPercent(goal.remainingPercent) }}</small>
+                </div>
+                <div class="goal-metric">
+                  <span>{{ goalProjectionLabel(goal) }}</span>
+                  <strong>{{ goalMonths(goal.estimatedMonths) }}</strong>
+                  <small>{{ goalProjectionNote(goal) }}</small>
                 </div>
               </div>
             </ng-template>
@@ -295,3 +322,6 @@
     </article>
   </ng-template>
 </section>
+
+
+

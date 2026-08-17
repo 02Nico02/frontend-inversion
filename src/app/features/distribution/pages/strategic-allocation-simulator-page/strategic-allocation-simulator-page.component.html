@@ -157,57 +157,75 @@
           </article>
         </div>
 
-        <div class="projection-list">
-          <article class="projection-row" *ngFor="let row of projection.rows; trackBy: trackByRow">
-            <div class="projection-row__head">
-              <div>
-                <p class="projection-row__sector">{{ row.macroSector }}</p>
-                <p class="projection-row__meta">Actual real: {{ row.realPercent === null ? 'N/D' : formatPercent(row.realPercent) }}</p>
-              </div>
-              <span class="status-pill" [ngClass]="statusClass(row.projectedStatus)">
-                {{ row.projectedStatus }}
-              </span>
+        <div class="projection-grid">
+          <div class="projection-grid__header">
+            <span>MacroSector</span>
+            <span>Objetivo vs actual</span>
+            <span>Diferencia</span>
+            <span>Valor</span>
+            <span>Estado</span>
+          </div>
+
+          <article class="projection-grid__row" *ngFor="let row of projection.rows; trackBy: trackByRow">
+            <div class="projection-grid__sector">
+              <strong>{{ row.macroSector }}</strong>
+              <span>Actual real: {{ row.realPercent === null ? 'N/D' : formatPercent(row.realPercent) }}</span>
             </div>
 
-            <div class="projection-row__bars">
-              <div class="projection-bar-row">
-                <div class="projection-bar-row__label">
+            <div class="projection-grid__bars">
+              <div class="mini-bar-block">
+                <div class="mini-bar-block__label">
                   <span>Objetivo</span>
                   <strong>{{ row.targetPercent === null ? 'N/D' : formatPercent(row.targetPercent) }}</strong>
                 </div>
-                <div class="projection-bar-track">
-                  <span class="projection-bar projection-bar--target" [style.width.%]="barWidth(row.targetPercent, projection.comparisonMaxPercent)"></span>
+                <div class="mini-bar-track">
+                  <span class="mini-bar mini-bar--target" [style.width.%]="barWidth(row.targetPercent, projection.comparisonMaxPercent)"></span>
                 </div>
               </div>
-
-              <div class="projection-bar-row">
-                <div class="projection-bar-row__label">
+              <div class="mini-bar-block">
+                <div class="mini-bar-block__label">
                   <span>Proyectado</span>
                   <strong>{{ row.projectedPercent === null ? 'N/D' : formatPercent(row.projectedPercent) }}</strong>
                 </div>
-                <div class="projection-bar-track">
-                  <span class="projection-bar projection-bar--projected" [style.width.%]="barWidth(row.projectedPercent, projection.comparisonMaxPercent)"></span>
+                <div class="mini-bar-track">
+                  <span class="mini-bar mini-bar--projected" [style.width.%]="barWidth(row.projectedPercent, projection.comparisonMaxPercent)"></span>
+                </div>
+                <div class="mini-bar-block__subtle">
+                  Real: {{ row.realPercent === null ? 'N/D' : formatPercent(row.realPercent) }}
                 </div>
               </div>
             </div>
 
-            <div class="projection-row__metrics">
+            <div class="projection-grid__difference">
               <div>
-                <span>Diferencia proyectada</span>
+                <span>Real</span>
+                <strong [class.positive]="(row.realDifferencePercent ?? 0) > 0" [class.negative]="(row.realDifferencePercent ?? 0) < 0">
+                  {{ row.realDifferencePercent === null ? 'N/D' : formatPercentSigned(row.realDifferencePercent) }}
+                </strong>
+              </div>
+              <div>
+                <span>Proyectada</span>
                 <strong [class.positive]="(row.projectedDifferencePercent ?? 0) > 0" [class.negative]="(row.projectedDifferencePercent ?? 0) < 0">
                   {{ row.projectedDifferencePercent === null ? 'N/D' : formatPercentSigned(row.projectedDifferencePercent) }}
                 </strong>
               </div>
+            </div>
+
+            <div class="projection-grid__value">
               <div>
-                <span>Valor proyectado ARS</span>
+                <span>Real</span>
+                <strong>{{ formatMoney(row.realValueArs) }}</strong>
+              </div>
+              <div>
+                <span>Proyectado</span>
                 <strong>{{ formatMoney(row.projectedValueArs) }}</strong>
               </div>
-              <div>
-                <span>Cambio</span>
-                <strong [class.positive]="(row.changePercentPoints ?? 0) > 0" [class.negative]="(row.changePercentPoints ?? 0) < 0">
-                  {{ row.changePercentPoints === null ? 'N/D' : formatPercentPointsSigned(row.changePercentPoints) }}
-                </strong>
-              </div>
+            </div>
+
+            <div class="projection-grid__status">
+              <span class="status-pill" [ngClass]="statusClass(row.projectedStatus)">
+                {{ row.projectedStatus }}
+              </span>
             </div>
           </article>
         </div>

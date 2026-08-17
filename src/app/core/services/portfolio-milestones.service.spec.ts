@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 
 import { PortfolioMilestonesService } from './portfolio-milestones.service';
-import { buildMonthlySummary, buildDailyBalance, buildPortfolioAppState } from '../testing/portfolio-test-builders';
+import { buildMonthlySummary, buildDailyBalance, buildPortfolioAppState, buildPortfolioSummary } from '../testing/portfolio-test-builders';
 
 describe('PortfolioMilestonesService', () => {
   let service: PortfolioMilestonesService;
@@ -72,6 +72,96 @@ describe('PortfolioMilestonesService', () => {
       'largest-daily-drop',
       'largest-monthly-result'
     ]);
+  });
+
+  it('detects when monthly income already covers monthly contributions', () => {
+    const snapshot = buildPortfolioAppState({
+      summary: buildPortfolioSummary({
+        byCurrency: [
+          { currency: 'ARS', totalCurrentValue: 50000000, totalInvested: 0, totalResult: 0, totalResultPercent: 0, speciesCount: 0 }
+        ]
+      }),
+      dataset: {
+        operations: [],
+        sales: [],
+        investmentMovements: [],
+        positions: [],
+        historicalPrices: [],
+        dailyBalances: [],
+        classifications: [],
+        manualAlerts: [],
+        calculatedAlerts: [],
+        signals: [],
+        monthlySummary: [
+          buildMonthlySummary({ month: 'jul-25', year: 2025, endValue: 40000000, variationPercent: 1, realReturnPercent: 1 }),
+          buildMonthlySummary({ month: 'ago-25', year: 2025, endValue: 40400000, variationPercent: 1, realReturnPercent: 1 }),
+          buildMonthlySummary({ month: 'sep-25', year: 2025, endValue: 40804000, variationPercent: 1, realReturnPercent: 1 }),
+          buildMonthlySummary({ month: 'oct-25', year: 2025, endValue: 41212040, variationPercent: 1, realReturnPercent: 1 }),
+          buildMonthlySummary({ month: 'nov-25', year: 2025, endValue: 41624160.4, variationPercent: 1, realReturnPercent: 1 }),
+          buildMonthlySummary({ month: 'dic-25', year: 2025, endValue: 42040377.0, variationPercent: 1, realReturnPercent: 1 }),
+          buildMonthlySummary({ month: 'ene-26', year: 2026, endValue: 42460780.77, variationPercent: 1, realReturnPercent: 1 }),
+          buildMonthlySummary({ month: 'feb-26', year: 2026, endValue: 42885388.58, variationPercent: 1, realReturnPercent: 1 }),
+          buildMonthlySummary({ month: 'mar-26', year: 2026, endValue: 43314242.47, variationPercent: 1, realReturnPercent: 1 }),
+          buildMonthlySummary({ month: 'abr-26', year: 2026, endValue: 43747384.9, variationPercent: 1, realReturnPercent: 1 }),
+          buildMonthlySummary({ month: 'may-26', year: 2026, endValue: 44184858.75, variationPercent: 1, realReturnPercent: 1 }),
+          buildMonthlySummary({ month: 'jun-26', year: 2026, endValue: 44626747.34, variationPercent: 1, realReturnPercent: 1 })
+        ],
+        annualSummary: [],
+        monthlyPerformance: [],
+        strategicSplit: [],
+        platformDistribution: [],
+        calendarBenchmarks: []
+      },
+      workbook: null
+    });
+
+    const report = service.buildMilestoneReportWithContribution(snapshot, 370000);
+    const incomeCoverage = report.detected.find((item) => item.id === 'monthly-income-covers-contribution');
+
+    expect(incomeCoverage?.category).toBe('income-coverage');
+    expect(incomeCoverage?.severity).toBe('positive');
+    expect(incomeCoverage?.value).toBeGreaterThan(370000);
+    expect(service.getHighlightedMilestones(report.detected).map((item) => item.id)).toContain('monthly-income-covers-contribution');
+  });
+
+  it('adds higher value thresholds as pending milestones when the portfolio has not reached them yet', () => {
+    const snapshot = buildPortfolioAppState({
+      summary: buildPortfolioSummary({
+        byCurrency: [
+          { currency: 'ARS', totalCurrentValue: 10131397.08, totalInvested: 0, totalResult: 0, totalResultPercent: 0, speciesCount: 0 }
+        ]
+      }),
+      dataset: {
+        operations: [],
+        sales: [],
+        investmentMovements: [],
+        positions: [],
+        historicalPrices: [],
+        dailyBalances: [],
+        classifications: [],
+        manualAlerts: [],
+        calculatedAlerts: [],
+        signals: [],
+        monthlySummary: [
+          buildMonthlySummary({ month: 'may-25', year: 2025, endValue: 9000000, variationPercent: 1, realReturnPercent: 1 }),
+          buildMonthlySummary({ month: 'jun-25', year: 2025, endValue: 9600000, variationPercent: 1, realReturnPercent: 1 }),
+          buildMonthlySummary({ month: 'jul-25', year: 2025, endValue: 10300000, variationPercent: 1, realReturnPercent: 1 })
+        ],
+        annualSummary: [],
+        monthlyPerformance: [],
+        strategicSplit: [],
+        platformDistribution: [],
+        calendarBenchmarks: []
+      },
+      workbook: null
+    });
+
+    const report = service.buildMilestoneReport(snapshot);
+    const pendingIds = report.unavailable.map((item) => item.id);
+
+    expect(pendingIds).toContain('first-month-above-15000000');
+    expect(pendingIds).toContain('first-month-above-20000000');
+    expect(pendingIds).toContain('first-month-above-30000000');
   });
 
   it('returns the most recent milestone by date', () => {

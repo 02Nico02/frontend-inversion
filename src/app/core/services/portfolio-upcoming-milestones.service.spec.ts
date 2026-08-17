@@ -116,6 +116,55 @@ describe('PortfolioUpcomingMilestonesService', () => {
     expect(goals.length).toBe(3);
   });
 
+  it('adds a coverage goal for monthly returns versus monthly contributions when it is not yet reached', () => {
+    const snapshot = buildPortfolioAppState({
+      summary: buildPortfolioSummary({
+        byCurrency: [
+          { currency: 'ARS', totalCurrentValue: 30000000, totalInvested: 0, totalResult: 0, totalResultPercent: 0, speciesCount: 0 }
+        ]
+      }),
+      dataset: {
+        operations: [],
+        sales: [],
+        investmentMovements: [],
+        positions: [],
+        historicalPrices: [],
+        dailyBalances: [],
+        classifications: [],
+        manualAlerts: [],
+        calculatedAlerts: [],
+        signals: [],
+        monthlySummary: [
+          buildMonthlySummary({ month: 'jul-25', year: 2025, endValue: 20000000, variationPercent: 1, realReturnPercent: 1 }),
+          buildMonthlySummary({ month: 'ago-25', year: 2025, endValue: 20200000, variationPercent: 1, realReturnPercent: 1 }),
+          buildMonthlySummary({ month: 'sep-25', year: 2025, endValue: 20402000, variationPercent: 1, realReturnPercent: 1 }),
+          buildMonthlySummary({ month: 'oct-25', year: 2025, endValue: 20606020, variationPercent: 1, realReturnPercent: 1 }),
+          buildMonthlySummary({ month: 'nov-25', year: 2025, endValue: 20812080.2, variationPercent: 1, realReturnPercent: 1 }),
+          buildMonthlySummary({ month: 'dic-25', year: 2025, endValue: 21020201.0, variationPercent: 1, realReturnPercent: 1 }),
+          buildMonthlySummary({ month: 'ene-26', year: 2026, endValue: 21230403.01, variationPercent: 1, realReturnPercent: 1 }),
+          buildMonthlySummary({ month: 'feb-26', year: 2026, endValue: 21442707.04, variationPercent: 1, realReturnPercent: 1 }),
+          buildMonthlySummary({ month: 'mar-26', year: 2026, endValue: 21657134.11, variationPercent: 1, realReturnPercent: 1 }),
+          buildMonthlySummary({ month: 'abr-26', year: 2026, endValue: 21873705.45, variationPercent: 1, realReturnPercent: 1 }),
+          buildMonthlySummary({ month: 'may-26', year: 2026, endValue: 22092442.5, variationPercent: 1, realReturnPercent: 1 }),
+          buildMonthlySummary({ month: 'jun-26', year: 2026, endValue: 22313366.93, variationPercent: 1, realReturnPercent: 1 })
+        ],
+        annualSummary: [],
+        monthlyPerformance: [],
+        strategicSplit: [],
+        platformDistribution: [],
+        calendarBenchmarks: []
+      },
+      workbook: null
+    });
+
+    const goal = service.buildUpcomingMilestones(snapshot, 370000).find((item) => item.id === 'monthly-income-covers-contribution');
+
+    expect(goal?.category).toBe('income-coverage');
+    expect(goal?.status).toBe('pending');
+    expect(goal?.targetValue).toBe(370000);
+    expect(goal?.estimatedMonths).not.toBeNull();
+  });
+
   it('moves to the next million when the current value is already an exact multiple', () => {
     const snapshot = buildPortfolioAppState({
       summary: buildPortfolioSummary({
