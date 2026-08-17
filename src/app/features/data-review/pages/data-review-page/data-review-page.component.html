@@ -1,4 +1,4 @@
-<section class="page" *ngIf="vm as vm">
+﻿<section class="page" *ngIf="vm as vm">
   <header class="hero panel">
     <div class="hero__copy">
       <p class="eyebrow">Datos a revisar</p>
@@ -10,7 +10,7 @@
       <span class="status-pill" [class.status-pill--ok]="vm.hasWorkbook" [class.status-pill--muted]="!vm.hasWorkbook">
         {{ vm.hasWorkbook ? 'Excel cargado' : 'Esperando archivo' }}
       </span>
-      <strong>{{ vm.hasWorkbook ? 'Revisión activa' : 'Sin workbook para auditar' }}</strong>
+      <strong>{{ vm.hasWorkbook ? 'Revisión activa' : 'Sin archivo para auditar' }}</strong>
       <span>{{ vm.hasWorkbook ? vm.filteredIssues + ' problemas visibles' : 'Importá el Excel para revisar la salud de los datos.' }}</span>
     </div>
   </header>
@@ -195,3 +195,5 @@
     </ng-template>
   </ng-container>
 </section>
+
+

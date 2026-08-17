@@ -1,4 +1,4 @@
-<ng-container *ngIf="open && position as asset">
+﻿<ng-container *ngIf="open && position as asset">
       <div class="backdrop" (click)="close.emit()" aria-hidden="true"></div>
       <aside class="drawer" role="dialog" aria-modal="true" [attr.aria-label]="'Detalle de ' + asset.symbol">
         <header class="drawer-header">
@@ -258,9 +258,9 @@
                 <div><span>Región</span><strong>{{ classification(asset)?.region || 'Sin región' }}</strong></div>
                 <div><span>Tipo de posición</span><strong>{{ asset.positionType || 'Sin datos' }}</strong></div>
                 <div><span>Moneda</span><strong>{{ currencyLabel(asset.currency) }}</strong></div>
-                <div><span>Existe en Tabla47</span><strong>{{ classification(asset) ? 'Sí' : 'No' }}</strong></div>
+                <div><span>Clasificación interna</span><strong>{{ classification(asset) ? 'Sí' : 'No' }}</strong></div>
                 <div><span>Faltantes</span><strong>{{ missingClassification(asset) }}</strong></div>
-                <div><span>Fuente</span><strong>Tabla47</strong></div>
+                <div><span>Fuente</span><strong>clasificación interna</strong></div>
                 <div><span>Match</span><strong>Normalizado por especie</strong></div>
               </div>
               <div class="empty" *ngIf="missingClassification(asset) === 'Sin faltantes'">

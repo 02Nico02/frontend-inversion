@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+﻿import { Injectable } from '@angular/core';
 import { PortfolioCalculatorService } from '../../../core/services/portfolio-calculator.service';
 import { PortfolioHealthService } from '../../../core/services/portfolio-health.service';
 import { InvestmentMovementsPerformanceService } from '../../../core/services/investment-movements-performance.service';
@@ -382,7 +382,7 @@ interface GptPortfolioExport {
   annualSummary: Array<TableRow>;
   strategicSplit: {
     fecha: string;
-    jubilaciónPercent: string | null;
+    jubilacionPercent: string | null;
     ahorroPercent: string | null;
     desvioPercent: string | null;
     montoJubilacionARS: string | null;
@@ -1094,7 +1094,7 @@ export class GptPortfolioExportService {
 
     return {
       fecha: this.formatDate(last.date),
-      jubilaciónPercent: this.formatPercent(retirementPercent),
+      jubilacionPercent: this.formatPercent(retirementPercent),
       ahorroPercent: this.formatPercent(savingsPercent),
       desvioPercent: this.formatPercent(Math.abs((retirementPercent ?? 0) - 50)),
       montoJubilacionARS: scaleIssue ? 'N/D' : this.formatMoney(summedRetirementAmountARS, 'ARS'),
@@ -2189,7 +2189,7 @@ export class GptPortfolioExportService {
       lines.push('');
     }
     lines.push('Nota: los porcentajes se calculan como promedio entre ARS y USD, sin convertir monedas.');
-    lines.push(`- % Jubilacion: ${strategicSplit.jubilaciónPercent ?? 'N/D'}`);
+    lines.push(`- % Jubilacion: ${strategicSplit.jubilacionPercent ?? 'N/D'}`);
     lines.push(`- % Ahorro: ${strategicSplit.ahorroPercent ?? 'N/D'}`);
     lines.push(`- Desvio vs 50/50: ${strategicSplit.desvioPercent ?? 'N/D'}`);
     if (!strategicSplit.warning) {
@@ -2680,4 +2680,3 @@ export class GptPortfolioExportService {
     return 'OK';
   }
 }
-

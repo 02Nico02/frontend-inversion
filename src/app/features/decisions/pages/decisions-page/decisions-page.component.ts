@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+﻿import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -53,10 +53,10 @@ export class DecisionsPageComponent implements OnInit, OnDestroy {
   ];
 
   readonly quickLinks = [
-    { label: 'Datos GPT', path: '/datos-gpt', note: 'Preparar contexto para análisis profundo.' },
+    { label: 'Preparar análisis GPT', path: '/datos-gpt', note: 'Armar contexto para análisis profundo.' },
     { label: 'Alertas', path: '/alertas', note: 'Revisar señales y estados activados.' },
     { label: 'Posiciones', path: '/posiciones', note: 'Abrir la mesa operativa del portafolio.' },
-    { label: 'Importación', path: '/importacion', note: 'Cargar o reemplazar el Excel.' }
+    { label: 'Actualizar datos', path: '/importacion', note: 'Cargar o reemplazar el archivo.' }
   ];
 
   vm: any = null;
@@ -356,3 +356,4 @@ export class DecisionsPageComponent implements OnInit, OnDestroy {
     }
   }
 }
+

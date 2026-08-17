@@ -16,4 +16,22 @@ export class DecisionPerformancePanelComponent {
   trackByRow(index: number): number {
     return index;
   }
+
+  referenceSourceLabel(source: string): string {
+    const normalized = source.trim().toLowerCase();
+    if (!normalized) {
+      return 'Referencia';
+    }
+    if (normalized.includes('tablacalendario')) {
+      return 'Calendario histórico';
+    }
+    if (normalized.includes('historialmensualreconstruido')) {
+      return 'Histórico mensual del portafolio';
+    }
+    if (normalized.includes('portfolio') || normalized.includes('recalculado')) {
+      return 'Referencia recalculada';
+    }
+    return 'Referencia histórica';
+  }
 }
+

@@ -1,4 +1,4 @@
-<header class="app-header">
+﻿<header class="app-header">
   <div class="brand">
     <p class="eyebrow">Finanzas Local</p>
     <div class="title-row">
@@ -10,10 +10,15 @@
 
   <div class="file-state" *ngIf="state.snapshot as snapshot">
     <div class="state-row">
-      <span class="status" [class.ready]="snapshot.status === 'ready'" [class.loading]="snapshot.status === 'loading'" [class.warning]="snapshot.status === 'warning'" [class.error]="snapshot.status === 'error'">{{ snapshot.status | titlecase }}</span>
-      <strong>{{ snapshot.fileName || 'Sin archivo' }}</strong>
+      <span class="status" [class.ready]="snapshot.status === 'ready'" [class.loading]="snapshot.status === 'loading'" [class.warning]="snapshot.status === 'warning'" [class.error]="snapshot.status === 'error'">
+        {{ statusLabel(snapshot.status) }}
+      </span>
+      <strong>{{ fileLabel(snapshot.fileName) }}</strong>
     </div>
-    <small>{{ summaryText(snapshot) }}</small>
+    <small *ngIf="snapshot.status === 'ready'">Datos cargados y listos para usar.</small>
+    <small *ngIf="snapshot.status === 'warning'">Datos cargados con advertencias a revisar.</small>
+    <small *ngIf="snapshot.status === 'error'">Hay problemas en la carga. Revisá importación o datos a revisar.</small>
+    <small *ngIf="snapshot.status === 'loading'">Cargando datos del archivo.</small>
     <small *ngIf="snapshot.importedAt">Importado: {{ formatDate(snapshot.importedAt) }}</small>
   </div>
 

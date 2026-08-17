@@ -138,7 +138,7 @@ export class HistoricalMilestonesPageComponent {
   }
 
   milestoneTooltip(milestone: PortfolioMilestone): string {
-    const parts = [milestone.description, `Fuente: ${milestone.source}`];
+    const parts = [milestone.description, this.milestoneSourceLabel(milestone.source)];
     if (milestone.percent !== null && milestone.percent !== undefined) {
       parts.push(`Referencia porcentual: ${this.currencyMapper.formatPercentage(milestone.percent)}`);
     }
@@ -148,9 +148,13 @@ export class HistoricalMilestonesPageComponent {
   pendingTooltip(item: PortfolioUnavailableMilestone): string {
     const parts = [item.description];
     if (item.requiredSource) {
-      parts.push(`Fuente requerida: ${item.requiredSource}`);
+      parts.push(this.unavailableMilestoneSourceLabel(item.requiredSource));
     }
     return parts.join(' - ');
+  }
+
+  pendingReferenceLabel(item: PortfolioUnavailableMilestone): string {
+    return this.unavailableMilestoneSourceLabel(item.requiredSource) || 'Sin referencia requerida';
   }
 
   pendingLabel(item: PortfolioUnavailableMilestone): string {
@@ -174,4 +178,36 @@ export class HistoricalMilestonesPageComponent {
     const parsed = raw !== null ? Number(raw) : NaN;
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
   }
+
+  private milestoneSourceLabel(source: string): string {
+    const normalized = source.trim().toLowerCase();
+    if (!normalized) {
+      return '';
+    }
+    if (normalized.includes('historialmensualreconstruido')) {
+      return 'Referencia histórica del portafolio';
+    }
+    if (normalized.includes('portfolio')) {
+      return 'Referencia histórica del portafolio';
+    }
+    return 'Referencia histórica';
+  }
+
+  private unavailableMilestoneSourceLabel(source: string | null | undefined): string {
+    if (!source) {
+      return '';
+    }
+    const normalized = source.trim().toLowerCase();
+    if (!normalized) {
+      return '';
+    }
+    if (normalized.includes('benchmark')) {
+      return 'Referencia del benchmark mínimo';
+    }
+    if (normalized.includes('historialmensualreconstruido')) {
+      return 'Referencia histórica del portafolio';
+    }
+    return 'Referencia histórica';
+  }
 }
+

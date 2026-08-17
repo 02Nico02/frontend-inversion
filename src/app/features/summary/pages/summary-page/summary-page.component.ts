@@ -274,7 +274,7 @@ export class SummaryPageComponent {
     if (!goal.breakdown?.length) {
       return 'No hay datos de distribución acumulada.';
     }
-    return 'La referencia surge de los aportes y egresos acumulados en Tabla35. Sirve como guía para futuros aportes, no como obligación de rebalanceo por rendimiento.';
+    return 'La referencia surge de los aportes y egresos acumulados del portafolio. Sirve como guía para futuros aportes, no como obligación de rebalanceo por rendimiento.';
   }
 
   strategyBreakdownLabel(item: PortfolioUpcomingMilestoneBreakdown): string {
@@ -312,6 +312,3 @@ export class SummaryPageComponent {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
   }
 }
-
-
-

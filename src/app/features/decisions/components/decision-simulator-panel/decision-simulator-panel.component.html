@@ -48,7 +48,6 @@
         ({{ vm.ratePercent | number:'1.0-2' }}%)
       </ng-container>
       <ng-template #noRate>(N/D)</ng-template>
-      · Fuente: {{ vm.rateSource }}
     </span>
     <span>
       Periodo: {{ vm.ratePeriod || 'N/D' }} · Meses usados: {{ vm.rateMonthsUsed === null ? 'N/D' : vm.rateMonthsUsed }} · {{ vm.rateAnnualized ? 'Anualizada' : 'No anualizada' }}

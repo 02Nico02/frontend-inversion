@@ -108,7 +108,7 @@
                 </span>
               </div>
               <h4>{{ item.title }}</h4>
-              <p class="achievement-category">{{ item.requiredSource || 'Sin fuente requerida' }}</p>
+              <p class="achievement-category">{{ pendingReferenceLabel(item) }}</p>
               <div class="achievement-meta achievement-meta--pending">
                 <span>{{ item.reason === 'not-reached' ? 'Aún no alcanzado' : 'Sin datos suficientes' }}</span>
                 <strong>{{ item.reason === 'not-reached' ? 'Pendiente' : 'No disponible' }}</strong>

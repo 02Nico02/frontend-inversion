@@ -122,28 +122,29 @@ export class PortfolioUpcomingMilestonesService {
     }
 
     const remainingAmount = Math.max(0, maxMonthly - currentValue);
+    if (remainingAmount <= 0) {
+      return null;
+    }
     const projection = this.estimateMonthsToTarget(currentValue, maxMonthly, monthlyContributionArs, nominal12mRatePercent);
 
     return {
       id: 'recover-monthly-max',
       title: 'Recuperar máximo mensual histórico',
       description:
-        remainingAmount <= 0
-          ? 'El portafolio está en máximo o por encima del máximo mensual registrado.'
-          : 'Objetivo para volver a tocar el mejor valor mensual histórico detectado.',
+        'Objetivo para volver a tocar el mejor valor mensual histórico detectado.',
       category: 'historical-recovery',
-      status: remainingAmount <= 0 ? 'reached' : 'pending',
+      status: 'pending',
       currentValue,
       targetValue: maxMonthly,
       remainingAmount,
       remainingPercent: maxMonthly > 0 ? (remainingAmount / maxMonthly) * 100 : null,
       currency: 'ARS',
       monthlyContribution: monthlyContributionArs,
-      estimatedMonths: remainingAmount <= 0 ? null : projection.months,
-      estimationMode: remainingAmount <= 0 ? 'not-estimable' : projection.mode,
-      estimationNote: remainingAmount <= 0 ? 'El objetivo ya fue alcanzado.' : projection.note,
-      estimationAnnualRatePercent: remainingAmount <= 0 ? null : projection.annualRatePercent,
-      estimationMonthlyRatePercent: remainingAmount <= 0 ? null : projection.monthlyRatePercent,
+      estimatedMonths: projection.months,
+      estimationMode: projection.mode,
+      estimationNote: projection.note,
+      estimationAnnualRatePercent: projection.annualRatePercent,
+      estimationMonthlyRatePercent: projection.monthlyRatePercent,
       source: 'HistorialMensualReconstruido'
     };
   }
@@ -185,8 +186,7 @@ export class PortfolioUpcomingMilestonesService {
     return {
       id: 'strategy-balance-guidance',
       title: 'Distribución estratégica de aportes',
-      description:
-        'La referencia surge de los aportes y egresos acumulados. Sirve como guía para futuros aportes, no como obligación de rebalanceo por rendimiento.',
+      description: 'Guía de largo plazo para orientar futuros aportes.',
       category: 'strategy-balance',
       status: 'pending',
       currentValue: null,
@@ -504,3 +504,4 @@ export class PortfolioUpcomingMilestonesService {
     return new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(value);
   }
 }
+

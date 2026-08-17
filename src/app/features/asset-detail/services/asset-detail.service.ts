@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+﻿import { Injectable } from '@angular/core';
 import {
   AssetClassification,
   HistoricalPrice,
@@ -333,10 +333,10 @@ export class AssetDetailService {
     const hint = missingText === 'Sin faltantes'
       ? 'Clasificación completa.'
       : [
-          missing.includes('sector') ? 'Falta sector en Tabla47.' : null,
-          missing.includes('subsector') ? 'Falta subsector en Tabla47.' : null,
-          missing.includes('región') ? 'Falta región en Tabla47.' : null,
-          missing.includes('tipo activo') ? 'Falta tipo activo en Tabla47.' : null
+          missing.includes('sector') ? 'Falta sector en la clasificación interna.' : null,
+          missing.includes('subsector') ? 'Falta subsector en la clasificación interna.' : null,
+          missing.includes('región') ? 'Falta región en la clasificación interna.' : null,
+          missing.includes('tipo activo') ? 'Falta tipo activo en la clasificación interna.' : null
         ].filter(Boolean).join(' ');
     return {
       exists: Boolean(classification),

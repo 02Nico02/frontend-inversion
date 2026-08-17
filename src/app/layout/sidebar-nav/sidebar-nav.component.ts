@@ -2,25 +2,15 @@ import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 
-interface NavItem {
-  label: string;
-  path: string;
-}
-
-interface NavGroup {
-  label: string;
-  items: NavItem[];
-}
-
 @Component({
   selector: 'app-sidebar-nav',
   standalone: true,
   imports: [CommonModule, RouterLink, RouterLinkActive],
   templateUrl: './sidebar-nav.component.html',
-  styleUrls: ['./sidebar-nav.component.scss'],
+  styleUrls: ['./sidebar-nav.component.scss']
 })
 export class SidebarNavComponent {
-  readonly groups: NavGroup[] = [
+  readonly groups = [
     {
       label: 'Principal',
       items: [

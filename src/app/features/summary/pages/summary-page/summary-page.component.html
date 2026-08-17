@@ -53,34 +53,60 @@
 
           <div class="metric-grid compact metric-grid--benchmark">
             <div class="metric-cell metric-cell--highlight">
-              <span>VS mínimo</span>
+              <span class="metric-label">
+                VS mínimo
+                <span class="info-tooltip">
+                  <button type="button" class="info-dot" aria-label="Ver aclaración">i</button>
+                  <span class="info-tooltip__bubble" role="tooltip">Diferencia entre el valor comparable actual y el mínimo esperado.</span>
+                </span>
+              </span>
               <strong [class.positive]="(minimumSummary.balanceVsMinimumArs ?? 0) >= 0" [class.negative]="(minimumSummary.balanceVsMinimumArs ?? 0) < 0">
                 {{ minimumSummary.balanceVsMinimumArs !== null ? ((minimumSummary.balanceVsMinimumArs | currency:'ARS':'symbol-narrow':'1.2-2') + ' / ' + percent(minimumSummary.balanceVsMinimumPercentArs ?? 0)) : 'N/D' }}
               </strong>
             </div>
 
             <div class="metric-cell">
-              <span>Valor usado para comparar</span>
+              <span class="metric-label">
+                Valor usado para comparar
+                <span class="info-tooltip">
+                  <button type="button" class="info-dot" aria-label="Ver aclaración">i</button>
+                  <span class="info-tooltip__bubble" role="tooltip">Incluye el valor actual más movimientos aplicables como rentas, dividendos o amortizaciones.</span>
+                </span>
+              </span>
               <strong>{{ minimumSummary.currentComparableArs !== null ? (minimumSummary.currentComparableArs | currency:'ARS':'symbol-narrow':'1.2-2') : 'N/D' }}</strong>
-              <small>Incluye el valor actual más movimientos aplicables, como rentas, dividendos o amortizaciones, para comparar contra el mínimo esperado.</small>
             </div>
 
             <div class="metric-cell">
-              <span>Mínimo esperado</span>
+              <span class="metric-label">
+                Mínimo esperado
+                <span class="info-tooltip">
+                  <button type="button" class="info-dot" aria-label="Ver aclaración">i</button>
+                  <span class="info-tooltip__bubble" role="tooltip">Referencia mínima calculada para medir si el portafolio acompaña el benchmark definido.</span>
+                </span>
+              </span>
               <strong>{{ minimumSummary.minimumExpectedArs !== null ? (minimumSummary.minimumExpectedArs | currency:'ARS':'symbol-narrow':'1.2-2') : 'N/D' }}</strong>
-              <small>Referencia mínima calculada para medir si el portafolio acompaña el benchmark definido.</small>
             </div>
 
             <div class="metric-cell">
-              <span>Posiciones bajo mínimo</span>
+              <span class="metric-label">
+                Posiciones bajo mínimo
+                <span class="info-tooltip">
+                  <button type="button" class="info-dot" aria-label="Ver aclaración">i</button>
+                  <span class="info-tooltip__bubble" role="tooltip">Cantidad de posiciones individuales que siguen por debajo del benchmark.</span>
+                </span>
+              </span>
               <strong>{{ trend.positionsBelowMinimumCount }}</strong>
-              <small>Posiciones individuales que siguen por debajo del benchmark.</small>
             </div>
 
             <div class="metric-cell">
-              <span>Brecha acumulada bajo mínimo</span>
+              <span class="metric-label">
+                Brecha acumulada bajo mínimo
+                <span class="info-tooltip">
+                  <button type="button" class="info-dot" aria-label="Ver aclaración">i</button>
+                  <span class="info-tooltip__bubble" role="tooltip">Suma solo los faltantes de las posiciones que están por debajo del mínimo. El portafolio total puede estar arriba y aun así tener brecha.</span>
+                </span>
+              </span>
               <strong>{{ privacyMode.enabled ? 'Oculto' : (trend.totalDeficitBelowMinimumARS | currency:'ARS':'symbol-narrow':'1.2-2') }}</strong>
-              <small>Suma solo los faltantes de las posiciones individuales que están por debajo del mínimo. El portafolio total puede estar arriba del mínimo y aun así tener esta brecha.</small>
             </div>
           </div>
 
@@ -200,16 +226,36 @@
             <p class="goal-description">{{ goal.description }}</p>
 
             <ng-container *ngIf="goal.category === 'strategy-balance'; else standardGoal">
-              <div class="goal-metrics strategy">
-                <div class="goal-metric wide">
-                  <span>Referencia según aportes</span>
-                  <strong>{{ strategyReferenceSummary(goal) }}</strong>
-                  <small>{{ strategyReferenceDetail(goal) }}</small>
+              <div class="strategy-panel">
+                <div class="strategy-panel__summary">
+                  <div>
+                    <span class="strategy-panel__label">Referencia según aportes</span>
+                    <strong>{{ strategyReferenceSummary(goal) }}</strong>
+                  </div>
+                  <span class="info-tooltip">
+                    <button type="button" class="info-dot" aria-label="Ver aclaración">i</button>
+                    <span class="info-tooltip__bubble" role="tooltip">{{ strategyReferenceDetail(goal) }}</span>
+                  </span>
                 </div>
-                <div class="goal-metric" *ngFor="let item of goal.breakdown">
-                  <span>{{ goalCurrencyLabel(item.currency) }}</span>
-                  <strong>{{ strategyBreakdownLabel(item) }}</strong>
-                  <small>Aportes acumulados: {{ goalAmount(item.retirementAmount, item.currency) }} / {{ goalAmount(item.savingsAmount, item.currency) }}</small>
+
+                <div class="strategy-panel__grid">
+                  <article class="strategy-mini" *ngFor="let item of goal.breakdown">
+                    <div class="strategy-mini__head">
+                      <span>{{ goalCurrencyLabel(item.currency) }}</span>
+                      <strong>{{ strategyBreakdownLabel(item) }}</strong>
+                    </div>
+
+                    <div class="strategy-bars">
+                      <div class="strategy-bars__track" aria-hidden="true">
+                        <span class="strategy-bars__fill strategy-bars__fill--retirement" [style.width.%]="item.retirementPercent ?? 0"></span>
+                        <span class="strategy-bars__fill strategy-bars__fill--savings" [style.width.%]="item.savingsPercent ?? 0"></span>
+                      </div>
+                      <div class="strategy-bars__legend">
+                        <span>Jubilación {{ goalPercent(item.retirementPercent) }}</span>
+                        <span>Ahorro {{ goalPercent(item.savingsPercent) }}</span>
+                      </div>
+                    </div>
+                  </article>
                 </div>
               </div>
             </ng-container>
@@ -234,9 +280,14 @@
                     <strong>{{ goalPercent(goal.remainingPercent) }}</strong>
                   </div>
                   <div class="goal-metric">
-                    <span>{{ goalProjectionLabel(goal) }}</span>
+                    <span class="goal-label">
+                      {{ goalProjectionLabel(goal) }}
+                      <span class="info-tooltip">
+                        <button type="button" class="info-dot" aria-label="Ver aclaración">i</button>
+                        <span class="info-tooltip__bubble" role="tooltip">{{ goalProjectionNote(goal) }}</span>
+                      </span>
+                    </span>
                     <strong>{{ goalMonths(goal.estimatedMonths) }}</strong>
-                    <small>{{ goalProjectionNote(goal) }}</small>
                   </div>
                 </div>
               </ng-container>
@@ -260,9 +311,14 @@
                   <small>{{ goalPercent(goal.remainingPercent) }}</small>
                 </div>
                 <div class="goal-metric">
-                  <span>{{ goalProjectionLabel(goal) }}</span>
+                  <span class="goal-label">
+                    {{ goalProjectionLabel(goal) }}
+                    <span class="info-tooltip">
+                      <button type="button" class="info-dot" aria-label="Ver aclaración">i</button>
+                      <span class="info-tooltip__bubble" role="tooltip">{{ goalProjectionNote(goal) }}</span>
+                    </span>
+                  </span>
                   <strong>{{ goalMonths(goal.estimatedMonths) }}</strong>
-                  <small>{{ goalProjectionNote(goal) }}</small>
                 </div>
               </div>
             </ng-template>
@@ -276,7 +332,6 @@
               </div>
             </ng-template>
 
-            <small>Fuente: {{ goal.source }}</small>
           </article>
         </div>
       </ng-container>
@@ -306,8 +361,8 @@
           <a routerLink="/decisiones" class="link">Ir a decisiones</a>
           <a routerLink="/posiciones" class="link">Ir a posiciones</a>
           <a routerLink="/historico" class="link">Ver histórico</a>
-          <a routerLink="/datos-gpt" class="link">Exportar contexto / Datos GPT</a>
-          <a routerLink="/importacion" class="link">Importar o reemplazar Excel</a>
+          <a routerLink="/datos-gpt" class="link">Preparar análisis GPT</a>
+          <a routerLink="/importacion" class="link">Actualizar datos</a>
           <a routerLink="/alertas" class="link">Abrir alertas</a>
         </div>
       </article>
@@ -322,6 +377,3 @@
     </article>
   </ng-template>
 </section>
-
-
-

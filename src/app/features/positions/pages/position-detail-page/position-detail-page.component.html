@@ -1,4 +1,4 @@
-<section class="page" *ngIf="detail as asset; else emptyState">
+﻿<section class="page" *ngIf="detail as asset; else emptyState">
   <header class="page-header">
     <div class="breadcrumbs">
       <button type="button" class="back" (click)="back()">← Volver a posiciones</button>
@@ -551,7 +551,7 @@
           <strong>Sin datos</strong>
         </ng-template>
       </div>
-      <div><span>Existe en Tabla47</span><strong>{{ asset.classificationReview.exists ? 'Sí' : 'No' }}</strong></div>
+      <div><span>Clasificación interna</span><strong>{{ asset.classificationReview.exists ? 'Sí' : 'No' }}</strong></div>
       <div><span>Faltantes</span><strong>{{ asset.classificationReview.missing }}</strong></div>
       <div><span>Fuente</span><strong>{{ asset.classificationReview.source }}</strong></div>
       <div><span>Match</span><strong>{{ asset.classificationReview.match }}</strong></div>

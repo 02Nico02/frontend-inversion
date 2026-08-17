@@ -1,4 +1,4 @@
-<section class="page" *ngIf="state.snapshot as snapshot">
+﻿<section class="page" *ngIf="state.snapshot as snapshot">
   <header class="hero panel">
     <div class="hero__copy">
       <p class="eyebrow">Importación</p>
@@ -24,7 +24,7 @@
     </article>
     <article class="summary-card summary-card--neutral">
       <span>Última actualización</span>
-      <strong>{{ snapshot.importedAt ? (snapshot.importedAt | date:'dd-MM-yyyy, HH:mm') : 'N/D' }}</strong>
+      <span>{{ snapshot.importedAt ? ('Última lectura: ' + (snapshot.importedAt | date:'dd-MM-yyyy, HH:mm')) : 'Importá un archivo para habilitar el análisis del portafolio.' }}</span>
     </article>
     <article class="summary-card summary-card--info">
       <span>Tablas detectadas</span>

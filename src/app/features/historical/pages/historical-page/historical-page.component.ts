@@ -469,7 +469,7 @@ export class HistoricalPageComponent implements OnInit, OnDestroy {
   }
 
   milestoneTooltip(milestone: PortfolioMilestone): string {
-    const parts = [milestone.description, `Fuente: ${milestone.source}`];
+    const parts = [milestone.description, this.milestoneSourceLabel(milestone.source)];
     if (milestone.percent !== null && milestone.percent !== undefined) {
       parts.push(`Referencia: ${this.milestonePercent(milestone)}`);
     }
@@ -478,10 +478,16 @@ export class HistoricalPageComponent implements OnInit, OnDestroy {
 
   unavailableMilestoneTooltip(item: PortfolioUnavailableMilestone): string {
     const parts = [item.description];
-    if (item.requiredSource) {
-      parts.push(`Fuente requerida: ${item.requiredSource}`);
+    const required = this.unavailableMilestoneSourceLabel(item.requiredSource);
+    if (required) {
+      parts.push(required);
     }
     return parts.filter(Boolean).join(' · ');
+  }
+
+  pendingReferenceLabel(item: PortfolioUnavailableMilestone): string {
+    const required = this.unavailableMilestoneSourceLabel(item.requiredSource);
+    return required || 'Sin referencia requerida';
   }
 
   historicalPriceStats(snapshot: PortfolioAppState) {
@@ -527,6 +533,43 @@ export class HistoricalPageComponent implements OnInit, OnDestroy {
     const raw = localStorage.getItem(UPCOMING_CONTRIBUTION_KEY);
     const parsed = raw !== null ? Number(raw) : NaN;
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  private milestoneSourceLabel(source: string): string {
+    const normalized = source.trim().toLowerCase();
+    if (!normalized) {
+      return '';
+    }
+    if (normalized.includes('historialmensualreconstruido')) {
+      return 'Referencia histórica del portafolio';
+    }
+    if (normalized.includes('portfoliosummary.totalcurrentvalue')) {
+      return 'Valor actual del portafolio';
+    }
+    if (normalized.includes('tabla35')) {
+      return 'Referencia de aportes acumulados';
+    }
+    if (normalized.includes('minimumperformance')) {
+      return 'Referencia del benchmark mínimo';
+    }
+    return 'Referencia histórica';
+  }
+
+  private unavailableMilestoneSourceLabel(source: string | null | undefined): string {
+    if (!source) {
+      return '';
+    }
+    const normalized = source.trim().toLowerCase();
+    if (!normalized) {
+      return '';
+    }
+    if (normalized.includes('benchmark')) {
+      return 'Referencia del benchmark mínimo';
+    }
+    if (normalized.includes('historialmensualreconstruido')) {
+      return 'Referencia histórica del portafolio';
+    }
+    return 'Referencia histórica';
   }
 
   private filterHistoricalByPeriod<T extends { date: string | Date | null }>(values: T[], period: DatePeriod, startDate: string, endDate: string): T[] {

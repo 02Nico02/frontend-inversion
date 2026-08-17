@@ -61,15 +61,11 @@ describe('PortfolioUpcomingMilestonesService', () => {
     expect(goals[0].remainingAmount).toBeCloseTo(220194.97, 2);
     expect(goals[0].estimatedMonths).toBe(1);
 
-    expect(goals[1].id).toBe('recover-monthly-max');
-    expect(goals[1].targetValue).toBe(9116850.18);
-    expect(goals[1].remainingAmount).toBeCloseTo(337045.15, 2);
-    expect(goals[1].estimatedMonths).toBe(1);
-
     expect(strategy?.breakdown?.length).toBe(2);
     expect(strategy?.breakdown?.[0].currency).toBe('ARS');
     expect(strategy?.breakdown?.[0].retirementPercent).toBeCloseTo(56.4, 1);
     expect(strategy?.breakdown?.[0].savingsPercent).toBeCloseTo(43.6, 1);
+    expect(goals.find((goal) => goal.id === 'recover-monthly-max')).toBeUndefined();
   });
 
   it('skips duplicated manual goals when they match the next million target', () => {
@@ -202,7 +198,7 @@ describe('PortfolioUpcomingMilestonesService', () => {
     expect(goals.find((goal) => goal.id === 'manual-goal-10000000')).toBeUndefined();
   });
 
-  it('marks historical recovery as reached when the current value beats the monthly maximum', () => {
+  it('does not include historical recovery in upcoming milestones when it is already reached', () => {
     const snapshot = buildPortfolioAppState({
       summary: buildPortfolioSummary({
         byCurrency: [
@@ -234,10 +230,7 @@ describe('PortfolioUpcomingMilestonesService', () => {
 
     const historicalRecovery = service.buildUpcomingMilestones(snapshot, 0).find((goal) => goal.id === 'recover-monthly-max');
 
-    expect(historicalRecovery?.status).toBe('reached');
-    expect(historicalRecovery?.remainingAmount).toBe(0);
-    expect(historicalRecovery?.remainingPercent).toBe(0);
-    expect(historicalRecovery?.estimatedMonths).toBeNull();
+    expect(historicalRecovery).toBeUndefined();
   });
 
   it('uses the strategy split references without hardcoding a 50/50 split', () => {

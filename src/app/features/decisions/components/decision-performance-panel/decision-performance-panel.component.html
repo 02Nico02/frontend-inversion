@@ -21,7 +21,7 @@
           <th>Meses</th>
           <th>Tasa anual</th>
           <th>Retorno del periodo</th>
-          <th>Fuente</th>
+          <th>Referencia</th>
           <th>Observación</th>
         </tr>
       </thead>
@@ -33,7 +33,7 @@
           <td>{{ ref.monthsUsed }}</td>
           <td>{{ ref.annualRatePercent === null ? 'N/D' : (ref.annualRatePercent | number:'1.0-2') + '%' }}</td>
           <td>{{ ref.periodReturnPercent === null ? 'N/D' : (ref.periodReturnPercent | number:'1.0-2') + '%' }}</td>
-          <td>{{ ref.source }}</td>
+          <td>{{ referenceSourceLabel(ref.source) }}</td>
           <td>{{ ref.warning || 'OK' }}</td>
         </tr>
       </tbody>
